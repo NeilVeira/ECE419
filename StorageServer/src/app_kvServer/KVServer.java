@@ -1,5 +1,4 @@
 package app_kvServer;
-
 import java.net.BindException;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -23,6 +22,14 @@ public class KVServer extends Thread {
     private ServerSocket serverSocket;
     private boolean running;
     
+    /**
+     * Constructs a (Echo-) Server object which listens to connection attempts 
+     * at the given port.
+     * 
+     * @param port a port number which the Server is listening to in order to 
+     * 		establish a socket connection to a client. The port number should 
+     * 		reside in the range of dynamic ports, i.e 49152 - 65535.
+     */
 	/**
 	 * Start KV Server at given port
 	 * @param port given port for storage server to operate
@@ -33,11 +40,9 @@ public class KVServer extends Thread {
 	 *           currently not contained in the cache. Options are "FIFO", "LRU", 
 	 *           and "LFU".
 	 */
-	public KVServer(int port, int cacheSize, String strategy) {
+    public KVServer(int port, int cacheSize, String strategy) {
         this.port = port;
-		
-	}
-
+    }
 
     /**
      * Initializes and starts the server. 
@@ -113,7 +118,7 @@ public class KVServer extends Thread {
 				System.out.println("Usage: Server <port>!");
 			} else {
 				int port = Integer.parseInt(args[0]);
-				new Server(port).start();
+				new KVServer(port, 0, "String").start();
 			}
 		} catch (IOException e) {
 			System.out.println("Error! Unable to initialize logger!");
