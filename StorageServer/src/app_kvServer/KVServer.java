@@ -19,6 +19,9 @@ public class KVServer extends Thread {
 	private static Logger logger = Logger.getRootLogger();
 	
 	private int port;
+	// Add private variables for storing the cache size and caching strategy inside the Server
+	private int m_cacheSize;
+	private String m_strategy;
     private ServerSocket serverSocket;
     private boolean running;
     
@@ -41,7 +44,10 @@ public class KVServer extends Thread {
 	 *           and "LFU".
 	 */
     public KVServer(int port, int cacheSize, String strategy) {
+    	// Initialize the private variables of the server object
         this.port = port;
+        this.m_cacheSize = cacheSize;
+        this.m_strategy = strategy;
     }
 
     /**
@@ -113,12 +119,22 @@ public class KVServer extends Thread {
     public static void main(String[] args) {
     	try {
 			new LogSetup("logs/server.log", Level.ALL);
-			if(args.length != 1) {
+			// change the amount of commandline arguments to be parsed into 3
+			// first one is port, second is cache size, third one is strategy
+			if(args.length != 3) {
 				System.out.println("Error! Invalid number of arguments!");
-				System.out.println("Usage: Server <port>!");
+				System.out.println("Usage: Server <int port> <int cacheSize> <string strategy: FIFO, LRU or LFU>!");
 			} else {
 				int port = Integer.parseInt(args[0]);
-				new KVServer(port, 0, "String").start();
+				int cacheSize = Integer.parseInt(args[1]);
+				String strategy = args[2];
+				// Handle invalid input for server strategy argument
+				if (strategy != "FIFO" || strategy != "LRU" || strategy != "LFU") {
+					System.out.println("Error! strategy argument invalid!");
+					System.out.println("Usage: Server <int port> <int cacheSize> <string strategy: FIFO, LRU or LFU>! Please try again");
+					System.exit(0);
+				}
+				new KVServer(port, cacheSize, strategy).start();
 			}
 		} catch (IOException e) {
 			System.out.println("Error! Unable to initialize logger!");
