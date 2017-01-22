@@ -32,6 +32,21 @@ public interface KVMessage {
 	 */
 	public StatusType getStatus();
 	
+	public void setStatus(StatusType status);
+	
+	/**
+	 * 
+	 * @return a header string that is used to identify the message type
+	 */
+	public String getHeader();
+	
+	public String getMsg();
+	
+	public byte[] getMsgBytes();
+	
 }
+
+
+
 
 
