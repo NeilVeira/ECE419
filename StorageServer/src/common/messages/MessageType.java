@@ -1,6 +1,9 @@
-/**
- * 
- */
+/***
+Implementation of KVMessage interface which is used to store messages between
+the client and server. 
+Does the parsing of strings into header, status, key, and value.
+Converts between messages and byte arrays. 
+***/
 package common.messages;
 
 import java.io.Serializable;
@@ -19,6 +22,14 @@ public class MessageType implements KVMessage {
 	public boolean isValid;
 	public String error_msg;
 	
+	/***
+	Construct MessageType from a string. The string must have the format
+	<header> <status> <key> <value>
+	header must be one of connect,disconnect,get,put,quit,help,loglevel
+	status should only be included if the argument include_status is true.
+	key and value are also optional
+	header, status, and key must not have whitespace.
+	***/
 	public MessageType(String msg, boolean include_status) {
 		this.msg = msg;
 		this.msgBytes = toByteArray(msg);
@@ -29,6 +40,10 @@ public class MessageType implements KVMessage {
 		this.isValid = parse(msg, include_status);
 	}
 
+	/***
+	Construct MessageType from a byte array (ASCII-coded). The status is 
+	always assumed to be included in the message. 
+	***/
 	public MessageType(byte[] bytes) {
 		this.msgBytes = addCtrChars(bytes);
 		this.msg = new String(msgBytes);
@@ -39,18 +54,28 @@ public class MessageType implements KVMessage {
 		this.isValid = parse(this.msg, true);
 	}	
 
-	
+	/**
+	 * @return the key that is associated with this message, 
+	 * 		null if not key is associated.
+	 */
 	@Override
 	public String getKey() {
 		return this.key;
 	}
 
-
+	/**
+	 * @return the value that is associated with this message, 
+	 * 		null if not value is associated.
+	 */
 	@Override
 	public String getValue() {
 		return this.value;
 	}
 
+	/**
+	 * @return a status string that is used to identify request types, 
+	 * response types and error types associated to the message.
+	 */
 	@Override
 	public String getStatus() {
 		return this.status;
@@ -61,7 +86,11 @@ public class MessageType implements KVMessage {
 		this.status = status;
 		getMsg(); //reconstruct msg string
 	}
-	
+		
+	/**
+	 * 
+	 * @return a header string that is used to identify the message type
+	 */
 	@Override
 	public String getHeader() {
 		return this.header;
@@ -69,9 +98,7 @@ public class MessageType implements KVMessage {
 	
 	
 	/**
-	 * Returns the content of this TextMessage as a String.
-	 * 
-	 * @return the content of this message in String format.
+	 * Returns the content of this message as a String.
 	 */
 	public String getMsg() {
 		StringBuilder msg = new StringBuilder();
@@ -87,12 +114,9 @@ public class MessageType implements KVMessage {
 		return this.msg;
 	}
 
-	/**
-	 * Returns an array of bytes that represent the ASCII coded message content.
-	 * 
-	 * @return the content of this message as an array of bytes 
-	 * 		in ASCII coding.
-	 */
+	/***
+	Returns an array of bytes that represent the ASCII coded message content.
+	***/
 	public byte[] getMsgBytes() {
 		this.msgBytes = toByteArray(this.msg);
 		return this.msgBytes;
