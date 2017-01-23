@@ -15,37 +15,30 @@ public class MessageType implements KVMessage {
 	private String key;
 	private String value;
 	private String header;
-	private StatusType status;
+	private String status;
 	public boolean isValid;
 	public String error_msg;
-
-    /**
-     * Constructs a MessageType object with a given array of bytes that 
-     * forms the message.
-     * 
-     * @param bytes the bytes that form the message in ASCII coding.
-     */
-	public MessageType(byte[] bytes) {
-		msgBytes = addCtrChars(bytes);
-		msg = new String(msgBytes);
-		isValid = false;
-		status = null;
-		this.isValid = parse();
-	}
 	
-	/**
-     * Constructs a MessageType object with a given String that
-     * forms the message. 
-     * 
-     * @param msg the String that forms the message.
-     */
-	public MessageType(String msg) {
+	public MessageType(String msg, boolean include_status) {
 		this.msg = msg;
-		msgBytes = toByteArray(msg);
-		isValid = false;
-		status = null;
-		this.isValid = parse();
+		this.msgBytes = toByteArray(msg);
+		this.header = "";
+		this.status = "";
+		this.key = "";
+		this.value = "";
+		this.isValid = parse(msg, include_status);
 	}
+
+	public MessageType(byte[] bytes) {
+		this.msgBytes = addCtrChars(bytes);
+		this.msg = new String(msgBytes);
+		this.header = "";
+		this.status = "";
+		this.key = "";
+		this.value = "";
+		this.isValid = parse(this.msg, true);
+	}	
+
 	
 	@Override
 	public String getKey() {
@@ -59,13 +52,14 @@ public class MessageType implements KVMessage {
 	}
 
 	@Override
-	public StatusType getStatus() {
+	public String getStatus() {
 		return this.status;
 	}
 	
 	@Override
-	public void setStatus(StatusType status) {
+	public void setStatus(String status) {
 		this.status = status;
+		getMsg(); //reconstruct msg string
 	}
 	
 	@Override
@@ -80,7 +74,17 @@ public class MessageType implements KVMessage {
 	 * @return the content of this message in String format.
 	 */
 	public String getMsg() {
-		return msg;
+		StringBuilder msg = new StringBuilder();
+		//why doesn't string.join work???
+		msg.append(header);
+		msg.append(" ");
+		msg.append(status);
+		msg.append(" ");
+		msg.append(key);
+		msg.append(" ");
+		msg.append(value);
+		this.msg = msg.toString();
+		return this.msg;
 	}
 
 	/**
@@ -90,7 +94,8 @@ public class MessageType implements KVMessage {
 	 * 		in ASCII coding.
 	 */
 	public byte[] getMsgBytes() {
-		return msgBytes;
+		this.msgBytes = toByteArray(this.msg);
+		return this.msgBytes;
 	}
 	
 	private byte[] addCtrChars(byte[] bytes) {
@@ -114,7 +119,7 @@ public class MessageType implements KVMessage {
 		return tmp;		
 	}
 	
-	private boolean parse(){
+	private boolean parse(String msg, boolean include_status){		
 		String[] tokens = msg.split("\\s+");
 		if (tokens.length == 0){
 			this.error_msg = "Unknown command";
@@ -133,9 +138,11 @@ public class MessageType implements KVMessage {
 				break;
 			case "put":
 				expected_num_tokens = 3;
+				this.status = "PUT";
 				break;
 			case "get":
 				expected_num_tokens = 2;
+				this.status = "GET";
 				break;
 			case "loglevel":
 				expected_num_tokens = 2;
@@ -149,6 +156,10 @@ public class MessageType implements KVMessage {
 			default:
 				this.error_msg = "Unknown command";
 				return false;
+		}
+		if (include_status){
+			//need additional token for status
+			expected_num_tokens++;
 		}
 		
 		//check for correct number of tokens. Put is a special case because it can have any number of tokens
@@ -165,15 +176,17 @@ public class MessageType implements KVMessage {
 				return false;				
 			}
 		}
-		/*if ((tokens[0] != "put" && tokens.length != expected_num_tokens) || (tokens[0] == "put" && tokens.length < expected_num_tokens)){
-			this.error_msg = "Incorrect number of tokens for message " + tokens[0];
-			return false;
-		}*/
 		
-		if (tokens.length >= 2){
-			this.key = tokens[1];			
+		if (include_status){
+			this.status = tokens[1];
 		}
-		for (int i=2; i<tokens.length; i++){
+		//key is index 1, or 2 if it includes status
+		int key_idx = 1 + (include_status ? 1 : 0);
+		if (tokens.length >= 2){
+			this.key = tokens[key_idx];			
+		}
+		//remainder is value
+		for (int i=key_idx+1; i < tokens.length; i++){
 			val.append(tokens[i]);
 			if (i != tokens.length -1 ) {
 				val.append(" ");
