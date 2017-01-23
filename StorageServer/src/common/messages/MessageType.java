@@ -1,6 +1,9 @@
-/**
- * 
- */
+/***
+Implementation of KVMessage interface which is used to store messages between
+the client and server. 
+Does the parsing of strings into header, status, key, and value.
+Converts between messages and byte arrays. 
+***/
 package common.messages;
 
 import java.io.Serializable;
@@ -15,59 +18,80 @@ public class MessageType implements KVMessage {
 	private String key;
 	private String value;
 	private String header;
-	private StatusType status;
+	private String status;
 	public boolean isValid;
 	public String error_msg;
-
-    /**
-     * Constructs a MessageType object with a given array of bytes that 
-     * forms the message.
-     * 
-     * @param bytes the bytes that form the message in ASCII coding.
-     */
-	public MessageType(byte[] bytes) {
-		msgBytes = addCtrChars(bytes);
-		msg = new String(msgBytes);
-		isValid = false;
-		status = null;
-		this.isValid = parse();
-	}
 	
-	/**
-     * Constructs a MessageType object with a given String that
-     * forms the message. 
-     * 
-     * @param msg the String that forms the message.
-     */
-	public MessageType(String msg) {
+	/***
+	Construct MessageType from a string. The string must have the format
+	<header> <status> <key> <value>
+	header must be one of connect,disconnect,get,put,quit,help,loglevel
+	status should only be included if the argument include_status is true.
+	key and value are also optional
+	header, status, and key must not have whitespace.
+	***/
+	public MessageType(String msg, boolean include_status) { //would be nice to give include_status default value of false... how to do in java?
 		this.msg = msg;
-		msgBytes = toByteArray(msg);
-		isValid = false;
-		status = null;
-		this.isValid = parse();
+		this.msg.trim();
+		this.msgBytes = toByteArray(msg);
+		this.header = "";
+		this.status = "";
+		this.key = "";
+		this.value = "";
+		this.isValid = parse(msg, include_status);
 	}
-	
+
+	/***
+	Construct MessageType from a byte array (ASCII-coded).
+	***/
+	public MessageType(byte[] bytes, boolean include_status) {
+		this.msgBytes = bytes;
+		this.msg = new String(this.msgBytes);
+		this.msg.trim(); //remove newline
+		this.header = "";
+		this.status = "";
+		this.key = "";
+		this.value = "";
+		this.isValid = parse(this.msg, include_status);
+	}	
+
+	/**
+	 * @return the key that is associated with this message, 
+	 * 		null if not key is associated.
+	 */
 	@Override
 	public String getKey() {
 		return this.key;
 	}
 
-
+	/**
+	 * @return the value that is associated with this message, 
+	 * 		null if not value is associated.
+	 */
 	@Override
 	public String getValue() {
 		return this.value;
 	}
 
+	/**
+	 * @return a status string that is used to identify request types, 
+	 * response types and error types associated to the message.
+	 */
 	@Override
-	public StatusType getStatus() {
+	public String getStatus() {
 		return this.status;
 	}
 	
 	@Override
-	public void setStatus(StatusType status) {
+	public void setStatus(String status) {
 		this.status = status;
+		getMsg(); //reconstruct msg string
 	}
-	
+		
+	/**
+	 * 
+	 * @return a header string that is used to identify the message type
+	 */
 	@Override
 	public String getHeader() {
 		return this.header;
@@ -75,37 +99,39 @@ public class MessageType implements KVMessage {
 	
 	
 	/**
-	 * Returns the content of this TextMessage as a String.
-	 * 
-	 * @return the content of this message in String format.
+	 * Returns the content of this message as a String.
 	 */
 	public String getMsg() {
-		return msg;
+		StringBuilder msg = new StringBuilder();
+		msg.append(header);
+		if (!status.equals("")){
+			msg.append(" ");
+			msg.append(status);
+		}
+		if (!key.equals("")){
+			msg.append(" ");
+			msg.append(key);
+		}
+		if (!value.equals("")){
+			msg.append(" ");
+			msg.append(value);
+		}
+		this.msg = msg.toString();
+		return this.msg;
 	}
 
-	/**
-	 * Returns an array of bytes that represent the ASCII coded message content.
-	 * 
-	 * @return the content of this message as an array of bytes 
-	 * 		in ASCII coding.
-	 */
+	/***
+	Returns an array of bytes that represent the ASCII coded message content.
+	Byte array is terminated by a '\n' character.
+	***/
 	public byte[] getMsgBytes() {
-		return msgBytes;
-	}
-	
-	private byte[] addCtrChars(byte[] bytes) {
-		byte[] ctrBytes = new byte[]{LINE_FEED, RETURN};
-		byte[] tmp = new byte[bytes.length + ctrBytes.length];
-		
-		System.arraycopy(bytes, 0, tmp, 0, bytes.length);
-		System.arraycopy(ctrBytes, 0, tmp, bytes.length, ctrBytes.length);
-		
-		return tmp;		
+		this.msgBytes = toByteArray(this.msg);
+		return this.msgBytes;
 	}
 	
 	private byte[] toByteArray(String s){
 		byte[] bytes = s.getBytes();
-		byte[] ctrBytes = new byte[]{LINE_FEED, RETURN};
+		byte[] ctrBytes = new byte[]{LINE_FEED};
 		byte[] tmp = new byte[bytes.length + ctrBytes.length];
 		
 		System.arraycopy(bytes, 0, tmp, 0, bytes.length);
@@ -114,7 +140,7 @@ public class MessageType implements KVMessage {
 		return tmp;		
 	}
 	
-	private boolean parse(){
+	private boolean parse(String msg, boolean include_status){		
 		String[] tokens = msg.split("\\s+");
 		if (tokens.length == 0){
 			this.error_msg = "Unknown command";
@@ -135,7 +161,7 @@ public class MessageType implements KVMessage {
 				expected_num_tokens = 3;
 				break;
 			case "get":
-				expected_num_tokens = 2;
+				expected_num_tokens = (include_status ? 3 : 2); //special case when constructed with status - should contain a value returned by the server
 				break;
 			case "loglevel":
 				expected_num_tokens = 2;
@@ -149,6 +175,10 @@ public class MessageType implements KVMessage {
 			default:
 				this.error_msg = "Unknown command";
 				return false;
+		}
+		if (include_status){
+			//need additional token for status
+			expected_num_tokens++;
 		}
 		
 		//check for correct number of tokens. Put is a special case because it can have any number of tokens
@@ -165,15 +195,17 @@ public class MessageType implements KVMessage {
 				return false;				
 			}
 		}
-		/*if ((tokens[0] != "put" && tokens.length != expected_num_tokens) || (tokens[0] == "put" && tokens.length < expected_num_tokens)){
-			this.error_msg = "Incorrect number of tokens for message " + tokens[0];
-			return false;
-		}*/
 		
-		if (tokens.length >= 2){
-			this.key = tokens[1];			
+		if (include_status){
+			this.status = tokens[1];
 		}
-		for (int i=2; i<tokens.length; i++){
+		//key is index 1, or 2 if it includes status
+		int key_idx = 1 + (include_status ? 1 : 0);
+		if (tokens.length >= 2){
+			this.key = tokens[key_idx];			
+		}
+		//remainder is value
+		for (int i=key_idx+1; i < tokens.length; i++){
 			val.append(tokens[i]);
 			if (i != tokens.length -1 ) {
 				val.append(" ");

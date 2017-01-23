@@ -30,9 +30,9 @@ public interface KVMessage {
 	 * @return a status string that is used to identify request types, 
 	 * response types and error types associated to the message.
 	 */
-	public StatusType getStatus();
+	public String getStatus();
 	
-	public void setStatus(StatusType status);
+	public void setStatus(String status);
 	
 	/**
 	 * 
@@ -42,6 +42,9 @@ public interface KVMessage {
 	
 	public String getMsg();
 	
+	/***
+	Returns an array of bytes that represent the ASCII coded message content.
+	***/
 	public byte[] getMsgBytes();
 	
 }
