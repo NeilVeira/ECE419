@@ -30,8 +30,9 @@ public class MessageType implements KVMessage {
 	key and value are also optional
 	header, status, and key must not have whitespace.
 	***/
-	public MessageType(String msg, boolean include_status) {
+	public MessageType(String msg, boolean include_status) { //would be nice to give include_status default value of false... how to do in java?
 		this.msg = msg;
+		this.msg.trim();
 		this.msgBytes = toByteArray(msg);
 		this.header = "";
 		this.status = "";
@@ -41,17 +42,17 @@ public class MessageType implements KVMessage {
 	}
 
 	/***
-	Construct MessageType from a byte array (ASCII-coded). The status is 
-	always assumed to be included in the message. 
+	Construct MessageType from a byte array (ASCII-coded).
 	***/
-	public MessageType(byte[] bytes) {
-		this.msgBytes = addCtrChars(bytes);
-		this.msg = new String(msgBytes);
+	public MessageType(byte[] bytes, boolean include_status) {
+		this.msgBytes = bytes;
+		this.msg = new String(this.msgBytes);
+		this.msg.trim(); //remove newline
 		this.header = "";
 		this.status = "";
 		this.key = "";
 		this.value = "";
-		this.isValid = parse(this.msg, true);
+		this.isValid = parse(this.msg, include_status);
 	}	
 
 	/**
@@ -102,39 +103,35 @@ public class MessageType implements KVMessage {
 	 */
 	public String getMsg() {
 		StringBuilder msg = new StringBuilder();
-		//why doesn't string.join work???
 		msg.append(header);
-		msg.append(" ");
-		msg.append(status);
-		msg.append(" ");
-		msg.append(key);
-		msg.append(" ");
-		msg.append(value);
+		if (!status.equals("")){
+			msg.append(" ");
+			msg.append(status);
+		}
+		if (!key.equals("")){
+			msg.append(" ");
+			msg.append(key);
+		}
+		if (!value.equals("")){
+			msg.append(" ");
+			msg.append(value);
+		}
 		this.msg = msg.toString();
 		return this.msg;
 	}
 
 	/***
 	Returns an array of bytes that represent the ASCII coded message content.
+	Byte array is terminated by a '\n' character.
 	***/
 	public byte[] getMsgBytes() {
 		this.msgBytes = toByteArray(this.msg);
 		return this.msgBytes;
 	}
 	
-	private byte[] addCtrChars(byte[] bytes) {
-		byte[] ctrBytes = new byte[]{LINE_FEED, RETURN};
-		byte[] tmp = new byte[bytes.length + ctrBytes.length];
-		
-		System.arraycopy(bytes, 0, tmp, 0, bytes.length);
-		System.arraycopy(ctrBytes, 0, tmp, bytes.length, ctrBytes.length);
-		
-		return tmp;		
-	}
-	
 	private byte[] toByteArray(String s){
 		byte[] bytes = s.getBytes();
-		byte[] ctrBytes = new byte[]{LINE_FEED, RETURN};
+		byte[] ctrBytes = new byte[]{LINE_FEED};
 		byte[] tmp = new byte[bytes.length + ctrBytes.length];
 		
 		System.arraycopy(bytes, 0, tmp, 0, bytes.length);
@@ -162,11 +159,9 @@ public class MessageType implements KVMessage {
 				break;
 			case "put":
 				expected_num_tokens = 3;
-				this.status = "PUT";
 				break;
 			case "get":
-				expected_num_tokens = 2;
-				this.status = "GET";
+				expected_num_tokens = (include_status ? 3 : 2); //special case when constructed with status - should contain a value returned by the server
 				break;
 			case "loglevel":
 				expected_num_tokens = 2;
