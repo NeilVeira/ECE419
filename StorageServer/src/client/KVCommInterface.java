@@ -45,7 +45,7 @@ public interface KVCommInterface {
 	 */
 	public KVMessage get(String key) throws Exception;
 	
-	public void handleNewMessage(TextMessage msg);
+	public void handleNewMessage(KVMessage msg);
 	
 	public void handleStatus(SocketStatus status);
 }

@@ -10,10 +10,11 @@ import org.apache.log4j.Logger;
 import logger.LogSetup;
 
 import client.Client;
-import client.TextMessage; //ultimately this shouldn't be used
 import client.KVStore;
 import client.KVCommInterface;
 import client.KVCommInterface.SocketStatus;
+import common.messages.KVMessage;
+import common.messages.MessageType;
 
 
 public class KVClient {
@@ -174,7 +175,7 @@ public class KVClient {
 		}
 	}
 	
-	public void handleNewMessage(TextMessage msg) {
+	public void handleNewMessage(KVMessage msg) {
 		if(!stop) {
 			System.out.println(msg.getMsg());
 			System.out.print(PROMPT);

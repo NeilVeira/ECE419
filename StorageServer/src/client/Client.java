@@ -12,6 +12,8 @@ import org.apache.log4j.Logger;
 
 import client.KVCommInterface;
 import client.KVCommInterface.SocketStatus;
+import common.messages.KVMessage;
+import common.messages.MessageType;
 
 public class Client extends Thread {
 
@@ -47,7 +49,7 @@ public class Client extends Thread {
 			
 			while(isRunning()) {
 				try {
-					TextMessage latestMsg = receiveMessage();
+					KVMessage latestMsg = receiveMessage();
 					for(KVCommInterface listener : listeners) {
 						listener.handleNewMessage(latestMsg);
 					}
@@ -114,11 +116,11 @@ public class Client extends Thread {
 	}
 	
 	/**
-	 * Method sends a TextMessage using this socket.
+	 * Method sends a KVMessage using this socket.
 	 * @param msg the message that is to be sent.
 	 * @throws IOException some I/O error regarding the output stream 
 	 */
-	public void sendMessage(TextMessage msg) throws IOException {
+	public void sendMessage(KVMessage msg) throws IOException {
 		byte[] msgBytes = msg.getMsgBytes();
 		output.write(msgBytes, 0, msgBytes.length);
 		output.flush();
@@ -126,7 +128,7 @@ public class Client extends Thread {
     }
 	
 	
-	private TextMessage receiveMessage() throws IOException {
+	private KVMessage receiveMessage() throws IOException {
 		
 		int index = 0;
 		byte[] msgBytes = null, tmp = null;
@@ -181,7 +183,7 @@ public class Client extends Thread {
 		msgBytes = tmp;
 		
 		/* build final String */
-		TextMessage msg = new TextMessage(msgBytes);
+		KVMessage msg = new MessageType(msgBytes, true); //reply from server should include status
 		logger.info("Receive message:\t '" + msg.getMsg() + "'");
 		return msg;
     }

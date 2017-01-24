@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.net.UnknownHostException;
 
 import common.messages.KVMessage;
+import common.messages.MessageType;
 
 import client.Client;
 import client.TextMessage;
@@ -17,6 +18,7 @@ public class KVStore implements KVCommInterface {
 	private int port;
 	private Client client = null;
 	private KVClient kvclient = null;
+	private KVMessage response;
 	
 	/**
 	 * Initialize KVStore with address and port of KVServer
@@ -59,25 +61,58 @@ public class KVStore implements KVCommInterface {
 
 	@Override
 	public KVMessage put(String key, String value) throws Exception {
-		// TODO Auto-generated method stub
-		return null;
+		KVMessage request = new MessageType(String.join(" ","put",key,value), false);
+		response = null;
+		client.sendMessage(request);	
+		//Wait for client thread to receive message. When it does it will call handleNewMessage,
+		//which puts the message in response.
+		//TODO: could this cause a race condition? 
+		//TODO: what if client or server dies? Need to terminate if response is not received after
+		//a certain amount of time.
+		while (response == null){
+			;
+		}
+		return response;
 	}
 
 	@Override
 	public KVMessage get(String key) throws Exception {
-		// TODO Auto-generated method stub
-		return null;
+		KVMessage request = new MessageType(String.join(" ","get",key), false);
+		response = null;
+		client.sendMessage(request);	
+		//Wait for client thread to receive message. When it does it will call handleNewMessage,
+		//which puts the message in response.
+		//TODO: could this cause a race condition? 
+		//TODO: what if client or server dies? Need to terminate if response is not received after
+		//a certain amount of time.
+		while (response == null){
+			;
+		}
+		return response;
 	}
 	
-	public void handleNewMessage(TextMessage msg){
-		//Wrapper around KVClient.handle status. No need to do anything
-		//if kvclient is null.
+	public void handleNewMessage(KVMessage msg){
+		response = msg;
+		//call KVClient.handleNewMessage which prints it
+		//TODO: do we really need this? Maybe just have the kvclient print the message it
+		//gets from KVStore.put() or KVStore.get()
 		if (kvclient != null){
 			kvclient.handleNewMessage(msg);
 		}
 	}
 	
 	public void handleStatus(SocketStatus status){
+		KVMessage msg = null;
+		if(status == SocketStatus.CONNECTED) {
+
+		} else if (status == SocketStatus.DISCONNECTED) {
+			msg = new MessageType("disconnect DISCONNECTED",true);
+			
+		} else if (status == SocketStatus.CONNECTION_LOST) {
+			msg = new MessageType("disconnect CONNECTION_LOST",true);
+		}
+		response = msg;
+		
 		//Wrapper around KVClient.handle status. No need to do anything
 		//if kvclient is null.
 		if (kvclient != null){
