@@ -3,6 +3,8 @@ package client;
 import common.messages.KVMessage;
 
 public interface KVCommInterface {
+	
+	public enum SocketStatus{CONNECTED, DISCONNECTED, CONNECTION_LOST};
 
 	/**
 	 * Establishes a connection to the KV Server.
@@ -42,4 +44,8 @@ public interface KVCommInterface {
 	 *             KV server).
 	 */
 	public KVMessage get(String key) throws Exception;
+	
+	public void handleNewMessage(TextMessage msg);
+	
+	public void handleStatus(SocketStatus status);
 }

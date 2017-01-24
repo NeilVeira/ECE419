@@ -10,15 +10,17 @@ import org.apache.log4j.Logger;
 import logger.LogSetup;
 
 import client.Client;
-import client.ClientSocketListener;
-import client.TextMessage;
+import client.TextMessage; //ultimately this shouldn't be used
+import client.KVStore;
+import client.KVCommInterface;
+import client.KVCommInterface.SocketStatus;
 
-public class KVClient implements ClientSocketListener {
+
+public class KVClient {
 
 	private static Logger logger = Logger.getRootLogger();
 	private static final String PROMPT = "EchoClient> ";
 	private BufferedReader stdin;
-	private Client client = null;
 	private boolean stop = false;
 	
 	private String serverAddress;
@@ -38,9 +40,12 @@ public class KVClient implements ClientSocketListener {
 			}
 		}
 	}
-	
+
 	private void handleCommand(String cmdLine) {
-		String[] tokens = cmdLine.split("\\s+");
+		//TODO: use KVMessage instead of TextMessage
+		//TODO: use KVStore and its connect, disconnect, put, get methods instead of ClientSocketListener
+		//(code temporarily commented out so it will compile)
+		/*String[] tokens = cmdLine.split("\\s+");
 
 		if(tokens[0].equals("quit")) {	
 			stop = true;
@@ -107,31 +112,9 @@ public class KVClient implements ClientSocketListener {
 		} else {
 			printError("Unknown command");
 			printHelp();
-		}
-	}
-	
-	private void sendMessage(String msg){
-		try {
-			client.sendMessage(new TextMessage(msg));
-		} catch (IOException e) {
-			printError("Unable to send message!");
-			disconnect();
-		}
+		}*/
 	}
 
-	private void connect(String address, int port) 
-			throws UnknownHostException, IOException {
-		client = new Client(address, port);
-		client.addListener(this);
-		client.start();
-	}
-	
-	private void disconnect() {
-		if(client != null) {
-			client.closeConnection();
-			client = null;
-		}
-	}
 	
 	private void printHelp() {
 		StringBuilder sb = new StringBuilder();
@@ -191,7 +174,6 @@ public class KVClient implements ClientSocketListener {
 		}
 	}
 	
-	@Override
 	public void handleNewMessage(TextMessage msg) {
 		if(!stop) {
 			System.out.println(msg.getMsg());
@@ -199,7 +181,6 @@ public class KVClient implements ClientSocketListener {
 		}
 	}
 	
-	@Override
 	public void handleStatus(SocketStatus status) {
 		if(status == SocketStatus.CONNECTED) {
 

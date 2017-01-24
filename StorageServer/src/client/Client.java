@@ -10,12 +10,13 @@ import java.util.Set;
 
 import org.apache.log4j.Logger;
 
-import client.ClientSocketListener.SocketStatus;
+import client.KVCommInterface;
+import client.KVCommInterface.SocketStatus;
 
 public class Client extends Thread {
 
 	private Logger logger = Logger.getRootLogger();
-	private Set<ClientSocketListener> listeners;
+	private Set<KVCommInterface> listeners;
 	private boolean running;
 	
 	private Socket clientSocket;
@@ -30,7 +31,7 @@ public class Client extends Thread {
 			throws UnknownHostException, IOException {
 		
 		clientSocket = new Socket(address, port);
-		listeners = new HashSet<ClientSocketListener>();
+		listeners = new HashSet<KVCommInterface>();
 		setRunning(true);
 		logger.info("Connection established");
 	}
@@ -47,7 +48,7 @@ public class Client extends Thread {
 			while(isRunning()) {
 				try {
 					TextMessage latestMsg = receiveMessage();
-					for(ClientSocketListener listener : listeners) {
+					for(KVCommInterface listener : listeners) {
 						listener.handleNewMessage(latestMsg);
 					}
 				} catch (IOException ioe) {
@@ -55,7 +56,7 @@ public class Client extends Thread {
 						logger.error("Connection lost!");
 						try {
 							tearDownConnection();
-							for(ClientSocketListener listener : listeners) {
+							for(KVCommInterface listener : listeners) {
 								listener.handleStatus(
 										SocketStatus.CONNECTION_LOST);
 							}
@@ -80,7 +81,7 @@ public class Client extends Thread {
 		
 		try {
 			tearDownConnection();
-			for(ClientSocketListener listener : listeners) {
+			for(KVCommInterface listener : listeners) {
 				listener.handleStatus(SocketStatus.DISCONNECTED);
 			}
 		} catch (IOException ioe) {
@@ -108,7 +109,7 @@ public class Client extends Thread {
 		running = run;
 	}
 	
-	public void addListener(ClientSocketListener listener){
+	public void addListener(KVCommInterface listener){
 		listeners.add(listener);
 	}
 	
