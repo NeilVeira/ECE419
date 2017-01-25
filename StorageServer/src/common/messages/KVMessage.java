@@ -1,6 +1,9 @@
 package common.messages;
 
 public interface KVMessage {
+	public String originalMsg=null;
+	public boolean isValid=false;
+	public String error=null;
 	
 	public enum StatusType {
 		GET, 			/* Get - request */

@@ -12,7 +12,7 @@ import org.apache.log4j.Logger;
 
 import client.KVCommInterface;
 import client.KVCommInterface.SocketStatus;
-import common.messages.KVMessage;
+//import common.messages.KVMessage;
 import common.messages.MessageType;
 
 public class Client extends Thread {
@@ -31,7 +31,7 @@ public class Client extends Thread {
 	
 	public Client(String address, int port) 
 			throws UnknownHostException, IOException {
-		
+
 		clientSocket = new Socket(address, port);
 		listeners = new HashSet<KVCommInterface>();
 		setRunning(true);
@@ -49,7 +49,7 @@ public class Client extends Thread {
 			
 			while(isRunning()) {
 				try {
-					KVMessage latestMsg = receiveMessage();
+					MessageType latestMsg = receiveMessage();
 					for(KVCommInterface listener : listeners) {
 						listener.handleNewMessage(latestMsg);
 					}
@@ -116,11 +116,12 @@ public class Client extends Thread {
 	}
 	
 	/**
-	 * Method sends a KVMessage using this socket.
+	 * Method sends a MessageType using this socket.
 	 * @param msg the message that is to be sent.
 	 * @throws IOException some I/O error regarding the output stream 
 	 */
-	public void sendMessage(KVMessage msg) throws IOException {
+	public void sendMessage(MessageType msg) throws IOException {
+		System.out.println("sending "+msg.getMsg());
 		byte[] msgBytes = msg.getMsgBytes();
 		output.write(msgBytes, 0, msgBytes.length);
 		output.flush();
@@ -128,8 +129,7 @@ public class Client extends Thread {
     }
 	
 	
-	private KVMessage receiveMessage() throws IOException {
-		
+	private MessageType receiveMessage() throws IOException {		
 		int index = 0;
 		byte[] msgBytes = null, tmp = null;
 		byte[] bufferBytes = new byte[BUFFER_SIZE];
@@ -183,7 +183,12 @@ public class Client extends Thread {
 		msgBytes = tmp;
 		
 		/* build final String */
-		KVMessage msg = new MessageType(msgBytes, true); //reply from server should include status
+		MessageType msg = new MessageType(msgBytes, true); //reply from server should include status
+		if (!msg.isValid){
+			//TODO: raise exception
+			System.out.println("Received invalid message from server: "+msg.originalMsg);
+			System.out.println(msg.error);
+		}
 		logger.info("Receive message:\t '" + msg.getMsg() + "'");
 		return msg;
     }

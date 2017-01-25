@@ -48,6 +48,7 @@ public class KVServer extends Thread {
         this.port = port;
         this.m_cacheSize = cacheSize;
         this.m_strategy = strategy;
+        this.start();
     }
 
     /**

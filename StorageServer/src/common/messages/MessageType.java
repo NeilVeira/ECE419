@@ -10,8 +10,9 @@ import java.io.Serializable;
 
 
 public class MessageType implements KVMessage {
-	private static final long serialVersionUID = 5549512212003782618L;
-	private String msg;
+	public String originalMsg;
+	public boolean isValid;
+	public String error;
 	private byte[] msgBytes;
 	private static final char LINE_FEED = 0x0A;
 	private static final char RETURN = 0x0D;
@@ -19,8 +20,6 @@ public class MessageType implements KVMessage {
 	private String value;
 	private String header;
 	private String status;
-	public boolean isValid;
-	public String error_msg;
 	
 	/***
 	Construct MessageType from a string. The string must have the format
@@ -31,14 +30,13 @@ public class MessageType implements KVMessage {
 	header, status, and key must not have whitespace.
 	***/
 	public MessageType(String msg, boolean include_status) { //would be nice to give include_status default value of false... how to do in java?
-		this.msg = msg;
-		this.msg.trim();
+		this.originalMsg = msg.trim();
 		this.msgBytes = toByteArray(msg);
 		this.header = "";
 		this.status = "";
 		this.key = "";
 		this.value = "";
-		this.isValid = parse(msg, include_status);
+		this.isValid = parse(this.originalMsg, include_status);
 	}
 
 	/***
@@ -46,13 +44,13 @@ public class MessageType implements KVMessage {
 	***/
 	public MessageType(byte[] bytes, boolean include_status) {
 		this.msgBytes = bytes;
-		this.msg = new String(this.msgBytes);
-		this.msg.trim(); //remove newline
+		this.originalMsg = new String(this.msgBytes);
+		this.originalMsg.trim();
 		this.header = "";
 		this.status = "";
 		this.key = "";
 		this.value = "";
-		this.isValid = parse(this.msg, include_status);
+		this.isValid = parse(this.originalMsg, include_status);
 	}	
 
 	/**
@@ -116,8 +114,7 @@ public class MessageType implements KVMessage {
 			msg.append(" ");
 			msg.append(value);
 		}
-		this.msg = msg.toString();
-		return this.msg;
+		return msg.toString();
 	}
 
 	/***
@@ -125,7 +122,7 @@ public class MessageType implements KVMessage {
 	Byte array is terminated by a '\n' character.
 	***/
 	public byte[] getMsgBytes() {
-		this.msgBytes = toByteArray(this.msg);
+		this.msgBytes = toByteArray(this.getMsg());
 		return this.msgBytes;
 	}
 	
@@ -143,7 +140,7 @@ public class MessageType implements KVMessage {
 	private boolean parse(String msg, boolean include_status){		
 		String[] tokens = msg.split("\\s+");
 		if (tokens.length == 0){
-			this.error_msg = "Unknown command";
+			this.error = "Unknown command";
 			return false;
 		}
 		this.header = tokens[0];
@@ -173,7 +170,7 @@ public class MessageType implements KVMessage {
 				expected_num_tokens = 1;
 				break;
 			default:
-				this.error_msg = "Unknown command";
+				this.error = "Unknown command";
 				return false;
 		}
 		if (include_status){
@@ -185,13 +182,13 @@ public class MessageType implements KVMessage {
 		//(but at least 3)
 		if (tokens[0].equals("put")){
 			if (tokens.length < expected_num_tokens){
-				this.error_msg = "Incorrect number of tokens for message " + tokens[0];
+				this.error = "Incorrect number of tokens for message " + tokens[0];
 				return false;
 			}
 		}
 		else{
 			if (tokens.length != expected_num_tokens){
-				this.error_msg = "Incorrect number of tokens for message " + tokens[0];
+				this.error = "Incorrect number of tokens for message " + tokens[0];
 				return false;				
 			}
 		}
