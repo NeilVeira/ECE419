@@ -15,7 +15,7 @@ import client.KVCommInterface.SocketStatus;
 //import common.messages.KVMessage;
 import common.messages.MessageType;
 
-public class Client extends Thread {
+public class Client {
 
 	private Logger logger = Logger.getRootLogger();
 	private Set<KVCommInterface> listeners;
@@ -36,16 +36,16 @@ public class Client extends Thread {
 		listeners = new HashSet<KVCommInterface>();
 		setRunning(true);
 		logger.info("Connection established");
+		output = clientSocket.getOutputStream();
+		input = clientSocket.getInputStream();
 	}
 	
 	/**
 	 * Initializes and starts the client connection. 
 	 * Loops until the connection is closed or aborted by the client.
 	 */
-	public void run() {
+	/*public void run() {
 		try {
-			output = clientSocket.getOutputStream();
-			input = clientSocket.getInputStream();
 			
 			while(isRunning()) {
 				try {
@@ -76,6 +76,27 @@ public class Client extends Thread {
 				closeConnection();
 			}
 		}
+	}*/
+	
+	public MessageType getResponse(){
+		MessageType response = null;
+		if (isRunning()) {
+			try {
+				response = receiveMessage();
+				
+			} catch (IOException ioe) {
+				if(isRunning()) {
+					System.out.println("Error:> "+ioe.getMessage());
+					logger.error("Connection lost!");
+					try {
+						tearDownConnection();
+					} catch (IOException e) {
+						logger.error("Unable to close connection!");
+					}
+				}
+			}				
+		}
+		return response;
 	}
 	
 	public synchronized void closeConnection() {
@@ -83,9 +104,9 @@ public class Client extends Thread {
 		
 		try {
 			tearDownConnection();
-			for(KVCommInterface listener : listeners) {
+			/*for(KVCommInterface listener : listeners) {
 				listener.handleStatus(SocketStatus.DISCONNECTED);
-			}
+			}*/
 		} catch (IOException ioe) {
 			logger.error("Unable to close connection!");
 		}
@@ -129,7 +150,7 @@ public class Client extends Thread {
     }
 	
 	
-	private MessageType receiveMessage() throws IOException {		
+	private MessageType receiveMessage() throws IOException {
 		int index = 0;
 		byte[] msgBytes = null, tmp = null;
 		byte[] bufferBytes = new byte[BUFFER_SIZE];

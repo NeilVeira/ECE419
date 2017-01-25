@@ -45,7 +45,7 @@ public interface KVCommInterface {
 	 */
 	public MessageType get(String key) throws Exception;
 	
-	public void handleNewMessage(MessageType msg);
+	/*public void handleNewMessage(MessageType msg);
 	
-	public void handleStatus(SocketStatus status);
+	public void handleStatus(SocketStatus status);*/
 }

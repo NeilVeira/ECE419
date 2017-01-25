@@ -16,7 +16,6 @@ public class KVStore implements KVCommInterface {
 	private String address;
 	private int port;
 	private Client client = null;
-	private MessageType response=null;
 	
 	/**
 	 * Initialize KVStore with address and port of KVServer
@@ -26,21 +25,19 @@ public class KVStore implements KVCommInterface {
 	public KVStore(String address, int port) {
 		this.address = address;
 		this.port = port;
-		response = null;
 	}
 	
 	@Override
 	public void connect() 
 		throws UnknownHostException, IOException {
-		response = null;
 		client = new Client(address, port);
 		client.addListener(this);
-		client.start();
+		//client.start();
 		//wait for "connection successful" response
-		while (response == null){
-			;
+		MessageType response = client.getResponse();
+		if (response != null){
+			System.out.println("response: "+response.getMsg());
 		}
-		System.out.println("response: "+response.getMsg());
 	}
 
 	@Override
@@ -55,17 +52,16 @@ public class KVStore implements KVCommInterface {
 	public MessageType put(String key, String value) throws Exception {
 		MessageType request = new MessageType("put " + key + " " + value, false);
 		System.out.println("request: " + request.getMsg());
-		response = null;
 		client.sendMessage(request);
-		//Wait for client thread to receive message. When it does it will call handleNewMessage,
-		//which puts the message in response.
-		//TODO: Need better synchronization. Should sleep on a mutex until client thread wakes it up.
-		//TODO: what if client or server dies? Need to terminate if response is not received after
-		//a certain amount of time.
-		while (response == null){
-			;
+		//Wait for client thread to receive message from server
+		MessageType response = client.getResponse();
+		//TODO: use logging instead of printing to console
+		if (response != null){
+			System.out.println("response: "+response.getMsg());
 		}
-		System.out.println("response: "+response.getMsg());
+		else{
+			System.out.println("no response received");
+		}
 		return response;
 	}
 
@@ -73,21 +69,21 @@ public class KVStore implements KVCommInterface {
 	public MessageType get(String key) throws Exception {
 		MessageType request = new MessageType("get "+key, false);
 		System.out.println("request: " + request.getMsg());
-		response = null;
+		//response = null;
 		client.sendMessage(request);	
-		//Wait for client thread to receive message. When it does it will call handleNewMessage,
-		//which puts the message in response.
-		//TODO: could this cause a race condition? 
-		//TODO: what if client or server dies? Need to terminate if response is not received after
-		//a certain amount of time.
-		while (response == null){
-			;
+		//Wait for client thread to receive message from server
+		MessageType response = client.getResponse();
+		//TODO: use logging instead of printing to console
+		if (response != null){
+			System.out.println("response: "+response.getMsg());
 		}
-		System.out.println("response: "+response.getMsg());
+		else{
+			System.out.println("no response received");
+		}
 		return response;
 	}
 	
-	public void handleNewMessage(MessageType msg){
+	/*public void handleNewMessage(MessageType msg){
 		System.out.println("got response "+msg.getMsg());
 		response = msg;
 	}
@@ -104,7 +100,8 @@ public class KVStore implements KVCommInterface {
 		}
 		
 		response = msg;
-	}
+	}*/
+	
 
 	
 }
