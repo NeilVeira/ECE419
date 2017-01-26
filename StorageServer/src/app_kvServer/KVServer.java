@@ -48,6 +48,7 @@ public class KVServer extends Thread {
         this.port = port;
         this.m_cacheSize = cacheSize;
         this.m_strategy = strategy;
+        this.start();
     }
 
     /**
@@ -129,7 +130,7 @@ public class KVServer extends Thread {
 				int cacheSize = Integer.parseInt(args[1]);
 				String strategy = args[2];
 				// Handle invalid input for server strategy argument
-				if (strategy != "FIFO" || strategy != "LRU" || strategy != "LFU") {
+				if (!strategy.equals("FIFO") && !strategy.equals("FIFO") && !strategy.equals("FIFO")) {
 					System.out.println("Error! strategy argument invalid!");
 					System.out.println("Usage: Server <int port> <int cacheSize> <string strategy: FIFO, LRU or LFU>! Please try again");
 					System.exit(0);
