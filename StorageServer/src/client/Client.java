@@ -10,12 +10,15 @@ import java.util.Set;
 
 import org.apache.log4j.Logger;
 
-import client.ClientSocketListener.SocketStatus;
+import client.KVCommInterface;
+import client.KVCommInterface.SocketStatus;
+//import common.messages.KVMessage;
+import common.messages.MessageType;
 
-public class Client extends Thread {
+public class Client {
 
 	private Logger logger = Logger.getRootLogger();
-	private Set<ClientSocketListener> listeners;
+	private Set<KVCommInterface> listeners;
 	private boolean running;
 	
 	private Socket clientSocket;
@@ -28,26 +31,26 @@ public class Client extends Thread {
 	
 	public Client(String address, int port) 
 			throws UnknownHostException, IOException {
-		
+
 		clientSocket = new Socket(address, port);
-		listeners = new HashSet<ClientSocketListener>();
+		listeners = new HashSet<KVCommInterface>();
 		setRunning(true);
 		logger.info("Connection established");
+		output = clientSocket.getOutputStream();
+		input = clientSocket.getInputStream();
 	}
 	
 	/**
 	 * Initializes and starts the client connection. 
 	 * Loops until the connection is closed or aborted by the client.
 	 */
-	public void run() {
+	/*public void run() {
 		try {
-			output = clientSocket.getOutputStream();
-			input = clientSocket.getInputStream();
 			
 			while(isRunning()) {
 				try {
-					TextMessage latestMsg = receiveMessage();
-					for(ClientSocketListener listener : listeners) {
+					MessageType latestMsg = receiveMessage();
+					for(KVCommInterface listener : listeners) {
 						listener.handleNewMessage(latestMsg);
 					}
 				} catch (IOException ioe) {
@@ -55,7 +58,7 @@ public class Client extends Thread {
 						logger.error("Connection lost!");
 						try {
 							tearDownConnection();
-							for(ClientSocketListener listener : listeners) {
+							for(KVCommInterface listener : listeners) {
 								listener.handleStatus(
 										SocketStatus.CONNECTION_LOST);
 							}
@@ -73,6 +76,27 @@ public class Client extends Thread {
 				closeConnection();
 			}
 		}
+	}*/
+	
+	public MessageType getResponse(){
+		MessageType response = null;
+		if (isRunning()) {
+			try {
+				response = receiveMessage();
+				
+			} catch (IOException ioe) {
+				if(isRunning()) {
+					System.out.println("Error:> "+ioe.getMessage());
+					logger.error("Connection lost!");
+					try {
+						tearDownConnection();
+					} catch (IOException e) {
+						logger.error("Unable to close connection!");
+					}
+				}
+			}				
+		}
+		return response;
 	}
 	
 	public synchronized void closeConnection() {
@@ -80,9 +104,9 @@ public class Client extends Thread {
 		
 		try {
 			tearDownConnection();
-			for(ClientSocketListener listener : listeners) {
+			/*for(KVCommInterface listener : listeners) {
 				listener.handleStatus(SocketStatus.DISCONNECTED);
-			}
+			}*/
 		} catch (IOException ioe) {
 			logger.error("Unable to close connection!");
 		}
@@ -108,16 +132,17 @@ public class Client extends Thread {
 		running = run;
 	}
 	
-	public void addListener(ClientSocketListener listener){
+	public void addListener(KVCommInterface listener){
 		listeners.add(listener);
 	}
 	
 	/**
-	 * Method sends a TextMessage using this socket.
+	 * Method sends a MessageType using this socket.
 	 * @param msg the message that is to be sent.
 	 * @throws IOException some I/O error regarding the output stream 
 	 */
-	public void sendMessage(TextMessage msg) throws IOException {
+	public void sendMessage(MessageType msg) throws IOException {
+		System.out.println("sending "+msg.getMsg());
 		byte[] msgBytes = msg.getMsgBytes();
 		output.write(msgBytes, 0, msgBytes.length);
 		output.flush();
@@ -125,8 +150,7 @@ public class Client extends Thread {
     }
 	
 	
-	private TextMessage receiveMessage() throws IOException {
-		
+	private MessageType receiveMessage() throws IOException {
 		int index = 0;
 		byte[] msgBytes = null, tmp = null;
 		byte[] bufferBytes = new byte[BUFFER_SIZE];
@@ -180,7 +204,12 @@ public class Client extends Thread {
 		msgBytes = tmp;
 		
 		/* build final String */
-		TextMessage msg = new TextMessage(msgBytes);
+		MessageType msg = new MessageType(msgBytes, true); //reply from server should include status
+		if (!msg.isValid){
+			//TODO: raise exception
+			System.out.println("Received invalid message from server: "+msg.originalMsg);
+			System.out.println(msg.error);
+		}
 		logger.info("Receive message:\t '" + msg.getMsg() + "'");
 		return msg;
     }

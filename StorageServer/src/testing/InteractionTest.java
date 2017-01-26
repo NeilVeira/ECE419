@@ -38,7 +38,8 @@ public class InteractionTest extends TestCase {
 			ex = e;
 		}
 
-		assertTrue(ex == null && response.getStatus() == "PUT_SUCCESS");
+		assertNull(ex);
+		assertEquals(response.getStatus(),"PUT_SUCCESS");
 	}
 	
 	@Test
@@ -74,8 +75,9 @@ public class InteractionTest extends TestCase {
 			ex = e;
 		}
 
-		assertTrue(ex == null && response.getStatus() == "PUT_UPDATE"
-				&& response.getValue().equals(updatedValue));
+		assertNull(ex);
+		assertEquals(response.getStatus(),"PUT_UPDATE");
+		assertEquals(response.getValue(), updatedValue);
 	}
 	
 	@Test
@@ -94,7 +96,8 @@ public class InteractionTest extends TestCase {
 			ex = e;
 		}
 
-		assertTrue(ex == null && response.getStatus() == "DELETE_SUCCESS");
+		assertNull(ex);
+		assertEquals(response.getStatus(), "DELETE_SUCCESS");
 	}
 	
 	@Test
@@ -111,7 +114,8 @@ public class InteractionTest extends TestCase {
 				ex = e;
 			}
 		
-		assertTrue(ex == null && response.getValue().equals("bar"));
+		assertNull(ex);
+		assertEquals(response.getValue(), "bar");
 	}
 
 	@Test
@@ -126,7 +130,8 @@ public class InteractionTest extends TestCase {
 			ex = e;
 		}
 
-		assertTrue(ex == null && response.getStatus() == "GET_ERROR");
+		assertNull(ex);
+		assertEquals(response.getStatus(), "GET_ERROR");
 	}
 	
 

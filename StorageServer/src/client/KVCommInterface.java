@@ -1,8 +1,10 @@
 package client;
 
-import common.messages.KVMessage;
+import common.messages.MessageType;
 
 public interface KVCommInterface {
+	
+	public enum SocketStatus{CONNECTED, DISCONNECTED, CONNECTION_LOST};
 
 	/**
 	 * Establishes a connection to the KV Server.
@@ -29,7 +31,7 @@ public interface KVCommInterface {
 	 *             if put command cannot be executed (e.g. not connected to any
 	 *             KV server).
 	 */
-	public KVMessage put(String key, String value) throws Exception;
+	public MessageType put(String key, String value) throws Exception;
 
 	/**
 	 * Retrieves the value for a given key from the KVServer.
@@ -41,5 +43,9 @@ public interface KVCommInterface {
 	 *             if put command cannot be executed (e.g. not connected to any
 	 *             KV server).
 	 */
-	public KVMessage get(String key) throws Exception;
+	public MessageType get(String key) throws Exception;
+	
+	/*public void handleNewMessage(MessageType msg);
+	
+	public void handleStatus(SocketStatus status);*/
 }

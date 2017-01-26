@@ -51,13 +51,13 @@ public class TestKVMessage extends TestCase {
 	public void testPutInvalid(){
 		MessageType message = new MessageType("put key ", false);
 		assertFalse(message.isValid);
-		assertEquals("Incorrect number of tokens for message put",message.error_msg);
+		assertEquals("Incorrect number of tokens for message put",message.error);
 	}
 	
 	public void testDisconnectInvalid(){
 		MessageType message = new MessageType("disconnect key ", false);
 		assertFalse(message.isValid);
-		assertEquals("Incorrect number of tokens for message disconnect",message.error_msg);
+		assertEquals("Incorrect number of tokens for message disconnect",message.error);
 	}
 	
 	public void testConstructWithStatus(){
@@ -72,7 +72,7 @@ public class TestKVMessage extends TestCase {
 	public void testConstructWithStatusInvalid(){
 		MessageType message = new MessageType("put PUT_SUCCESS key1 ", true);
 		assertFalse(message.isValid);
-		assertEquals("Incorrect number of tokens for message put",message.error_msg);
+		assertEquals("Incorrect number of tokens for message put",message.error);
 	}
 	
 	public void testConvertToBytes(){
