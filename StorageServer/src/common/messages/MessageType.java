@@ -38,6 +38,19 @@ public class MessageType implements KVMessage {
 		this.value = "";
 		this.isValid = parse(this.originalMsg, include_status);
 	}
+	
+	/**
+	 * Same as above but include_status is false by default
+	 */
+	public MessageType(String msg) { 
+		this.originalMsg = msg.trim();
+		this.msgBytes = toByteArray(msg);
+		this.header = "";
+		this.status = "";
+		this.key = "";
+		this.value = "";
+		this.isValid = parse(this.originalMsg, false);
+	}
 
 	/***
 	Construct MessageType from a byte array (ASCII-coded).
@@ -160,7 +173,7 @@ public class MessageType implements KVMessage {
 			case "get":
 				expected_num_tokens = (include_status ? 3 : 2); //special case when constructed with status - should contain a value returned by the server
 				break;
-			case "loglevel":
+			case "logLevel":
 				expected_num_tokens = 2;
 				break;
 			case "help":
