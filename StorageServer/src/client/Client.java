@@ -78,6 +78,18 @@ public class Client {
 		}
 	}*/
 	
+	// Use client.logInfo("asdf") to log information
+	public void logInfo(String input){
+		logger.info(input);
+		return;
+	}
+	
+	// Use client.logError("asdf") to log errors
+	public void logError(String input){
+		logger.error(input);
+		return;
+	}
+	
 	public MessageType getResponse(){
 		MessageType response = null;
 		if (isRunning()) {
