@@ -114,8 +114,10 @@ public class KVClient {
 				break;
 			case "quit":
 				stop = true;
-				kvstore.disconnect();
-				kvstore = null;
+				if (kvstore != null){
+					kvstore.disconnect();
+					kvstore = null;
+				}
 				System.out.println(PROMPT + "Application exit!");
 				break;
 			}
