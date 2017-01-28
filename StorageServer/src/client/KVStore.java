@@ -49,7 +49,7 @@ public class KVStore implements KVCommInterface {
 	}
 
 	@Override
-	public KVMessage put(String key, String value) throws Exception {
+	public KVMessage put(String key, String value) throws Exception {		
 		MessageType request = new MessageType("put " + key + " " + value, false);
 		System.out.println("request: " + request.getMsg());
 		client.sendMessage(request);

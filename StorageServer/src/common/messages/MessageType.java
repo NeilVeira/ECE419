@@ -21,6 +21,41 @@ public class MessageType implements KVMessage {
 	private String header;
 	private String status;
 	
+	/**
+	 * Replace all single quotes in the string with double quotes
+	 */
+	public static String doubleQuotes(String s)
+	{
+		for (int i=0; i<s.length(); i++){
+			if (s.charAt(i) == '"'){
+				s = s.substring(0,i) + "\"\"" + s.substring(i+1,s.length());
+				i++;
+			}
+		}
+		return s;
+	}
+	
+	/**
+	 * Replace all double quotes in the string with single quotes
+	 */
+	public static String singleQuotes(String s)
+	{
+		for (int i=0; i<s.length()-1; i++){
+			if (s.charAt(i) == '"' && s.charAt(i+1) == '"'){
+				s = s.substring(0,i) + s.substring(i+1,s.length());
+			}
+		}
+		return s;
+	}
+	
+	public MessageType(String header, String status, String key, String value)
+	{
+		this.header = header;
+		this.status = status;
+		this.key = key;
+		this.value = value;
+	}
+	
 	/***
 	Construct MessageType from a string. The string must have the format
 	<header> <status> <key> <value>
@@ -110,24 +145,15 @@ public class MessageType implements KVMessage {
 	
 	
 	/**
-	 * Returns the content of this message as a String.
+	 * Returns the content of this message as a String. All fields (header, status,
+	 key, value) are surrounded by quotes. Any quotes in these values are replaced
+	 with double quotes.
 	 */
 	public String getMsg() {
-		StringBuilder msg = new StringBuilder();
-		msg.append(header);
-		if (!status.equals("")){
-			msg.append(" ");
-			msg.append(status);
-		}
-		if (!key.equals("")){
-			msg.append(" ");
-			msg.append(key);
-		}
-		if (!value.equals("")){
-			msg.append(" ");
-			msg.append(value);
-		}
-		return msg.toString();
+		return 	"\""+doubleQuotes(header)+"\" " +
+				"\""+doubleQuotes(status)+"\" " + 
+				"\""+doubleQuotes(key)+"\" " + 
+				"\""+doubleQuotes(value)+"\"";
 	}
 
 	/***

@@ -41,7 +41,31 @@ public class KVClient {
 	}
 
 	private void handleCommand(String cmdLine) {
-		MessageType msg = new MessageType(cmdLine);
+		//cmdLine = MessageType.doubleQuotes(cmdLine);
+		//System.out.println("New command: "+cmdLine);
+		//parse cmdLine by spaces	
+		String[] tokens = cmdLine.split("\\s+");
+		String header=" ", status=" ", key=" ", value=" ";
+		if (tokens.length >= 1){
+			header = tokens[0].trim();
+		}
+		if (tokens.length >= 2){
+			key = tokens[1].trim();
+		}
+		if (tokens.length >= 3){
+			//put remaining tokens in value
+			//TODO: handle case where value has multiple consecutive spaces.
+			//Currently this replaces it with just 1 space (maybe ok for command line?)
+			value = "";
+			for (int i=2; i<tokens.length; i++){
+				value += tokens[i];
+				if (i < tokens.length-1) 
+					value += " ";
+			}
+		}
+		MessageType msg = new MessageType(header, status, key, value);
+		System.out.println("message: "+msg.getMsg());
+		
 		if (!msg.isValid){
 			printError((msg.error));
 		}
