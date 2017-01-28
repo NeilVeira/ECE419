@@ -3,6 +3,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.UnknownHostException;
+import java.net.ConnectException;
 
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
@@ -12,7 +13,6 @@ import logger.LogSetup;
 import client.KVStore;
 import common.messages.KVMessage;
 import common.messages.MessageType;
-
 
 public class KVClient {
 
@@ -40,7 +40,7 @@ public class KVClient {
 		}
 	}
 
-	private void handleCommand(String cmdLine) {
+	public void handleCommand(String cmdLine) {
 		//parse cmdLine by spaces	
 		String[] tokens = cmdLine.split("\\s+"); //"\\s" doesn't work. Incorrectly parses strings like "get   key" because of additional spaces.
 		String header=" ", status=" ", key=" ", value=" ";
@@ -76,12 +76,18 @@ public class KVClient {
 				} catch(NumberFormatException nfe) {
 					printError("No valid address. Port must be a number!");
 					logger.info("Unable to parse argument <port>", nfe);
+				} catch (ConnectException e) {
+					printError("Connection refused by host! (Try a different port number)");
+					logger.warn("Connection refused!", e);
 				} catch (UnknownHostException e) {
 					printError("Unknown Host!");
 					logger.info("Unknown Host!", e);
 				} catch (IOException e) {
 					printError("Could not establish connection!");
 					logger.warn("Could not establish connection!", e);
+				} catch (IllegalArgumentException nfe) {
+					printError("Port must be between 1 and 65535!");
+					logger.info("Input port out of range.", nfe);
 				}
 				break;
 			case "disconnect":

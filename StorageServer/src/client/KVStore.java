@@ -29,13 +29,15 @@ public class KVStore implements KVCommInterface {
 	
 	@Override
 	public void connect() 
-		throws UnknownHostException, IOException {
+		throws UnknownHostException, IOException{
 		client = new Client(address, port);
+		client.logInfo("Client trying to connect...");
 		client.addListener(this);
 		//client.start();
 		//wait for "connection successful" response
 		KVMessage response = client.getResponse();
 		if (response != null){
+			client.logInfo("response: "+response.getMsg());
 			System.out.println("response: "+response.getMsg());
 		}
 	}
