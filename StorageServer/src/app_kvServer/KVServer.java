@@ -151,11 +151,11 @@ public class KVServer extends Thread {
 			// Iterate through all pairs of hard disk map
 			for ( Map.Entry<String, String> iteratorDummy : this.m_hardDiskValueMap.entrySet()) {
 				// For each key/value pair, print it and write it to the hard disc File as key first then value each on its own line
-					System.out.println("Inserting Key: " + iteratorDummy.getKey());
-					this.m_hardDiskFileWriter.println(iteratorDummy.getKey());
-					System.out.println("Inserting Value: " + iteratorDummy.getValue());
-					this.m_hardDiskFileWriter.println(iteratorDummy.getValue());
-					linesWritten = linesWritten + 2;
+				System.out.println("Inserting Key: " + iteratorDummy.getKey());
+				this.m_hardDiskFileWriter.println(iteratorDummy.getKey());
+				System.out.println("Inserting Value: " + iteratorDummy.getValue());
+				this.m_hardDiskFileWriter.println(iteratorDummy.getValue());
+				linesWritten = linesWritten + 2;
 			}
 			// Close the Writer when finished and return
 			this.m_hardDiskFileWriter.close();
@@ -207,31 +207,97 @@ public class KVServer extends Thread {
 			return false;
 		}
 	}
-
+	// This function is the entry point for handling a client message, at this point the message is valid, first called in ClientConnection
+	public boolean handleClientMessage(common.messages.KVMessage msg) {
+		String Header = msg.getHeader();
+		boolean success = true;
+		// Decide on the appropriate handler based on what the client message was through the use of a switch statement
+		switch (Header) {
+		case "connect": 
+			success = handleConnect(msg);
+			break;
+		case "disconnect":
+			success = handleDisconnect(msg);
+			break;
+		case "put":
+			success = handlePut(msg);
+			break;
+		case "get":
+			success = handleHelp(msg);
+			break;
+		case "logLevel":
+			success = handleLogLevel(msg);
+			break;
+		case "help":
+			success = handleHelp(msg);
+			break;
+		case "quit":
+			success = handleQuit(msg);
+			break;
+		default:
+			return false;
+		}
+		return success;
+	}
+	// This function is used to handle a client connect request
+	public boolean handleConnect(common.messages.KVMessage msg) {
+		System.out.println("Handling Connect");
+		return true;
+	}
+	// This function is used to handle a client disconnect request
+	public boolean handleDisconnect(common.messages.KVMessage msg) {
+		System.out.println("Handling Disconnect");
+		return true;
+	}
+	// This function is used to handle a client log level change request
+	public boolean handleLogLevel(common.messages.KVMessage msg) {
+		System.out.println("Handling Log Level");
+		return true;
+	}
+	// This function is used to handle a client help message
+	public boolean handleHelp(common.messages.KVMessage msg) {
+		System.out.println("Handling Help");
+		return true;
+	}
+	// This function is used to handle a client quit message
+	public boolean handleQuit(common.messages.KVMessage msg) {
+		System.out.println("Handling Quit");
+		return true;
+	}
 	// This function is used to handle a client put request
-        public boolean handlePut(common.messages.KVMessage Msg) {
-            
-        }
+	public boolean handlePut(common.messages.KVMessage msg) {
+		System.out.println("Handling Put");
+		return true;
+	}
 	// This function is used to handle a client get request
-        public boolean handleGet(common.messages.KVMessage Msg) {
-            
-        }
-        // This function is used to put key value pair into the cache
-        public boolean insertIntoCache(String key, String value) {
-            // When we call this function we know Cache is already Full
-        }
+	public boolean handleGet(common.messages.KVMessage msg) {
+		System.out.println("Handling Get");
+		return true;
+	}
+	// This function is used to put key value pair into the cache
+	public boolean insertIntoCache(String key, String value) {
+		// When we call this function we know Cache is already Full
+		System.out.println("Inserting into Cache Key: " + key + " Value: " + value);
+		return true;
+	}
 	// This function is used to evict a key value pair according to FIFO
-        public boolean evictFIFO(String key, String value) {
-            // When we call this function we know Cache is already Full
-        }
+	public boolean evictFIFO(String key, String value) {
+		// When we call this function we know Cache is already Full
+		System.out.println("Evicting using FIFO from Cache From inserting Key: " + key + " Value: " + value);
+		return true;
+	}
 	// This function is used to evict a key value pair according to LRU
-        public boolean evictLRU(String key, String value) {
-            // When we call this function we know Cache is already Full
-        }
+	public boolean evictLRU(String key, String value) {
+		// When we call this function we know Cache is already Full
+		System.out.println("Evicting using LRU from Cache From inserting Key: " + key + " Value: " + value);
+		return true;
+	}
 	// This function is used to evict a key value pair according to LFU
-        public boolean evictLFU(String key, String value) {
-            // When we call this function we know Cache is already Full
-        }
+	public boolean evictLFU(String key, String value) {
+		// When we call this function we know Cache is already Full
+		System.out.println("Evicting using LFU from Cache From inserting Key: " + key + " Value: " + value);
+		return true;
+	}
 	/**
 	 * Initializes and starts the server. 
 	 * Loops until the the server should be closed.
@@ -244,8 +310,9 @@ public class KVServer extends Thread {
 			while(isRunning()){
 				try {
 					Socket client = serverSocket.accept();                
+					// pass a pointer reference of the server to each client socket instance so they can use operations on the storage database
 					ClientConnection connection = 
-							new ClientConnection(client);
+							new ClientConnection(client,this);
 					new Thread(connection).start();
 
 					logger.info("Connected to " 

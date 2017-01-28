@@ -26,14 +26,16 @@ public class ClientConnection implements Runnable {
 	private Socket clientSocket;
 	private InputStream input;
 	private OutputStream output;
+	private KVServer m_server;
 	
 	/**
 	 * Constructs a new CientConnection object for a given TCP socket.
 	 * @param clientSocket the Socket object for the client connection.
 	 */
-	public ClientConnection(Socket clientSocket) {
+	public ClientConnection(Socket clientSocket, KVServer server) {
 		this.clientSocket = clientSocket;
 		this.isOpen = true;
+		this.m_server = server;
 	}
 	
 	/**
@@ -44,17 +46,29 @@ public class ClientConnection implements Runnable {
 		try {
 			output = clientSocket.getOutputStream();
 			input = clientSocket.getInputStream();
-		
-			sendMessage(new TextMessage(
+		// Do not send intial message anymore since it is not in the KV Message Format
+		/*	sendMessage(new TextMessage(
 					"Connection to MSRG Echo server established: " 
 					+ clientSocket.getLocalAddress() + " / "
 					+ clientSocket.getLocalPort()));
-			
+		*/
 			while(isOpen) {
 				try {
-					TextMessage latestMsg = receiveMessage();
-					sendMessage(latestMsg);
-					
+					// Receive the KV Message from Client and check if it is valid
+					common.messages.KVMessage latestMsg = receiveMessage();
+					if (latestMsg.error == null) {
+						// If it is valid Handle the message by calling the function in KVServer and see if it had an error
+						boolean success = m_server.handleClientMessage(latestMsg);
+						if (success) {
+							System.out.println("Last command from client " + latestMsg.getHeader() + " was Successful!");
+						} else {
+							System.out.println("Last command from client " + latestMsg.getHeader() + " encountered a problem!");
+						}
+					} else {
+						// If it is a bad message output error and echo it back to the client
+						System.out.println("Message from Client was not valid, echoing errorous message back to client");
+						sendMessage(latestMsg);
+					}
 				/* connection either terminated by the client or lost due to 
 				 * network problems*/	
 				} catch (IOException ioe) {
@@ -85,7 +99,8 @@ public class ClientConnection implements Runnable {
 	 * @param msg the message that is to be sent.
 	 * @throws IOException some I/O error regarding the output stream 
 	 */
-	public void sendMessage(TextMessage msg) throws IOException {
+	// Change the interface to take a KVMessage instead of TextMessage
+	public void sendMessage(common.messages.KVMessage msg) throws IOException {
 		byte[] msgBytes = msg.getMsgBytes();
 		output.write(msgBytes, 0, msgBytes.length);
 		output.flush();
@@ -95,8 +110,8 @@ public class ClientConnection implements Runnable {
 				+ msg.getMsg() +"'");
     }
 	
-	
-	private TextMessage receiveMessage() throws IOException {
+	// Modified to return to me a KV message
+	private common.messages.KVMessage receiveMessage() throws IOException {
 		
 		int index = 0;
 		byte[] msgBytes = null, tmp = null;
@@ -156,7 +171,7 @@ public class ClientConnection implements Runnable {
 		msgBytes = tmp;
 		
 		/* build final String */
-		TextMessage msg = new TextMessage(msgBytes);
+		common.messages.KVMessage msg = new common.messages.MessageType(msgBytes);
 		logger.info("RECEIVE \t<" 
 				+ clientSocket.getInetAddress().getHostAddress() + ":" 
 				+ clientSocket.getPort() + ">: '" 
