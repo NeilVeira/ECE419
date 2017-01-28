@@ -176,8 +176,8 @@ public class Client {
 		msgBytes = tmp;
 		
 		/* build final String */
-		MessageType msg = new MessageType(msgBytes, true); //reply from server should include status
-		if (!msg.isValid){
+		MessageType msg = new MessageType(msgBytes); //reply from server should include status
+		if (msg.error != null){
 			//TODO: raise exception
 			System.out.println("Received invalid message from server: "+msg.originalMsg);
 			System.out.println(msg.error);
