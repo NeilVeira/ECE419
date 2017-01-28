@@ -66,7 +66,7 @@ public class KVClient {
 		MessageType msg = new MessageType(header, status, key, value);
 		System.out.println("message: "+msg.getMsg());
 		
-		if (!msg.isValid){
+		if (msg.error != null){
 			printError((msg.error));
 		}
 		else{

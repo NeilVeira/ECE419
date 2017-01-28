@@ -7,11 +7,12 @@ Converts between messages and byte arrays.
 package common.messages;
 
 import java.io.Serializable;
+import java.util.*;
 
 
 public class MessageType implements KVMessage {
 	public String originalMsg;
-	public boolean isValid;
+	public boolean isValid; //TODO: get rid of this
 	public String error;
 	private byte[] msgBytes;
 	private static final char LINE_FEED = 0x0A;
@@ -48,12 +49,17 @@ public class MessageType implements KVMessage {
 		return s;
 	}
 	
+	/**
+	 * Construct a MessageType with the 4 required fields. All fields should be 
+	 * given with single quotes. 
+	 */
 	public MessageType(String header, String status, String key, String value)
 	{
 		this.header = header;
 		this.status = status;
 		this.key = key;
 		this.value = value;
+		this.error = validityCheck();
 	}
 	
 	/***
@@ -71,7 +77,7 @@ public class MessageType implements KVMessage {
 		this.status = "";
 		this.key = "";
 		this.value = "";
-		this.isValid = parse(this.originalMsg, include_status);
+		parse(this.originalMsg);
 	}
 	
 	/**
@@ -84,7 +90,7 @@ public class MessageType implements KVMessage {
 		this.status = "";
 		this.key = "";
 		this.value = "";
-		this.isValid = parse(this.originalMsg, false);
+		parse(this.originalMsg);
 	}
 
 	/***
@@ -98,7 +104,7 @@ public class MessageType implements KVMessage {
 		this.status = "";
 		this.key = "";
 		this.value = "";
-		this.isValid = parse(this.originalMsg, include_status);
+		parse(this.originalMsg);
 	}	
 
 	/**
@@ -146,8 +152,8 @@ public class MessageType implements KVMessage {
 	
 	/**
 	 * Returns the content of this message as a String. All fields (header, status,
-	 key, value) are surrounded by quotes. Any quotes in these values are replaced
-	 with double quotes.
+	 * key, value) are surrounded by quotes. Any quotes in these values are replaced
+	 * with double quotes.
 	 */
 	public String getMsg() {
 		return 	"\""+doubleQuotes(header)+"\" " +
@@ -176,48 +182,42 @@ public class MessageType implements KVMessage {
 		return tmp;		
 	}
 	
-	private boolean parse(String msg, boolean include_status){		
-		String[] tokens = msg.split("\\s+");
-		if (tokens.length == 0){
-			this.error = "Unknown command";
-			return false;
-		}
-		this.header = tokens[0];
-		StringBuilder val = new StringBuilder();
-		int expected_num_tokens;
-		
-		switch (this.header) {
-			case "connect": 
-				expected_num_tokens = 3;
-				break;
-			case "disconnect":
-				expected_num_tokens = 1;
-				break;
-			case "put":
-				expected_num_tokens = 3;
-				break;
-			case "get":
-				expected_num_tokens = (include_status ? 3 : 2); //special case when constructed with status - should contain a value returned by the server
-				break;
-			case "logLevel":
-				expected_num_tokens = 2;
-				break;
-			case "help":
-				expected_num_tokens = 1;
-				break;
-			case "quit":
-				expected_num_tokens = 1;
-				break;
-			default:
-				this.error = "Unknown command";
-				return false;
-		}
-		if (include_status){
-			//need additional token for status
-			expected_num_tokens++;
+	/**
+	 * Parse the given string into the header, status, key, and value fields.
+	 * The given string MUST have the following format:
+	 * "header" "status" "key" "value"
+	 * where each of those fields can have quotes, but doubled. 
+	 * Fields cannot be empty - for empty fields use a single space (" ").
+	 */
+	private void parse(String msg){	
+		msg = msg.trim();
+		//String[] tokens = msg.split("\"[^\"]");
+		List<String> tokens = new ArrayList<String>();
+		int start = -1;
+		for (int i=0; i<msg.length(); i++){
+			if (msg.charAt(i) == '"' && (i+1 == msg.length() || msg.charAt(i+1) != '"')){
+				if (start == -1){
+					start = i;
+				}
+				else{
+					tokens.add(msg.substring(start+1,i));
+					start = -1;
+				}
+			}
 		}
 		
-		//check for correct number of tokens. Put is a special case because it can have any number of tokens
+		if (tokens.size() != 4){
+			this.error = "Invalid message format";
+			return;
+		}
+		this.header = singleQuotes(tokens.get(0));
+		this.status = singleQuotes(tokens.get(1));
+		this.key = singleQuotes(tokens.get(2));
+		this.value = singleQuotes(tokens.get(3));
+		
+		this.error = validityCheck();
+		
+		/*//check for correct number of tokens. Put is a special case because it can have any number of tokens
 		//(but at least 3)
 		if (tokens[0].equals("put")){
 			if (tokens.length < expected_num_tokens){
@@ -232,9 +232,6 @@ public class MessageType implements KVMessage {
 			}
 		}
 		
-		if (include_status){
-			this.status = tokens[1];
-		}
 		//key is index 1, or 2 if it includes status
 		int key_idx = 1 + (include_status ? 1 : 0);
 		if (tokens.length >= 2){
@@ -247,9 +244,42 @@ public class MessageType implements KVMessage {
 				val.append(" ");
 			}
 		}
-		this.value = val.toString();
-		
-		return true;
+		this.value = val.toString();*/
 	}
 
+	public String validityCheck()
+	{
+		switch (header) {
+		case "connect": 
+			if (key.trim().equals("") || value.trim().equals("")){
+				return "Incorrect number of tokens for message "+header;
+			}
+			break;
+		case "disconnect":
+			break;
+		case "put":
+			if (key.trim().equals("") || value.trim().equals("")){
+				return "Incorrect number of tokens for message "+header;
+			}
+			break;
+		case "get":
+			if (key.trim().equals("")){
+				return "Incorrect number of tokens for message "+header;
+			}
+			break;
+		case "logLevel":
+			if (key.trim().equals("")){
+				return "Incorrect number of tokens for message "+header;
+			}
+			break;
+		case "help":
+			break;
+		case "quit":
+			break;
+		default:
+			return "Unknown command";
+		}
+		
+		return null;
+	}
 }
