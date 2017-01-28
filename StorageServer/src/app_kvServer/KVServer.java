@@ -209,15 +209,29 @@ public class KVServer extends Thread {
 	}
 
 	// This function is used to handle a client put request
-
+        public boolean handlePut(common.messages.KVMessage Msg) {
+            
+        }
 	// This function is used to handle a client get request
-
+        public boolean handleGet(common.messages.KVMessage Msg) {
+            
+        }
+        // This function is used to put key value pair into the cache
+        public boolean insertIntoCache(String key, String value) {
+            // When we call this function we know Cache is already Full
+        }
 	// This function is used to evict a key value pair according to FIFO
-
+        public boolean evictFIFO(String key, String value) {
+            // When we call this function we know Cache is already Full
+        }
 	// This function is used to evict a key value pair according to LRU
-
+        public boolean evictLRU(String key, String value) {
+            // When we call this function we know Cache is already Full
+        }
 	// This function is used to evict a key value pair according to LFU
-
+        public boolean evictLFU(String key, String value) {
+            // When we call this function we know Cache is already Full
+        }
 	/**
 	 * Initializes and starts the server. 
 	 * Loops until the the server should be closed.
