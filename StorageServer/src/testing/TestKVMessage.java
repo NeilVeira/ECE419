@@ -48,11 +48,11 @@ public class TestKVMessage extends TestCase {
 		MessageType message = new MessageType("get"," ","key"," ");
 		assertNull(message.error);
 		byte[] bytes = message.getMsgBytes();
-		Assert.assertArrayEquals(new byte[]{34, 103, 101, 116, 34, 32, 34, 32, 34, 32, 34, 107, 101, 121, 34, 32, 34, 32, 34, 10}, bytes);
+		Assert.assertArrayEquals(new byte[]{34,103,101,116,34,32,34,32,34,32,34,107,101,121,34,32,34,32,34,10}, bytes);
 	}
 	
 	public void testConstructFromBytesServerToClient(){
-		byte[] bytes = new byte[]{34, 112, 117, 116, 34, 32, 34, 32, 34, 32, 34, 107, 101, 121, 34, 32, 34, 118, 97, 108, 117, 101, 34, 10};
+		byte[] bytes = new byte[]{34,112,117,116,34,32,34,32,34,32,34,107,101,121,34,32,34,118,97,108,117,101,34,10};
 		MessageType message = new MessageType(bytes);
 		assertTrue(message.isValid);
 		assertEquals("get",message.getHeader());

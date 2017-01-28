@@ -42,7 +42,7 @@ public class KVClient {
 
 	private void handleCommand(String cmdLine) {
 		//parse cmdLine by spaces	
-		String[] tokens = cmdLine.split("\\s");
+		String[] tokens = cmdLine.split("\\s+"); //"\\s" doesn't work. Incorrectly parses strings like "get   key" because of additional spaces.
 		String header=" ", status=" ", key=" ", value=" ";
 		if (tokens.length >= 1){
 			header = tokens[0].trim();
@@ -52,7 +52,6 @@ public class KVClient {
 		}
 		if (tokens.length >= 3){
 			//put remaining tokens in value
-			//Now it handles multiple spaces, replaced regex \s+ with \s, so "asdf  asdf" generates three tokens "asdf", "", "asdf"
 			value = "";
 			for (int i=2; i<tokens.length; i++){
 				value += tokens[i];
@@ -62,6 +61,12 @@ public class KVClient {
 		}
 
 		MessageType msg = new MessageType(header, status, key, value);
+		System.out.println(msg.getMsg());
+		byte[] bytes = msg.getMsgBytes();
+		for (int i=0; i<bytes.length; i++){
+			System.out.print(bytes[i]);
+			System.out.print(",");
+		}
 		
 		if (msg.error != null){
 			printError((msg.error));
