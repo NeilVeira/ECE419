@@ -213,7 +213,6 @@ public class KVServer extends Thread {
 	public common.messages.KVMessage handleClientMessage(common.messages.KVMessage msg) {
 		String Header = msg.getHeader();
 		common.messages.KVMessage returnMsg;
-		boolean success = true;
 		// Decide on the appropriate handler based on what the client message was through the use of a switch statement
 		switch (Header) {
 		case "connect": 
@@ -244,44 +243,64 @@ public class KVServer extends Thread {
 	}
 	// This function is used to handle a client connect request
 	public common.messages.KVMessage handleConnect(common.messages.KVMessage msg) {
-		System.out.println("Handling Connect");
-		common.messages.KVMessage returnMsg = new common.messages.MessageType(" ", " ", " ", " "); ;
+		System.out.println("Handling Connect, echo back nothing to do");
+		common.messages.KVMessage returnMsg = msg;
 		return returnMsg;
 	}
 	// This function is used to handle a client disconnect request
 	public common.messages.KVMessage handleDisconnect(common.messages.KVMessage msg) {
-		System.out.println("Handling Disconnect");
-		common.messages.KVMessage returnMsg = new common.messages.MessageType(" ", " ", " ", " "); ;
+		System.out.println("Handling Disconnect, echo back nothing to do");
+		common.messages.KVMessage returnMsg = msg;
 		return returnMsg;
 	}
 	// This function is used to handle a client log level change request
 	public common.messages.KVMessage handleLogLevel(common.messages.KVMessage msg) {
 		System.out.println("Handling Log Level");
-		common.messages.KVMessage returnMsg = new common.messages.MessageType(" ", " ", " ", " "); ;
+		String Header = msg.getHeader();
+		String Status = msg.getStatus();
+		String Key = msg.getKey();
+		String Value = msg.getValue();
+		
+		common.messages.KVMessage returnMsg = new common.messages.MessageType(" ", " ", " ", " ");
 		return returnMsg;
 	}
 	// This function is used to handle a client help message
 	public common.messages.KVMessage handleHelp(common.messages.KVMessage msg) {
-		System.out.println("Handling Help");
-		common.messages.KVMessage returnMsg = new common.messages.MessageType(" ", " ", " ", " "); ;
+		System.out.println("Handling Help, echo back nothing to do");
+		common.messages.KVMessage returnMsg = msg; ;
 		return returnMsg;
 	}
 	// This function is used to handle a client quit message
 	public common.messages.KVMessage handleQuit(common.messages.KVMessage msg) {
 		System.out.println("Handling Quit");
-		common.messages.KVMessage returnMsg = new common.messages.MessageType(" ", " ", " ", " "); ;
+		String Header = msg.getHeader();
+		String Status = msg.getStatus();
+		String Key = msg.getKey();
+		String Value = msg.getValue();
+		
+		common.messages.KVMessage returnMsg = new common.messages.MessageType(" ", " ", " ", " ");
 		return returnMsg;
 	}
 	// This function is used to handle a client put request
 	public common.messages.KVMessage handlePut(common.messages.KVMessage msg) {
 		System.out.println("Handling Put");
-		common.messages.KVMessage returnMsg = new common.messages.MessageType(" ", " ", " ", " "); ;
+		String Header = msg.getHeader();
+		String Status = msg.getStatus();
+		String Key = msg.getKey();
+		String Value = msg.getValue();
+		
+		common.messages.KVMessage returnMsg = new common.messages.MessageType(" ", " ", " ", " ");
 		return returnMsg;
 	}
 	// This function is used to handle a client get request
 	public common.messages.KVMessage handleGet(common.messages.KVMessage msg) {
 		System.out.println("Handling Get");
-		common.messages.KVMessage returnMsg = new common.messages.MessageType(" ", " ", " ", " "); ;
+		String Header = msg.getHeader();
+		String Status = msg.getStatus();
+		String Key = msg.getKey();
+		String Value = msg.getValue();
+		
+		common.messages.KVMessage returnMsg = new common.messages.MessageType(" ", " ", " ", " ");
 		return returnMsg;
 	}
 	// This function is used to put key value pair into the cache
