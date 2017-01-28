@@ -61,12 +61,6 @@ public class KVClient {
 		}
 
 		MessageType msg = new MessageType(header, status, key, value);
-		System.out.println(msg.getMsg());
-		byte[] bytes = msg.getMsgBytes();
-		for (int i=0; i<bytes.length; i++){
-			System.out.print(bytes[i]);
-			System.out.print(",");
-		}
 		
 		if (msg.error != null){
 			printError((msg.error));
