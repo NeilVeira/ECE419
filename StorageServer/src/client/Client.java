@@ -12,7 +12,7 @@ import org.apache.log4j.Logger;
 
 import client.KVCommInterface;
 import client.KVCommInterface.SocketStatus;
-//import common.messages.KVMessage;
+import common.messages.KVMessage;
 import common.messages.MessageType;
 
 public class Client {
@@ -40,46 +40,8 @@ public class Client {
 		input = clientSocket.getInputStream();
 	}
 	
-	/**
-	 * Initializes and starts the client connection. 
-	 * Loops until the connection is closed or aborted by the client.
-	 */
-	/*public void run() {
-		try {
-			
-			while(isRunning()) {
-				try {
-					MessageType latestMsg = receiveMessage();
-					for(KVCommInterface listener : listeners) {
-						listener.handleNewMessage(latestMsg);
-					}
-				} catch (IOException ioe) {
-					if(isRunning()) {
-						logger.error("Connection lost!");
-						try {
-							tearDownConnection();
-							for(KVCommInterface listener : listeners) {
-								listener.handleStatus(
-										SocketStatus.CONNECTION_LOST);
-							}
-						} catch (IOException e) {
-							logger.error("Unable to close connection!");
-						}
-					}
-				}				
-			}
-		} catch (IOException ioe) {
-			logger.error("Connection could not be established!");
-			
-		} finally {
-			if(isRunning()) {
-				closeConnection();
-			}
-		}
-	}*/
-	
-	public MessageType getResponse(){
-		MessageType response = null;
+	public KVMessage getResponse(){
+		KVMessage response = null;
 		if (isRunning()) {
 			try {
 				response = receiveMessage();
@@ -104,9 +66,6 @@ public class Client {
 		
 		try {
 			tearDownConnection();
-			/*for(KVCommInterface listener : listeners) {
-				listener.handleStatus(SocketStatus.DISCONNECTED);
-			}*/
 		} catch (IOException ioe) {
 			logger.error("Unable to close connection!");
 		}
@@ -137,11 +96,11 @@ public class Client {
 	}
 	
 	/**
-	 * Method sends a MessageType using this socket.
+	 * Method sends a KVMessage using this socket.
 	 * @param msg the message that is to be sent.
 	 * @throws IOException some I/O error regarding the output stream 
 	 */
-	public void sendMessage(MessageType msg) throws IOException {
+	public void sendMessage(KVMessage msg) throws IOException {
 		System.out.println("sending "+msg.getMsg());
 		byte[] msgBytes = msg.getMsgBytes();
 		output.write(msgBytes, 0, msgBytes.length);
@@ -150,7 +109,7 @@ public class Client {
     }
 	
 	
-	private MessageType receiveMessage() throws IOException {
+	private KVMessage receiveMessage() throws IOException {
 		int index = 0;
 		byte[] msgBytes = null, tmp = null;
 		byte[] bufferBytes = new byte[BUFFER_SIZE];

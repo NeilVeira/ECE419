@@ -10,6 +10,7 @@ import org.apache.log4j.Logger;
 import logger.LogSetup;
 
 import client.KVStore;
+import common.messages.KVMessage;
 import common.messages.MessageType;
 
 
@@ -181,30 +182,6 @@ public class KVClient {
 			return LogSetup.UNKNOWN_LEVEL;
 		}
 	}
-	
-	//Not used
-	/*public void handleNewMessage(KVMessage msg) {
-		if(!stop) {
-			System.out.println(msg.getMsg());
-			System.out.print(PROMPT);
-		}
-	}
-	
-	public void handleStatus(SocketStatus status) {
-		if(status == SocketStatus.CONNECTED) {
-
-		} else if (status == SocketStatus.DISCONNECTED) {
-			System.out.print(PROMPT);
-			System.out.println("Connection terminated: " 
-					+ serverAddress + " / " + serverPort);
-			
-		} else if (status == SocketStatus.CONNECTION_LOST) {
-			System.out.println("Connection lost: " 
-					+ serverAddress + " / " + serverPort);
-			System.out.print(PROMPT);
-		}
-		
-	}*/
 
 	private void printError(String error){
 		System.out.println(PROMPT + "Error! " +  error);

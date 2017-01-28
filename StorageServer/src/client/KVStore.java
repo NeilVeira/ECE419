@@ -4,7 +4,7 @@ package client;
 import java.io.IOException;
 import java.net.UnknownHostException;
 
-//import common.messages.KVMessage;
+import common.messages.KVMessage;
 import common.messages.MessageType;
 
 import client.Client;
@@ -34,7 +34,7 @@ public class KVStore implements KVCommInterface {
 		client.addListener(this);
 		//client.start();
 		//wait for "connection successful" response
-		MessageType response = client.getResponse();
+		KVMessage response = client.getResponse();
 		if (response != null){
 			System.out.println("response: "+response.getMsg());
 		}
@@ -49,12 +49,12 @@ public class KVStore implements KVCommInterface {
 	}
 
 	@Override
-	public MessageType put(String key, String value) throws Exception {
+	public KVMessage put(String key, String value) throws Exception {
 		MessageType request = new MessageType("put " + key + " " + value, false);
 		System.out.println("request: " + request.getMsg());
 		client.sendMessage(request);
 		//Wait for client thread to receive message from server
-		MessageType response = client.getResponse();
+		KVMessage response = client.getResponse();
 		//TODO: use logging instead of printing to console
 		if (response != null){
 			System.out.println("response: "+response.getMsg());
@@ -66,13 +66,13 @@ public class KVStore implements KVCommInterface {
 	}
 
 	@Override
-	public MessageType get(String key) throws Exception {
+	public KVMessage get(String key) throws Exception {
 		MessageType request = new MessageType("get "+key, false);
 		System.out.println("request: " + request.getMsg());
 		//response = null;
 		client.sendMessage(request);	
 		//Wait for client thread to receive message from server
-		MessageType response = client.getResponse();
+		KVMessage response = client.getResponse();
 		//TODO: use logging instead of printing to console
 		if (response != null){
 			System.out.println("response: "+response.getMsg());
@@ -82,26 +82,5 @@ public class KVStore implements KVCommInterface {
 		}
 		return response;
 	}
-	
-	/*public void handleNewMessage(MessageType msg){
-		System.out.println("got response "+msg.getMsg());
-		response = msg;
-	}
-	
-	public void handleStatus(SocketStatus status){
-		MessageType msg = null;
-		if(status == SocketStatus.CONNECTED) {
-
-		} else if (status == SocketStatus.DISCONNECTED) {
-			msg = new MessageType("disconnect DISCONNECTED",true);
-			
-		} else if (status == SocketStatus.CONNECTION_LOST) {
-			msg = new MessageType("disconnect CONNECTION_LOST",true);
-		}
-		
-		response = msg;
-	}*/
-	
-
 	
 }
