@@ -523,23 +523,72 @@ public class KVServer extends Thread {
 	// This function is used to evict a key value pair according to FIFO
 	public boolean evictFIFO() {
 		// When we call this function we know Cache is already Full
-		System.out.println("Evicting using FIFO from Cache");
-		logger.info("Evicting using FIFO from Cache");
-		
+		// Find the key of the element we want to evict
+		String key = this.m_cacheFIFOList.getFirst();
+		System.out.println("Evicting using FIFO from Cache Key: " + key);
+		logger.info("Evicting using FIFO from Cache Key: " + key);
+		// remove the pair to all the other maps and lists we need
+		// remove value in cache value map
+		this.m_cacheValueMap.remove(key);
+		// remove value in cache LFU map
+		this.m_cacheLFUMap.remove(key);
+		// remove key in FIFO linked list
+		this.m_cacheFIFOList.removeFirstOccurrence(key);
+		// remove key in  LRU linked list
+		this.m_cacheLRUList.removeFirstOccurrence(key);
+		// decrease size of cache pairs by 1
+		this.m_currentCacheEntries = this.m_currentCacheEntries - 1;
 		return true;
 	}
 	// This function is used to evict a key value pair according to LRU
 	public boolean evictLRU() {
 		// When we call this function we know Cache is already Full
-		System.out.println("Evicting using LRU from Cache");
-		logger.info("Evicting using LRU from Cache");
+		// Find the key of the element we want to evict
+		// Iterate through all pairs of LFU map
+		String key = this.m_cacheLRUList.getFirst();
+		System.out.println("Evicting using LRU from Cache Key: " + key);
+		logger.info("Evicting using LRU from Cache Key: " + key);
+		// remove the pair to all the other maps and lists we need
+		// remove value in cache value map
+		this.m_cacheValueMap.remove(key);
+		// remove value in cache LFU map
+		this.m_cacheLFUMap.remove(key);
+		// remove key in FIFO linked list
+		this.m_cacheFIFOList.removeFirstOccurrence(key);
+		// remove key in  LRU linked list
+		this.m_cacheLRUList.removeFirstOccurrence(key);
+		// decrease size of cache pairs by 1
+		this.m_currentCacheEntries = this.m_currentCacheEntries - 1;
 		return true;
 	}
 	// This function is used to evict a key value pair according to LFU
 	public boolean evictLFU() {
 		// When we call this function we know Cache is already Full
-		System.out.println("Evicting using LFU from Cache");
-		logger.info("Evicting using LFU from Cache");
+		// Find the key of the element we want to evict
+		String key = null;
+		int frequency = 99999999;
+		for ( Map.Entry<String, Integer> iteratorDummy : this.m_cacheLFUMap.entrySet()) {
+			// For each key/value pair, see if it was less frequently used than the previous lowest
+			if (iteratorDummy.getValue() < frequency) {
+				key = iteratorDummy.getKey();
+				frequency = iteratorDummy.getValue();
+				System.out.println("Lesser Used Key Found: " + iteratorDummy.getKey());
+				System.out.println("Frequency was: " + iteratorDummy.getValue());
+			}
+		}
+		System.out.println("Evicting using LFU from Cache Key: " + key);
+		logger.info("Evicting using LFU from Cache Key: " + key);
+		// remove the pair to all the other maps and lists we need
+		// remove value in cache value map
+		this.m_cacheValueMap.remove(key);
+		// remove value in cache LFU map
+		this.m_cacheLFUMap.remove(key);
+		// remove key in FIFO linked list
+		this.m_cacheFIFOList.removeFirstOccurrence(key);
+		// remove key in  LRU linked list
+		this.m_cacheLRUList.removeFirstOccurrence(key);
+		// decrease size of cache pairs by 1
+		this.m_currentCacheEntries = this.m_currentCacheEntries - 1;
 		return true;
 	}
 	/**
