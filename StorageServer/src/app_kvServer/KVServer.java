@@ -31,6 +31,8 @@ import logger.LogSetup;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
+import common.messages.MessageType;
+
 import app_kvServer.ClientConnection;
 /**
  * Represents a simple Echo Server implementation.
@@ -208,71 +210,79 @@ public class KVServer extends Thread {
 		}
 	}
 	// This function is the entry point for handling a client message, at this point the message is valid, first called in ClientConnection
-	public boolean handleClientMessage(common.messages.KVMessage msg) {
+	public common.messages.KVMessage handleClientMessage(common.messages.KVMessage msg) {
 		String Header = msg.getHeader();
+		common.messages.KVMessage returnMsg;
 		boolean success = true;
 		// Decide on the appropriate handler based on what the client message was through the use of a switch statement
 		switch (Header) {
 		case "connect": 
-			success = handleConnect(msg);
+			returnMsg = handleConnect(msg);
 			break;
 		case "disconnect":
-			success = handleDisconnect(msg);
+			returnMsg = handleDisconnect(msg);
 			break;
 		case "put":
-			success = handlePut(msg);
+			returnMsg = handlePut(msg);
 			break;
 		case "get":
-			success = handleHelp(msg);
+			returnMsg = handleHelp(msg);
 			break;
 		case "logLevel":
-			success = handleLogLevel(msg);
+			returnMsg = handleLogLevel(msg);
 			break;
 		case "help":
-			success = handleHelp(msg);
+			returnMsg = handleHelp(msg);
 			break;
 		case "quit":
-			success = handleQuit(msg);
+			returnMsg = handleQuit(msg);
 			break;
 		default:
-			return false;
+			return returnMsg = new common.messages.MessageType(" ", " ", " ", " ");
 		}
-		return success;
+		return returnMsg;
 	}
 	// This function is used to handle a client connect request
-	public boolean handleConnect(common.messages.KVMessage msg) {
+	public common.messages.KVMessage handleConnect(common.messages.KVMessage msg) {
 		System.out.println("Handling Connect");
-		return true;
+		common.messages.KVMessage returnMsg = new common.messages.MessageType(" ", " ", " ", " "); ;
+		return returnMsg;
 	}
 	// This function is used to handle a client disconnect request
-	public boolean handleDisconnect(common.messages.KVMessage msg) {
+	public common.messages.KVMessage handleDisconnect(common.messages.KVMessage msg) {
 		System.out.println("Handling Disconnect");
-		return true;
+		common.messages.KVMessage returnMsg = new common.messages.MessageType(" ", " ", " ", " "); ;
+		return returnMsg;
 	}
 	// This function is used to handle a client log level change request
-	public boolean handleLogLevel(common.messages.KVMessage msg) {
+	public common.messages.KVMessage handleLogLevel(common.messages.KVMessage msg) {
 		System.out.println("Handling Log Level");
-		return true;
+		common.messages.KVMessage returnMsg = new common.messages.MessageType(" ", " ", " ", " "); ;
+		return returnMsg;
 	}
 	// This function is used to handle a client help message
-	public boolean handleHelp(common.messages.KVMessage msg) {
+	public common.messages.KVMessage handleHelp(common.messages.KVMessage msg) {
 		System.out.println("Handling Help");
-		return true;
+		common.messages.KVMessage returnMsg = new common.messages.MessageType(" ", " ", " ", " "); ;
+		return returnMsg;
 	}
 	// This function is used to handle a client quit message
-	public boolean handleQuit(common.messages.KVMessage msg) {
+	public common.messages.KVMessage handleQuit(common.messages.KVMessage msg) {
 		System.out.println("Handling Quit");
-		return true;
+		common.messages.KVMessage returnMsg = new common.messages.MessageType(" ", " ", " ", " "); ;
+		return returnMsg;
 	}
 	// This function is used to handle a client put request
-	public boolean handlePut(common.messages.KVMessage msg) {
+	public common.messages.KVMessage handlePut(common.messages.KVMessage msg) {
 		System.out.println("Handling Put");
-		return true;
+		common.messages.KVMessage returnMsg = new common.messages.MessageType(" ", " ", " ", " "); ;
+		return returnMsg;
 	}
 	// This function is used to handle a client get request
-	public boolean handleGet(common.messages.KVMessage msg) {
+	public common.messages.KVMessage handleGet(common.messages.KVMessage msg) {
 		System.out.println("Handling Get");
-		return true;
+		common.messages.KVMessage returnMsg = new common.messages.MessageType(" ", " ", " ", " "); ;
+		return returnMsg;
 	}
 	// This function is used to put key value pair into the cache
 	public boolean insertIntoCache(String key, String value) {
