@@ -12,7 +12,6 @@ import logger.LogSetup;
 import client.KVStore;
 import common.messages.KVMessage;
 import common.messages.MessageType;
-import common.messages.PortRangeException;
 
 public class KVClient {
 
@@ -72,12 +71,8 @@ public class KVClient {
 				try{
 					serverAddress = msg.getKey();
 					serverPort = Integer.parseInt(msg.getValue());
-					if (1 > serverPort || serverPort > 65535) {
-						throw new PortRangeException("Port must be between 1 and 65535!");
-					} else {
-						kvstore = new KVStore(serverAddress, serverPort);
-						kvstore.connect();
-					}
+					kvstore = new KVStore(serverAddress, serverPort);
+					kvstore.connect();
 				} catch(NumberFormatException nfe) {
 					printError("No valid address. Port must be a number!");
 					logger.info("Unable to parse argument <port>", nfe);
@@ -87,9 +82,9 @@ public class KVClient {
 				} catch (IOException e) {
 					printError("Could not establish connection!");
 					logger.warn("Could not establish connection!", e);
-				} catch (PortRangeException nfe) {
+				} catch (IllegalArgumentException nfe) {
 					printError("Port must be between 1 and 65535!");
-					logger.warn("Port must be between 1 and 65535!", nfe);
+					logger.info("Input port out of range.", nfe);
 				}
 				break;
 			case "disconnect":

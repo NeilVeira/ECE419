@@ -29,7 +29,7 @@ public class KVStore implements KVCommInterface {
 	
 	@Override
 	public void connect() 
-		throws UnknownHostException, IOException {
+		throws UnknownHostException, IOException{
 		client = new Client(address, port);
 		client.logInfo("Client trying to connect...");
 		client.addListener(this);
