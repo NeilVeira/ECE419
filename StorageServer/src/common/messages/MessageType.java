@@ -192,39 +192,36 @@ public class MessageType implements KVMessage {
 		this.error = validityCheck();
 	}
 
+	/**
+	 * Check that the message is valid, i.e. all the required fields are non-empty
+	 * @return a string with the error message, or null if there are no errors
+	 */
 	public String validityCheck()
 	{
 		switch (header) {
 		case "connect": 
-			if (key.trim().equals("") || value.trim().equals("")){
-				return "Incorrect number of tokens for message "+header;
-			}
-			break;
-		case "disconnect":
-			break;
 		case "put":
+			//use IP address and port as key & value
 			if (key.trim().equals("") || value.trim().equals("")){
-				return "Incorrect number of tokens for message "+header;
-			}
-			break;
-		case "get":
-			if (key.trim().equals("")){
-				return "Incorrect number of tokens for message "+header;
+				return "Key and value must not be empty for message "+header;
 			}
 			break;
 		case "logLevel":
+		case "get":
 			if (key.trim().equals("")){
-				return "Incorrect number of tokens for message "+header;
+				return "Key must not be empty for message "+header;
 			}
 			break;
+		case "disconnect":
 		case "help":
-			break;
 		case "quit":
+			if (!key.trim().equals("") || !value.trim().equals("")){
+				return "Key and value must be empty for message "+header;
+			}
 			break;
 		default:
 			return "Unknown command";
 		}
-		
-		return null;
+		return null; 
 	}
 }
