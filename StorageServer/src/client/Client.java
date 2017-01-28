@@ -56,6 +56,7 @@ public class Client {
 	public KVMessage getResponse(){
 		KVMessage response = null;
 		if (isRunning()) {
+			System.out.println("Tryinng to get response");
 			try {
 				response = receiveMessage();
 				
@@ -123,6 +124,7 @@ public class Client {
 	
 	
 	private KVMessage receiveMessage() throws IOException {
+		//TODO: implement FAILED handling from server
 		int index = 0;
 		byte[] msgBytes = null, tmp = null;
 		byte[] bufferBytes = new byte[BUFFER_SIZE];
@@ -131,7 +133,7 @@ public class Client {
 		byte read = (byte) input.read();	
 		boolean reading = true;
 		
-		while(read != 13 && reading) {/* carriage return */
+		while(read != 10 && reading) {/* carriage return */
 			/* if buffer filled, copy to msg array */
 			if(index == BUFFER_SIZE) {
 				if(msgBytes == null){
@@ -183,6 +185,7 @@ public class Client {
 			System.out.println("Received invalid message from server: "+msg.originalMsg);
 			System.out.println(msg.error);
 		}
+		System.out.println("Receive message:\t '" + msg.getMsg() + "'");
 		logger.info("Receive message:\t '" + msg.getMsg() + "'");
 		return msg;
     }

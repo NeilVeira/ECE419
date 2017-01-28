@@ -46,32 +46,29 @@ public class ClientConnection implements Runnable {
 		try {
 			output = clientSocket.getOutputStream();
 			input = clientSocket.getInputStream();
-		// Do not send intial message anymore since it is not in the KV Message Format
-		/*	sendMessage(new TextMessage(
-					"Connection to MSRG Echo server established: " 
-					+ clientSocket.getLocalAddress() + " / "
-					+ clientSocket.getLocalPort()));
-		*/
+		// send initial message on connect
+			sendMessage(new common.messages.MessageType("connect", "CONNECT_SUCCESS", " ", " "));
+		
 			while(isOpen) {
 				try {
 					// Receive the KV Message from Client and check if it is valid
 					common.messages.KVMessage latestMsg = receiveMessage();
-					if (latestMsg.validityCheck()) {
+					if (latestMsg.validityCheck() == null) {
 						// If it is valid Handle the message by calling the function in KVServer
 						common.messages.KVMessage returnMsg = m_server.handleClientMessage(latestMsg);
-						if (returnMsg.validityCheck()) {
+						if (returnMsg.validityCheck() == null) {
 							// If returned KVMessage was valid send it back to the client
-							System.out.println("Last command from client " + latestMsg.getHeader() + " was Successful!");
+							System.out.println("Last command from client " + latestMsg.getHeader() + " was Successfully Processed by Server!");
 							sendMessage(returnMsg);
 						} else {
 							// If returned KVMessage is not valid it will have all blank fields
-							System.out.println("Last command from client " + latestMsg.getHeader() + " encountered a problem!");
+							System.out.println("Last command from client " + latestMsg.getHeader() + " encountered a problem on Server side!");
 							sendMessage(returnMsg);
 						}
 					} else {
 						// If it is a bad message output error and echo it back to the client
-						System.out.println("Message from Client was not valid, echoing errorous message back to client");
-						sendMessage(latestMsg);
+						System.out.println("Message from Client was not valid, sending errorous message back to client");
+						sendMessage(new common.messages.MessageType(latestMsg.getHeader(), "FAILED", latestMsg.getKey(), latestMsg.getValue()));
 					}
 				/* connection either terminated by the client or lost due to 
 				 * network problems*/	
@@ -105,6 +102,16 @@ public class ClientConnection implements Runnable {
 	 */
 	// Change the interface to take a KVMessage instead of TextMessage
 	public void sendMessage(common.messages.KVMessage msg) throws IOException {
+		byte[] msgBytes = msg.getMsgBytes();
+		output.write(msgBytes, 0, msgBytes.length);
+		output.flush();
+		logger.info("SEND \t<" 
+				+ clientSocket.getInetAddress().getHostAddress() + ":" 
+				+ clientSocket.getPort() + ">: '" 
+				+ msg.getMsg() +"'");
+    }
+	// perserve text message interface
+	public void sendMessage(TextMessage msg) throws IOException {
 		byte[] msgBytes = msg.getMsgBytes();
 		output.write(msgBytes, 0, msgBytes.length);
 		output.flush();
