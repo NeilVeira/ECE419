@@ -40,6 +40,19 @@ public class Client {
 		input = clientSocket.getInputStream();
 	}
 	
+	
+	// Use client.logInfo("asdf") to log information
+	public void logInfo(String input){
+		logger.info(input);
+		return;
+	}
+	
+	// Use client.logError("asdf") to log errors
+	public void logError(String input){
+		logger.error(input);
+		return;
+	}
+	
 	public KVMessage getResponse(){
 		KVMessage response = null;
 		if (isRunning()) {
