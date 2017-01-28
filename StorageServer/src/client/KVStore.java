@@ -62,11 +62,13 @@ public class KVStore implements KVCommInterface {
 		client.sendMessage(request);
 		//Wait for client thread to receive message from server
 		KVMessage response = client.getResponse();
-		//TODO: use logging instead of printing to console
+		
 		if (response != null){
+			client.logInfo("response: "+response.getMsg());
 			System.out.println("response: "+response.getMsg());
 		}
 		else{
+			client.logInfo("no response received");
 			System.out.println("no response received");
 		}
 		return response;
@@ -83,11 +85,13 @@ public class KVStore implements KVCommInterface {
 		client.sendMessage(request);	
 		//Wait for client thread to receive message from server
 		KVMessage response = client.getResponse();
-		//TODO: use logging instead of printing to console
+		
 		if (response != null){
+			client.logInfo("response: "+response.getMsg());
 			System.out.println("response: "+response.getMsg());
 		}
 		else{
+			client.logInfo("no response received");
 			System.out.println("no response received");
 		}
 		return response;

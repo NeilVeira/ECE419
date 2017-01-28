@@ -42,7 +42,7 @@ public class KVClient {
 
 	private void handleCommand(String cmdLine) {
 		//parse cmdLine by spaces	
-		String[] tokens = cmdLine.split("\\s+");
+		String[] tokens = cmdLine.split("\\s");
 		String header=" ", status=" ", key=" ", value=" ";
 		if (tokens.length >= 1){
 			header = tokens[0].trim();
@@ -52,8 +52,7 @@ public class KVClient {
 		}
 		if (tokens.length >= 3){
 			//put remaining tokens in value
-			//TODO: handle case where value has multiple consecutive spaces.
-			//Currently this replaces it with just 1 space (maybe ok for command line?)
+			//Now it handles multiple spaces, replaced regex \s+ with \s, so "asdf  asdf" generates three tokens "asdf", "", "asdf"
 			value = "";
 			for (int i=2; i<tokens.length; i++){
 				value += tokens[i];
@@ -61,6 +60,7 @@ public class KVClient {
 					value += " ";
 			}
 		}
+
 		MessageType msg = new MessageType(header, status, key, value);
 		
 		if (msg.error != null){
