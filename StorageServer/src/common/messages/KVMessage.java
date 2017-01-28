@@ -45,10 +45,16 @@ public interface KVMessage {
 	
 	public String getMsg();
 	
-	/***
-	Returns an array of bytes that represent the ASCII coded message content.
-	***/
+	/**
+	 * Returns an array of bytes that represent the ASCII coded message content.
+	 */
 	public byte[] getMsgBytes();
+	
+	/**
+	 * Check that the message is valid, i.e. all the required fields are non-empty
+	 * @return a string with the error message, or null if there are no errors
+	 */
+	public String validityCheck(); 
 	
 }
 
