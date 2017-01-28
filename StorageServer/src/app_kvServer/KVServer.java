@@ -210,7 +210,12 @@ public class KVServer extends Thread {
 		} catch (Exception ex) {
 			System.out.println("Encountered Error while trying to repopulate hard disc map");
 			System.out.println(ex.getMessage());
-			this.m_hardDiskFileReader.close();
+			try {
+				this.m_hardDiskFileReader.close();
+			} catch (IOException e) {
+				System.out.println("Encountered Error while trying to close file reader");
+				e.printStackTrace();
+			}
 			// Reset harddisk Cache 
 			this.m_hardDiskValueMap.clear();
 			return false;
@@ -292,12 +297,55 @@ public class KVServer extends Thread {
 	public common.messages.KVMessage handleGet(common.messages.KVMessage msg) {
 		System.out.println("Handling Get");
 		logger.info("Handling Get");
-		String Header = msg.getHeader();
-		String Status = msg.getStatus();
 		String Key = msg.getKey();
 		String Value = msg.getValue();
-		
-		common.messages.KVMessage returnMsg = new common.messages.MessageType(" ", " ", " ", " ");
+		common.messages.KVMessage returnMsg = null;
+		boolean success = false;
+		// First check whether the Key Value pair get wants is in the cache
+		boolean keyExists = this.m_cacheValueMap.containsKey(Key);
+		if (keyExists) {
+			// Cache Hit, get the Value from the cacheMap
+			Value = this.m_cacheValueMap.get(Key);
+			// Update
+			success = this.updateCacheHit(Key, Value);
+			if (!success) {
+				// If for some reason updating the pair in cache failed then return failure message
+				returnMsg = new common.messages.MessageType("get", "GET_ERROR", Key, Value);
+				return returnMsg;
+			} else {
+				// Set success message and end of this get operation
+				returnMsg = new common.messages.MessageType("get", "GET_SUCCESS", Key, Value);
+			}
+		} else {
+			// Cache Miss
+			// Need to load from hard disk file into map
+			success = this.repopulateHardDiskMap();
+			if (!success) {
+				// If for some reason the load failed then return failure message
+				returnMsg = new common.messages.MessageType("get", "GET_ERROR", Key, Value);
+				return returnMsg;
+			}
+			// Need to get the Key Value pair from hard disk map
+			// Check if it exists
+			keyExists = this.m_hardDiskValueMap.containsKey(Key);
+			if (!keyExists) {
+				// If the pair does not exist in the hard disk file either
+				returnMsg = new common.messages.MessageType("get", "GET_ERROR", Key, Value);
+				return returnMsg;
+			}
+			// Get the Value from hard disk map
+			Value = this.m_hardDiskValueMap.get(Key);
+			// Insert this Key Value Pair into the cache
+			success = this.insertIntoCache(Key, Value);
+			if (!success) {
+				// If for some reason the writing to cache failed then return failure message
+				returnMsg = new common.messages.MessageType("get", "GET_ERROR", Key, Value);
+				return returnMsg;
+			} else {
+				// Set success message and end of this put-add operation
+				returnMsg = new common.messages.MessageType("get", "GET_SUCCESS", Key, Value);
+			}
+		}
 		return returnMsg;
 	}
 	// This function is used to handle a client put request
@@ -377,6 +425,13 @@ public class KVServer extends Thread {
 			}
 		}
 		return returnMsg;
+	}
+	// This function is used to update the Cache Key Value Pair in case it was used
+	public boolean updateCacheHit(String key, String value) {
+		// When we call this function we don't know if Cache is already Full or if that key value pair already exists in it
+		System.out.println("Got Hit from Cache, Pair was Key: " + key + " Value: " + value);
+		logger.info("Got Hit from Cache, Pair was Key: " + key + " Value: " + value);
+		return true;
 	}
 	// This function is used to delete key value pair from the cache
 	public boolean deleteFromCache(String key, String value) {
