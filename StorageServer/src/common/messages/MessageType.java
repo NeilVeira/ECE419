@@ -200,6 +200,7 @@ public class MessageType implements KVMessage {
 	{
 		switch (header) {
 		case "connect": 
+			break;
 		case "put":
 			//use IP address and port as key & value
 			if (key.trim().equals("") || value.trim().equals("")){
@@ -207,13 +208,20 @@ public class MessageType implements KVMessage {
 			}
 			break;
 		case "logLevel":
+			System.out.println(key.trim());
+			if (!key.trim().equals("ALL") && !key.trim().equals("DEBUG") && !key.trim().equals("INFO") && !key.trim().equals("WARN") && !key.trim().equals("ERROR") && !key.trim().equals("FATAL") && !key.trim().equals("OFF")) {
+				return "Log level must be equal to a valid log level.";
+			}
+			break;
 		case "get":
 			if (key.trim().equals("")){
 				return "Key must not be empty for message "+header;
 			}
 			break;
 		case "disconnect":
+			break;
 		case "help":
+			break;
 		case "quit":
 			if (!key.trim().equals("") || !value.trim().equals("")){
 				return "Key and value must be empty for message "+header;

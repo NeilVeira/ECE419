@@ -126,7 +126,7 @@ public class KVServer extends Thread {
 		System.out.println("HardDiskFile Name is : " + m_hardDiskFileName + " HardDiskFile Path is : " + m_hardDiskFilePath);
 		logger.info("HardDiskFile Name is : " + m_hardDiskFileName + " HardDiskFile Path is : " + m_hardDiskFilePath);
 		// Initialize the harddisk File Instance
-		m_hardDiskFileInstance = new File(m_hardDiskFilePath + m_hardDiskFileName);
+		m_hardDiskFileInstance = new File(m_hardDiskFilePath + "/" + m_hardDiskFileName);
 		// Initialize a new harddisk file for writing or see if it already exists
 		try {
 			m_hardDiskFileExists = m_hardDiskFileInstance.createNewFile();
@@ -241,7 +241,7 @@ public class KVServer extends Thread {
 			returnMsg = handlePut(msg);
 			break;
 		case "get":
-			returnMsg = handleHelp(msg);
+			returnMsg = handleGet(msg);
 			break;
 		case "logLevel":
 			returnMsg = handleLogLevel(msg);
@@ -387,7 +387,7 @@ public class KVServer extends Thread {
 				// Set success message and end of this put-add operation
 				returnMsg = new common.messages.MessageType("put", "PUT_SUCCESS", Key, Value);
 			}
-		} else if (Value == null) {
+		} else if (Value.equals("null")) {
 			// this is a delete operation, so remove Key Value pair from map
 			this.m_hardDiskValueMap.remove(Key);
 			// Rewrite hard Disk file
@@ -676,7 +676,7 @@ public class KVServer extends Thread {
 					System.out.println("Usage: Server <int port> <int cacheSize> <string strategy: FIFO, LRU or LFU>! Please try again");
 					System.exit(0);
 				}
-				new KVServer(port, cacheSize, strategy).start();
+				new KVServer(port, cacheSize, strategy);
 			}
 		} catch (IOException e) {
 			System.out.println("Error! Unable to initialize logger!");
