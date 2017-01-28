@@ -56,10 +56,10 @@ public class ClientConnection implements Runnable {
 				try {
 					// Receive the KV Message from Client and check if it is valid
 					common.messages.KVMessage latestMsg = receiveMessage();
-					if (latestMsg.isValid()) {
+					if (latestMsg.validityCheck()) {
 						// If it is valid Handle the message by calling the function in KVServer
 						common.messages.KVMessage returnMsg = m_server.handleClientMessage(latestMsg);
-						if (returnMsg.isValid()) {
+						if (returnMsg.validityCheck()) {
 							// If returned KVMessage was valid send it back to the client
 							System.out.println("Last command from client " + latestMsg.getHeader() + " was Successful!");
 							sendMessage(returnMsg);

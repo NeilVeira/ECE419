@@ -62,12 +62,15 @@ public class KVServer extends Thread {
 	private BufferedReader m_hardDiskFileReader;
 
 	// Create three maps for cache and one map for harddisk file
-	// This map stores the cache key pairs with key, number
-	Map<String, Integer> m_cacheNumberMap;
 	// This map stores the cache key pairs with key, value
 	Map<String, String> m_cacheValueMap;
+	// This map stores the cache key  for FIFO
+	LinkedList<String> m_cacheFIFOList;
+	// This map stores the cache  LRU
+	LinkedList<String> m_cacheLRUList;
 	// This map stores the cache key pairs with key, times used for LFU
-	Map<String, Integer> m_cacheFrequencyMap;
+	Map<String, Integer> m_cacheLFUMap;
+
 	// This map stores the harddisk file key pairs with key, value
 	Map<String, String> m_hardDiskValueMap;
 
@@ -106,9 +109,10 @@ public class KVServer extends Thread {
 		// Initialize the maps for the server object
 		System.out.println("Initializing Server Maps");
 		logger.info("Initializing Server Maps");
-		this.m_cacheNumberMap = new HashMap<String, Integer>();
 		this.m_cacheValueMap = new HashMap<String, String>();
-		this.m_cacheFrequencyMap = new HashMap<String, Integer>();
+		this.m_cacheFIFOList = new LinkedList<String>();
+		this.m_cacheLRUList = new LinkedList<String>();
+		this.m_cacheLFUMap = new HashMap<String, Integer>();
 		this.m_hardDiskValueMap = new HashMap<String, String>();
 
 		// Initialize harddisk file information
@@ -428,9 +432,17 @@ public class KVServer extends Thread {
 	}
 	// This function is used to update the Cache Key Value Pair in case it was used
 	public boolean updateCacheHit(String key, String value) {
-		// When we call this function we don't know if Cache is already Full or if that key value pair already exists in it
+		// When we call this function we know Cache has the key value pair
 		System.out.println("Got Hit from Cache, Pair was Key: " + key + " Value: " + value);
 		logger.info("Got Hit from Cache, Pair was Key: " + key + " Value: " + value);
+		// Just need to increase the usage of this key pair by one for LFU
+		this.m_cacheLFUMap.put(key, this.m_cacheLFUMap.get(key) + 1 );
+		// Does not effect FIFO linked list
+		// Update LRU linked list by moving that pair to end of the list (We insert at end of list and remove the start of list)
+		int index = this.m_cacheLRUList.indexOf(key);
+		this.m_cacheLRUList.remove(index);
+		this.m_cacheLRUList.add(key);
+		// No change to current entries amount
 		return true;
 	}
 	// This function is used to delete key value pair from the cache
@@ -438,35 +450,96 @@ public class KVServer extends Thread {
 		// When we call this function we don't know if Cache has the Key Value Pair we want to delete
 		System.out.println("Deleting from Cache Key: " + key + " Value: " + value);
 		logger.info("Deleting from Cache Key: " + key + " Value: " + value);
-		
+		// remove the pair to all the other maps and lists we need
+		// remove value in cache value map
+		this.m_cacheValueMap.remove(key);
+		// remove value in cache LFU map
+		this.m_cacheLFUMap.remove(key);
+		// remove key in FIFO linked list
+		this.m_cacheFIFOList.removeFirstOccurrence(key);
+		// remove key in  LRU linked list
+		this.m_cacheLRUList.removeFirstOccurrence(key);
+		// decrease size of cache pairs by 1
+		this.m_currentCacheEntries = this.m_currentCacheEntries - 1;
 		return true;
+	}
+	// This function is used to add a new key value pair into the cache
+	public void addToCache(String key, String value) {
+		// add the pair to all the other maps and lists we need
+		// add value in cache value map
+		this.m_cacheValueMap.put(key, value);
+		// add value in cache LFU map, start the usage at 1
+		this.m_cacheLFUMap.put(key, 1);
+		// add key to end of FIFO linked list
+		this.m_cacheFIFOList.add(key);
+		// add key to end of LRU linked list
+		this.m_cacheLRUList.add(key);
+		// increase size of cache pairs by 1
+		this.m_currentCacheEntries = this.m_currentCacheEntries + 1;
 	}
 	// This function is used to put key value pair into the cache
 	public boolean insertIntoCache(String key, String value) {
 		// When we call this function we don't know if Cache is already Full or if that key value pair already exists in it
 		System.out.println("Inserting into Cache Key: " + key + " Value: " + value);
 		logger.info("Inserting into Cache Key: " + key + " Value: " + value);
+		// Check whether this is an update(already exist in cache) if so then we won't have to evict anything 
+		boolean isUpdate =this.m_cacheValueMap.containsKey(key);
+		if (isUpdate) {
+			// update value in cache value map
+			this.m_cacheValueMap.put(key, value);
+			// update as if we got a hit
+			boolean updateSuccess = this.updateCacheHit(key, value);
+			return updateSuccess;
+		}
+		// Not an update but adding new entry, Check whether the cache is full 
+		boolean cacheFull = this.m_currentCacheEntries > this.m_cacheSize;
+		if (cacheFull) {
+			boolean evictSuccess = false;
+			// do a switch statement from strategy and evict first according to one of them and then add to the cache
+			switch (this.m_strategy) {
+			case "FIFO": 
+				evictSuccess = evictFIFO();
+				break;
+			case "LRU":
+				evictSuccess = evictLRU();
+				break;
+			case "LFU":
+				evictSuccess = evictLFU();
+				break;
+			default:
+				evictSuccess = false;
+			}
+			if (!evictSuccess) {
+				return false;
+			}
+			this.addToCache(key,value);
+			return true;
+		} else {
+			// add the pair
+			this.addToCache(key, value);
+		}
 		return true;
 	}
 	// This function is used to evict a key value pair according to FIFO
-	public boolean evictFIFO(String key, String value) {
+	public boolean evictFIFO() {
 		// When we call this function we know Cache is already Full
-		System.out.println("Evicting using FIFO from Cache From inserting Key: " + key + " Value: " + value);
-		logger.info("Evicting using FIFO from Cache From inserting Key: " + key + " Value: " + value);
+		System.out.println("Evicting using FIFO from Cache");
+		logger.info("Evicting using FIFO from Cache");
+		
 		return true;
 	}
 	// This function is used to evict a key value pair according to LRU
-	public boolean evictLRU(String key, String value) {
+	public boolean evictLRU() {
 		// When we call this function we know Cache is already Full
-		System.out.println("Evicting using LRU from Cache From inserting Key: " + key + " Value: " + value);
-		logger.info("Evicting using LRU from Cache From inserting Key: " + key + " Value: " + value);
+		System.out.println("Evicting using LRU from Cache");
+		logger.info("Evicting using LRU from Cache");
 		return true;
 	}
 	// This function is used to evict a key value pair according to LFU
-	public boolean evictLFU(String key, String value) {
+	public boolean evictLFU() {
 		// When we call this function we know Cache is already Full
-		System.out.println("Evicting using LFU from Cache From inserting Key: " + key + " Value: " + value);
-		logger.info("Evicting using LFU from Cache From inserting Key: " + key + " Value: " + value);
+		System.out.println("Evicting using LFU from Cache");
+		logger.info("Evicting using LFU from Cache");
 		return true;
 	}
 	/**
