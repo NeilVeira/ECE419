@@ -15,54 +15,43 @@ public class TestKVMessage extends TestCase {
 	public void tearDown() {
 	}
 	
-	public void testQuitCorrect(){
-		MessageType message = new MessageType("quit", false);
-		assertTrue(message.isValid);
-		assertEquals("quit",message.getHeader());
-		assertEquals("quit",message.getMsg());
-	}
-	
-	public void testConnectCorrect(){
-		MessageType message = new MessageType("connect localhost 5000", false);
-		assertTrue(message.isValid);
-		assertEquals("connect",message.getHeader());
-		assertEquals("localhost",message.getKey());
-		assertEquals("5000",message.getValue());
-		assertEquals("connect localhost 5000",message.getMsg());
-	}
-	
-	public void testGetCorrect(){
-		MessageType message = new MessageType("get key", false);
-		assertTrue(message.isValid);
+	public void testConstructSimple(){
+		MessageType message = new MessageType("get"," ","key","value");
+		assertNull(message.error);
 		assertEquals("get",message.getHeader());
 		assertEquals("key",message.getKey());
-		assertEquals("get key",message.getMsg());
+		assertEquals("value",message.getValue());
+		assertEquals(message.getMsg(), "\"get\" \" \" \"key\" \"value\"");
 	}
 	
-	public void testPutCorrect(){
-		MessageType message = new MessageType("put key value1 value2     value3", false);
-		assertTrue(message.isValid);
-		assertEquals("put",message.getHeader());
-		assertEquals("key",message.getKey());
-		assertEquals("value1 value2 value3",message.getValue());
-		assertEquals("put key value1 value2 value3",message.getMsg());
-	}
-	
-	public void testPutInvalid(){
-		MessageType message = new MessageType("put key ", false);
-		assertFalse(message.isValid);
+	public void testConnectInvalid(){
+		MessageType message = new MessageType("connect","localhost","5000"," ");
 		assertEquals("Incorrect number of tokens for message put",message.error);
 	}
 	
-	public void testDisconnectInvalid(){
-		MessageType message = new MessageType("disconnect key ", false);
-		assertFalse(message.isValid);
+	public void testPutInvalid(){
+		MessageType message = new MessageType("put"," ","key"," ");
+		assertEquals("Incorrect number of tokens for message put",message.error);
+	}
+	
+	public void testSpacesAndQuotesInStrings(){
+		MessageType message = new MessageType("get"," ","this is the \"key\"","this is the\"\" value");
+		assertNull(message.error);
+		assertEquals("get",message.getHeader());
+		assertEquals("this is the \"key\"",message.getKey());
+		assertEquals("this is the\"\" value",message.getValue());
+		assertEquals(message.getMsg(), "\"get\" \" \" \"this is the \"\"key\"\"\" \"this is the\"\"\"\" value\"");
+	}
+	
+	//These test are out of date
+	/*public void testDisconnectInvalid(){
+		MessageType message = new MessageType("disconnect"," ","key", false);
 		assertEquals("Incorrect number of tokens for message disconnect",message.error);
 	}
 	
 	public void testConstructWithStatus(){
 		MessageType message = new MessageType("get GET_SUCCESS key1 value1", true);
-		assertTrue(message.isValid);
+		assertNull(message.error);
 		assertEquals("get",message.getHeader());
 		assertEquals("GET_SUCCESS",message.getStatus());
 		assertEquals("key1",message.getKey());
@@ -70,14 +59,13 @@ public class TestKVMessage extends TestCase {
 	}
 	
 	public void testConstructWithStatusInvalid(){
-		MessageType message = new MessageType("put PUT_SUCCESS key1 ", true);
-		assertFalse(message.isValid);
+		MessageType message = new MessageType("put","PUT_SUCCESS","key1"," ");
 		assertEquals("Incorrect number of tokens for message put",message.error);
 	}
 	
 	public void testConvertToBytes(){
-		MessageType message = new MessageType("get key1", false);
-		assertTrue(message.isValid);
+		MessageType message = new MessageType("get"," ","key1"," ");
+		assertNull(message.error);
 		byte[] bytes = message.getMsgBytes();
 		Assert.assertArrayEquals(new byte[]{103,101,116,32,107,101,121,49,10}, bytes);
 	}
@@ -85,7 +73,7 @@ public class TestKVMessage extends TestCase {
 	public void testConstructFromBytesClientToServer(){
 		byte[] bytes = new byte[]{103,101,116,32,107,101,121,49}; 
 		MessageType message = new MessageType(bytes, false);
-		assertTrue(message.isValid);
+		assertNull(message.error);
 		assertEquals("get",message.getHeader());
 		assertEquals("key1",message.getKey());
 		assertEquals("get key1",message.getMsg());
@@ -101,5 +89,5 @@ public class TestKVMessage extends TestCase {
 		assertEquals("value1",message.getValue());
 		assertEquals("get GET_SUCCESS key1 value1",message.getMsg());
 		
-	}
+	}*/
 }

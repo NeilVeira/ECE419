@@ -49,8 +49,15 @@ public class KVStore implements KVCommInterface {
 	}
 
 	@Override
-	public KVMessage put(String key, String value) throws Exception {		
-		MessageType request = new MessageType("put " + key + " " + value, false);
+	public KVMessage put(String key, String value) throws Exception {	
+		//empty fields not allowed with our communication protocol. Use space instead.
+		if (key.equals("")){
+			key = " ";
+		}
+		if (value.equals("")){
+			value = " ";
+		}
+		MessageType request = new MessageType("put"," ",key,value);
 		System.out.println("request: " + request.getMsg());
 		client.sendMessage(request);
 		//Wait for client thread to receive message from server
@@ -67,9 +74,12 @@ public class KVStore implements KVCommInterface {
 
 	@Override
 	public KVMessage get(String key) throws Exception {
-		MessageType request = new MessageType("get "+key, false);
+		//empty fields not allowed with our communication protocol. Use space instead.
+		if (key.equals("")){
+			key = " ";
+		}
+		MessageType request = new MessageType("get"," ",key," ");
 		System.out.println("request: " + request.getMsg());
-		//response = null;
 		client.sendMessage(request);	
 		//Wait for client thread to receive message from server
 		KVMessage response = client.getResponse();

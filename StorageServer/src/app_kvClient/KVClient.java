@@ -41,8 +41,6 @@ public class KVClient {
 	}
 
 	private void handleCommand(String cmdLine) {
-		//cmdLine = MessageType.doubleQuotes(cmdLine);
-		//System.out.println("New command: "+cmdLine);
 		//parse cmdLine by spaces	
 		String[] tokens = cmdLine.split("\\s+");
 		String header=" ", status=" ", key=" ", value=" ";
@@ -64,7 +62,6 @@ public class KVClient {
 			}
 		}
 		MessageType msg = new MessageType(header, status, key, value);
-		System.out.println("message: "+msg.getMsg());
 		
 		if (msg.error != null){
 			printError((msg.error));
