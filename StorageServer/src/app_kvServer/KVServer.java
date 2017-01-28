@@ -96,6 +96,7 @@ public class KVServer extends Thread {
 
 		// Initialize the private variables of the server object
 		System.out.println("Initializing Server Variables");
+		logger.info("Initializing Server Variables");
 		this.port = port;
 		this.m_cacheSize = cacheSize;
 		this.m_strategy = strategy;
@@ -104,6 +105,7 @@ public class KVServer extends Thread {
 
 		// Initialize the maps for the server object
 		System.out.println("Initializing Server Maps");
+		logger.info("Initializing Server Maps");
 		this.m_cacheNumberMap = new HashMap<String, Integer>();
 		this.m_cacheValueMap = new HashMap<String, String>();
 		this.m_cacheFrequencyMap = new HashMap<String, Integer>();
@@ -111,12 +113,14 @@ public class KVServer extends Thread {
 
 		// Initialize harddisk file information
 		System.out.println("Initializing Hard Disk File Variables");
+		logger.info("Initializing Hard Disk File Variables");
 		// Get where the program is running from (where the project is)
 		this.m_hardDiskFilePath = System.getProperty("user.dir");
 		// HardCode file name to be storage.txt
 		this.m_hardDiskFileName = "storage.txt";
 		// Output harddisk file location and name for debugging
 		System.out.println("HardDiskFile Name is : " + m_hardDiskFileName + " HardDiskFile Path is : " + m_hardDiskFilePath);
+		logger.info("HardDiskFile Name is : " + m_hardDiskFileName + " HardDiskFile Path is : " + m_hardDiskFilePath);
 		// Initialize the harddisk File Instance
 		m_hardDiskFileInstance = new File(m_hardDiskFilePath + m_hardDiskFileName);
 		// Initialize a new harddisk file for writing or see if it already exists
@@ -139,14 +143,16 @@ public class KVServer extends Thread {
 
 		// Start the server object
 		System.out.println("Starting Server");
+		logger.info("Starting Server");
 		this.start();
 	}
 
 	// This function is used to rewrite the harddisk file with the key value pairs from the harddisk map
 	// Returns boolean, true for success, false for failure
-	public boolean overwriteHardDiskFile() throws IOException {
+	public boolean overwriteHardDiskFile() {
 		try {
 			System.out.println("Starting to overwrite Hard disk File from Hard Disc Map");
+			logger.info("Starting to overwrite Hard disk File from Hard Disc Map");
 			// Initialize the file writer with our file
 			this.m_hardDiskFileWriter = new PrintWriter(this.m_hardDiskFileInstance);
 			int linesWritten = 0;
@@ -171,9 +177,10 @@ public class KVServer extends Thread {
 	}
 	// This function is used to repopulate the harddisk map with the key value pairs from the harddisk file
 	// Returns boolean, true for success, false for failure
-	public boolean repopulateHardDiskFile() throws IOException {
+	public boolean repopulateHardDiskMap() {
 		try {
 			System.out.println("Starting to repopulate Hard disk Map from Hard Disc File");
+			logger.info("Starting to repopulate Hard disk Map from Hard Disc File");
 			// Initialize the file reader with our file
 			this.m_hardDiskFileReader = new BufferedReader(new FileReader(this.m_hardDiskFileInstance));
 			String CurrentLine;
@@ -244,35 +251,47 @@ public class KVServer extends Thread {
 	// This function is used to handle a client connect request
 	public common.messages.KVMessage handleConnect(common.messages.KVMessage msg) {
 		System.out.println("Handling Connect, echo back nothing to do");
+		logger.info("Handling Connect, echo back nothing to do");
 		common.messages.KVMessage returnMsg = msg;
 		return returnMsg;
 	}
 	// This function is used to handle a client disconnect request
 	public common.messages.KVMessage handleDisconnect(common.messages.KVMessage msg) {
 		System.out.println("Handling Disconnect, echo back nothing to do");
+		logger.info("Handling Disconnect, echo back nothing to do");
 		common.messages.KVMessage returnMsg = msg;
 		return returnMsg;
 	}
 	// This function is used to handle a client log level change request
 	public common.messages.KVMessage handleLogLevel(common.messages.KVMessage msg) {
 		System.out.println("Handling Log Level");
-		String Header = msg.getHeader();
-		String Status = msg.getStatus();
+		logger.info("Handling Log Level");
 		String Key = msg.getKey();
 		String Value = msg.getValue();
-		
-		common.messages.KVMessage returnMsg = new common.messages.MessageType(" ", " ", " ", " ");
+		// Set the new log level
+		logger.setLevel(Level.toLevel(Value));
+		common.messages.KVMessage returnMsg = new common.messages.MessageType("logLevel", "success", " ", " ");
 		return returnMsg;
 	}
 	// This function is used to handle a client help message
 	public common.messages.KVMessage handleHelp(common.messages.KVMessage msg) {
 		System.out.println("Handling Help, echo back nothing to do");
+		logger.info("Handling Help, echo back nothing to do");
 		common.messages.KVMessage returnMsg = msg; ;
 		return returnMsg;
 	}
 	// This function is used to handle a client quit message
 	public common.messages.KVMessage handleQuit(common.messages.KVMessage msg) {
 		System.out.println("Handling Quit");
+		logger.info("Handling Quit");
+		common.messages.KVMessage returnMsg = new common.messages.MessageType("quit", "success", " ", " ");
+		// Should be handled in ClientConnection to terminate that socket only
+		return returnMsg;
+	}
+	// This function is used to handle a client get request
+	public common.messages.KVMessage handleGet(common.messages.KVMessage msg) {
+		System.out.println("Handling Get");
+		logger.info("Handling Get");
 		String Header = msg.getHeader();
 		String Status = msg.getStatus();
 		String Key = msg.getKey();
@@ -284,47 +303,115 @@ public class KVServer extends Thread {
 	// This function is used to handle a client put request
 	public common.messages.KVMessage handlePut(common.messages.KVMessage msg) {
 		System.out.println("Handling Put");
-		String Header = msg.getHeader();
-		String Status = msg.getStatus();
+		logger.info("Handling Put");
 		String Key = msg.getKey();
 		String Value = msg.getValue();
-		
-		common.messages.KVMessage returnMsg = new common.messages.MessageType(" ", " ", " ", " ");
+		common.messages.KVMessage returnMsg = null;
+		// first load the hard disk file into our map
+		boolean success = this.repopulateHardDiskMap();
+		if (!success) {
+			// If for some reason the load failed then return failure message
+			returnMsg = new common.messages.MessageType("put", "PUT_ERROR", Key, Value);
+			return returnMsg;
+		}
+		// Decide whether it is a update, delete or add
+		if (!this.m_hardDiskValueMap.containsKey(Key)) {
+			// This is an add operation, so add Key Value pair into map
+			this.m_hardDiskValueMap.put(Key, Value);
+			// Rewrite hard Disk file
+			success = this.overwriteHardDiskFile();
+			if (!success) {
+				// If for some reason the rewrite failed then return failure message
+				returnMsg = new common.messages.MessageType("put", "PUT_ERROR", Key, Value);
+				return returnMsg;
+			}
+			// Now try to put the Key/Value pair into the Cache
+			success = this.insertIntoCache(Key, Value);
+			if (!success) {
+				// If for some reason the writing to cache failed then return failure message
+				returnMsg = new common.messages.MessageType("put", "PUT_ERROR", Key, Value);
+				return returnMsg;
+			} else {
+				// Set success message and end of this put-add operation
+				returnMsg = new common.messages.MessageType("put", "PUT_SUCCESS", Key, Value);
+			}
+		} else if (Value == null) {
+			// this is a delete operation, so remove Key Value pair from map
+			this.m_hardDiskValueMap.remove(Key);
+			// Rewrite hard Disk file
+			success = this.overwriteHardDiskFile();
+			if (!success) {
+				// If for some reason the rewrite failed then return failure message
+				returnMsg = new common.messages.MessageType("put", "DELETE_ERROR", Key, Value);
+				return returnMsg;
+			}
+			// Need to Delete the Key/Value pair if it is in the cache as well
+			success = this.deleteFromCache(Key, Value);
+			if (!success) {
+				// If for some reason the deleting from the cache failed then return failure message
+				returnMsg = new common.messages.MessageType("put", "DELETE_ERROR", Key, Value);
+				return returnMsg;
+			} else {
+				// Set success message and end of this put-add operation
+				returnMsg = new common.messages.MessageType("put", "DELETE_SUCCESS", Key, Value);
+			}
+		} else {
+			// this is a update operation, so update the Key value Pair, put will update the original pair, or create one if it doesn't exist
+			this.m_hardDiskValueMap.put(Key, Value);
+			// Rewrite hard Disk file
+			success = this.overwriteHardDiskFile();
+			if (!success) {
+				// If for some reason the rewrite failed then return failure message
+				returnMsg = new common.messages.MessageType("put", "PUT_ERROR", Key, Value);
+				return returnMsg;
+			}
+			// Need to get cache to use the new Key/Value pair if it is in the cache as well
+			success = this.insertIntoCache(Key, Value);
+			if (!success) {
+				// If for some reason the writing to cache failed then return failure message
+				returnMsg = new common.messages.MessageType("put", "PUT_ERROR", Key, Value);
+				return returnMsg;
+			} else {
+				// Set success message and end of this put-add operation
+				returnMsg = new common.messages.MessageType("put", "PUT_UPDATE", Key, Value);
+			}
+		}
 		return returnMsg;
 	}
-	// This function is used to handle a client get request
-	public common.messages.KVMessage handleGet(common.messages.KVMessage msg) {
-		System.out.println("Handling Get");
-		String Header = msg.getHeader();
-		String Status = msg.getStatus();
-		String Key = msg.getKey();
-		String Value = msg.getValue();
+	// This function is used to delete key value pair from the cache
+	public boolean deleteFromCache(String key, String value) {
+		// When we call this function we don't know if Cache has the Key Value Pair we want to delete
+		System.out.println("Deleting from Cache Key: " + key + " Value: " + value);
+		logger.info("Deleting from Cache Key: " + key + " Value: " + value);
 		
-		common.messages.KVMessage returnMsg = new common.messages.MessageType(" ", " ", " ", " ");
-		return returnMsg;
+		return true;
 	}
 	// This function is used to put key value pair into the cache
 	public boolean insertIntoCache(String key, String value) {
-		// When we call this function we know Cache is already Full
+		// When we call this function we don't know if Cache is already Full or if that key value pair already exists in it
 		System.out.println("Inserting into Cache Key: " + key + " Value: " + value);
+		logger.info("Inserting into Cache Key: " + key + " Value: " + value);
 		return true;
 	}
 	// This function is used to evict a key value pair according to FIFO
 	public boolean evictFIFO(String key, String value) {
 		// When we call this function we know Cache is already Full
 		System.out.println("Evicting using FIFO from Cache From inserting Key: " + key + " Value: " + value);
+		logger.info("Evicting using FIFO from Cache From inserting Key: " + key + " Value: " + value);
 		return true;
 	}
 	// This function is used to evict a key value pair according to LRU
 	public boolean evictLRU(String key, String value) {
 		// When we call this function we know Cache is already Full
 		System.out.println("Evicting using LRU from Cache From inserting Key: " + key + " Value: " + value);
+		logger.info("Evicting using LRU from Cache From inserting Key: " + key + " Value: " + value);
 		return true;
 	}
 	// This function is used to evict a key value pair according to LFU
 	public boolean evictLFU(String key, String value) {
 		// When we call this function we know Cache is already Full
 		System.out.println("Evicting using LFU from Cache From inserting Key: " + key + " Value: " + value);
+		logger.info("Evicting using LFU from Cache From inserting Key: " + key + " Value: " + value);
 		return true;
 	}
 	/**
