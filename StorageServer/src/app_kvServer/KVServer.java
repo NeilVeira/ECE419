@@ -163,9 +163,9 @@ public class KVServer extends Thread {
 			// Iterate through all pairs of hard disk map
 			for ( Map.Entry<String, String> iteratorDummy : this.m_hardDiskValueMap.entrySet()) {
 				// For each key/value pair, print it and write it to the hard disc File as key first then value each on its own line
-				System.out.println("Inserting Key: " + iteratorDummy.getKey());
+				//System.out.println("Inserting Key: " + iteratorDummy.getKey());
 				this.m_hardDiskFileWriter.println(iteratorDummy.getKey());
-				System.out.println("Inserting Value: " + iteratorDummy.getValue());
+				//System.out.println("Inserting Value: " + iteratorDummy.getValue());
 				this.m_hardDiskFileWriter.println(iteratorDummy.getValue());
 				linesWritten = linesWritten + 2;
 			}
@@ -196,11 +196,11 @@ public class KVServer extends Thread {
 				// For each line read, print it and add it to the hard disc map as key first then value
 				if (counter % 2 == 0) {
 					// If counter is even the line is a key
-					System.out.println("Key is: " + CurrentLine);
+					//System.out.println("Key is: " + CurrentLine);
 					Key = CurrentLine;
 				} else {
 					// If counter is odd the line is a value and add it to the map
-					System.out.println("Value is: " + CurrentLine);
+					//System.out.println("Value is: " + CurrentLine);
 					Value = CurrentLine;
 					this.m_hardDiskValueMap.put(Key, Value);
 				}

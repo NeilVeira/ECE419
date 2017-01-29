@@ -12,7 +12,7 @@ import junit.framework.TestCase;
 
 public class ConnectionTest extends TestCase {
 	
-	
+	// Tests if successful connection can occur
 	public void testConnectionSuccess() {
 		Exception ex = null;
 		
@@ -25,7 +25,7 @@ public class ConnectionTest extends TestCase {
 		assertNull(ex);
 	}
 
-	
+	// Tests for multiple connections to different ports
 	public void testConnectionMultiple() {
 		for (int i = 50001; i < 51000; i++) {
 			Exception ex = null;
@@ -46,7 +46,7 @@ public class ConnectionTest extends TestCase {
 		}
 	}
 	
-	
+	// Tries to connect to unknown host, should raise exception
 	public void testUnknownHost() {
 		Exception ex = null;
 		KVStore kvClient = new KVStore("unknown", 50000);
@@ -60,7 +60,7 @@ public class ConnectionTest extends TestCase {
 		assertTrue(ex instanceof UnknownHostException);
 	}
 	
-	
+	// Tries to connect to a port out of range
 	public void testIllegalPort() {
 		Exception ex = null;
 		KVStore kvClient = new KVStore("localhost", 123456789);
@@ -74,6 +74,7 @@ public class ConnectionTest extends TestCase {
 		assertTrue(ex instanceof IllegalArgumentException);
 	}
 
+	// Tries to connect to a port out of range (negative number)
 	public void testIllegalPortNegative() {
 		Exception ex = null;
 		KVStore kvClient = new KVStore("localhost", -1);
