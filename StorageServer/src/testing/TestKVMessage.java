@@ -59,7 +59,6 @@ public class TestKVMessage extends TestCase {
 		assertEquals("",message.getStatus());
 		assertEquals("key",message.getKey());
 		assertEquals("value",message.getValue());
-		assertEquals("\"get\" \" \" \"key\" \"value\"",message.getMsg());
-		
+		assertEquals("\"get\" \" \" \"key\" \"value\"",message.getMsg());	
 	}
 }

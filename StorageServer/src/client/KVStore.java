@@ -37,8 +37,8 @@ public class KVStore implements KVCommInterface {
 		//wait for "connection successful" response
 		KVMessage response = client.getResponse();
 		if (response != null){
-			client.logInfo("response: "+response.getMsg());
-			System.out.println("response: "+response.getMsg());
+			client.logInfo("KVStore: received response "+response.getMsg());
+			System.out.println("KVStore: received response "+response.getMsg());
 		}
 	}
 
@@ -60,18 +60,22 @@ public class KVStore implements KVCommInterface {
 			value = " ";
 		}
 		MessageType request = new MessageType("put"," ",key,value);
-		System.out.println("request: " + request.getMsg());
+		if (request.error != null){
+			throw new Exception(request.error);
+		}
+		
+		//System.out.println("request: " + request.getMsg());
 		client.sendMessage(request);
 		//Wait for client thread to receive message from server
 		KVMessage response = client.getResponse();
 		
 		if (response != null){
-			client.logInfo("response: "+response.getMsg());
-			System.out.println("response: "+response.getMsg());
+			client.logInfo("KVStore: received response  "+response.getMsg());
+			System.out.println("KVStore: received response  "+response.getMsg());
 		}
 		else{
-			client.logInfo("no response received");
-			System.out.println("no response received");
+			client.logInfo("KVStore: no response received");
+			System.out.println("KVStore: no response received");
 		}
 		return response;
 	}
@@ -83,18 +87,21 @@ public class KVStore implements KVCommInterface {
 			key = " ";
 		}
 		MessageType request = new MessageType("get"," ",key," ");
-		System.out.println("request: " + request.getMsg());
+		if (request.error != null){
+			throw new Exception(request.error);
+		}
+		
+		//System.out.println("request: " + request.getMsg());
 		client.sendMessage(request);	
 		//Wait for client thread to receive message from server
 		KVMessage response = client.getResponse();
-		
 		if (response != null){
-			client.logInfo("response: "+response.getMsg());
-			System.out.println("response: "+response.getMsg());
+			client.logInfo("KVStore: received response  "+response.getMsg());
+			System.out.println("KVStore: received response  "+response.getMsg());
 		}
 		else{
-			client.logInfo("no response received");
-			System.out.println("no response received");
+			client.logInfo("KVStore: no response received");
+			System.out.println("KVStore: no response received");
 		}
 		return response;
 	}
