@@ -56,7 +56,6 @@ public class Client {
 	public KVMessage getResponse(){
 		KVMessage response = null;
 		if (isRunning()) {
-			System.out.println("Tryinng to get response");
 			try {
 				response = receiveMessage();
 				

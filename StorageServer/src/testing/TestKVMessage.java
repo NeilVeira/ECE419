@@ -26,6 +26,7 @@ public class TestKVMessage extends TestCase {
 	
 	public void testDisconnectInvalid(){
 		MessageType message = new MessageType("disconnect","localhost","5000"," ");
+		// TODO: fix this test
 		assertEquals("Key and value must be empty for message disconnect",message.error);
 	}
 	
