@@ -200,7 +200,6 @@ public class MessageType implements KVMessage {
 	{
 		switch (header) {
 		case "connect": 
-			break;
 		case "put":
 			//use IP address and port as key & value
 			if (key.trim().equals("") || value.trim().equals("")){
@@ -219,9 +218,7 @@ public class MessageType implements KVMessage {
 			}
 			break;
 		case "disconnect":
-			break;
 		case "help":
-			break;
 		case "quit":
 			if (!key.trim().equals("") || !value.trim().equals("")){
 				return "Key and value must be empty for message "+header;
@@ -229,6 +226,10 @@ public class MessageType implements KVMessage {
 			break;
 		default:
 			return "Unknown command";
+		}
+		
+		if (key.length() > 20){
+			return "Key must not be longer than 20 bytes";
 		}
 		return null; 
 	}

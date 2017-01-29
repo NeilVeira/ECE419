@@ -55,13 +55,11 @@ public class TestKVMessage extends TestCase {
 	public void testConstructFromBytesServerToClient(){
 		byte[] bytes = new byte[]{34,112,117,116,34,32,34,32,34,32,34,107,101,121,34,32,34,118,97,108,117,101,34,10};
 		MessageType message = new MessageType(bytes);
-		// TODO: fix this test
-		assertTrue(message.isValid);
-		assertEquals("get",message.getHeader());
-		assertEquals("",message.getStatus());
+		assertNull(message.error);
+		assertEquals("put",message.getHeader());
+		assertEquals(" ",message.getStatus());
 		assertEquals("key",message.getKey());
 		assertEquals("value",message.getValue());
-		assertEquals("\"get\" \" \" \"key\" \"value\"",message.getMsg());
-		
+		assertEquals("\"put\" \" \" \"key\" \"value\"",message.getMsg());	
 	}
 }
