@@ -42,8 +42,32 @@ public class KVClient {
 
 	public void handleCommand(String cmdLine) {
 		//parse cmdLine by spaces	
-		String[] tokens = cmdLine.split("\\s+"); //"\\s" doesn't work. Incorrectly parses strings like "get   key" because of additional spaces.
+		
+		// Parses the input this way so we allow multiple spaces between command and key and value. AKA "  put   foo   bar 1 2 3 " is equivalent to "put foo bar 1 2 3 "
 		String header=" ", status=" ", key=" ", value=" ";
+		cmdLine = cmdLine.replaceAll("^\\s+", "");
+		if(cmdLine.indexOf(' ') > -1) {
+			header = cmdLine.substring(0, cmdLine.indexOf(' '));
+			String sub0 = cmdLine.substring(cmdLine.indexOf(' ')+1);
+			sub0 = sub0.replaceAll("^\\s+", "");
+			if(sub0.indexOf(' ') > -1) {
+				key = sub0.substring(0, sub0.indexOf(' '));
+				value = sub0.substring(sub0.indexOf(' ')+1);
+				value = value.replaceAll("^\\s+", "");
+			} else {
+				key = sub0.trim();
+			}
+		} else {
+			header = cmdLine.trim();
+		}
+		
+		//System.out.println(header);
+		//System.out.println(key);
+		//System.out.println(value);
+		
+		// Old method for handling command input
+		/*String[] tokens = cmdLine.split("\\s+"); //"\\s" doesn't work. Incorrectly parses strings like "get   key" because of additional spaces.
+		
 		if (tokens.length >= 1){
 			header = tokens[0].trim();
 		}
@@ -58,7 +82,7 @@ public class KVClient {
 				if (i < tokens.length-1) 
 					value += " ";
 			}
-		}
+		}*/
 
 		MessageType msg = new MessageType(header, status, key, value);
 		
