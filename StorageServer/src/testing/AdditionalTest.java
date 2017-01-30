@@ -46,7 +46,7 @@ public class AdditionalTest extends TestCase {
 
 		assertNull(ex);
 	}
-
+	
 	// Tries puts and gets within the cache size
 	public void testPutGetSmall() {
 		Exception ex = null;
@@ -75,7 +75,7 @@ public class AdditionalTest extends TestCase {
 			assertTrue("GET_SUCCESS".contains(response.getStatus()));
 		}
 	}
-
+	
 	// Tries puts and gets larger than the cache size
 	public void testPutGetLarge() {
 		Exception ex = null;
@@ -171,7 +171,7 @@ public class AdditionalTest extends TestCase {
 		for(int i = 0; i < 800; i++) {			
 
 			try {
-				response = kvClient.put(String.valueOf(i), String.valueOf(Math.random()));
+				response = kvClient.put(String.valueOf(((int)(Math.random()*500)%10)), String.valueOf(Math.random()));
 			} catch (Exception e) {
 				ex = e;
 			}
@@ -182,7 +182,7 @@ public class AdditionalTest extends TestCase {
 		for(int i = 0; i < 200; i++) {			
 
 			try {
-				response = kvClient.get(String.valueOf(i));
+				response = kvClient.get(String.valueOf(((int)(Math.random()*500)%10)));
 			} catch (Exception e) {
 				ex = e;
 			}
@@ -200,7 +200,7 @@ public class AdditionalTest extends TestCase {
 		for(int i = 0; i < 500; i++) {			
 
 			try {
-				response = kvClient.put(String.valueOf(i), String.valueOf(Math.random()));
+				response = kvClient.put(String.valueOf(((int)(Math.random()*500)%10)), String.valueOf(Math.random()));
 			} catch (Exception e) {
 				ex = e;
 			}
@@ -211,7 +211,7 @@ public class AdditionalTest extends TestCase {
 		for(int i = 0; i < 500; i++) {			
 
 			try {
-				response = kvClient.get(String.valueOf(i));
+				response = kvClient.get(String.valueOf(((int)(Math.random()*500)%10)));
 			} catch (Exception e) {
 				ex = e;
 			}
@@ -229,7 +229,7 @@ public class AdditionalTest extends TestCase {
 		for(int i = 0; i < 200; i++) {			
 
 			try {
-				response = kvClient.put(String.valueOf(i), String.valueOf(Math.random()));
+				response = kvClient.put(String.valueOf(((int)(Math.random()*500)%10)), String.valueOf(Math.random()));
 			} catch (Exception e) {
 				ex = e;
 			}
@@ -240,7 +240,7 @@ public class AdditionalTest extends TestCase {
 		for(int i = 0; i < 800; i++) {			
 
 			try {
-				response = kvClient.get(String.valueOf(i));
+				response = kvClient.get(String.valueOf(((int)(Math.random()*500)%10)));
 			} catch (Exception e) {
 				ex = e;
 			}
