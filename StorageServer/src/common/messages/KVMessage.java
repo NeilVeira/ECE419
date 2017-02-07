@@ -1,6 +1,9 @@
 package common.messages;
 
 public interface KVMessage {
+	public String originalMsg=null;
+	public boolean isValid=false;
+	public String error=null;
 	
 	public enum StatusType {
 		GET, 			/* Get - request */
@@ -30,8 +33,32 @@ public interface KVMessage {
 	 * @return a status string that is used to identify request types, 
 	 * response types and error types associated to the message.
 	 */
-	public StatusType getStatus();
+	public String getStatus();
+	
+	public void setStatus(String status);
+	
+	/**
+	 * 
+	 * @return a header string that is used to identify the message type
+	 */
+	public String getHeader();
+	
+	public String getMsg();
+	
+	/**
+	 * Returns an array of bytes that represent the ASCII coded message content.
+	 */
+	public byte[] getMsgBytes();
+	
+	/**
+	 * Check that the message is valid, i.e. all the required fields are non-empty
+	 * @return a string with the error message, or null if there are no errors
+	 */
+	public String validityCheck(); 
 	
 }
+
+
+
 
 

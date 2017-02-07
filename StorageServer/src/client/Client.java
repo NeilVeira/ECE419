@@ -10,12 +10,15 @@ import java.util.Set;
 
 import org.apache.log4j.Logger;
 
-import client.ClientSocketListener.SocketStatus;
+import client.KVCommInterface;
+import client.KVCommInterface.SocketStatus;
+import common.messages.KVMessage;
+import common.messages.MessageType;
 
-public class Client extends Thread {
+public class Client {
 
 	private Logger logger = Logger.getRootLogger();
-	private Set<ClientSocketListener> listeners;
+	private Set<KVCommInterface> listeners;
 	private boolean running;
 	
 	private Socket clientSocket;
@@ -28,51 +31,47 @@ public class Client extends Thread {
 	
 	public Client(String address, int port) 
 			throws UnknownHostException, IOException {
-		
+
 		clientSocket = new Socket(address, port);
-		listeners = new HashSet<ClientSocketListener>();
+		listeners = new HashSet<KVCommInterface>();
 		setRunning(true);
 		logger.info("Connection established");
+		output = clientSocket.getOutputStream();
+		input = clientSocket.getInputStream();
 	}
 	
-	/**
-	 * Initializes and starts the client connection. 
-	 * Loops until the connection is closed or aborted by the client.
-	 */
-	public void run() {
-		try {
-			output = clientSocket.getOutputStream();
-			input = clientSocket.getInputStream();
-			
-			while(isRunning()) {
-				try {
-					TextMessage latestMsg = receiveMessage();
-					for(ClientSocketListener listener : listeners) {
-						listener.handleNewMessage(latestMsg);
+	
+	// Use client.logInfo("asdf") to log information
+	public void logInfo(String input){
+		logger.info(input);
+		return;
+	}
+	
+	// Use client.logError("asdf") to log errors
+	public void logError(String input){
+		logger.error(input);
+		return;
+	}
+	
+	public KVMessage getResponse(){
+		KVMessage response = null;
+		if (isRunning()) {
+			try {
+				response = receiveMessage();
+				
+			} catch (IOException ioe) {
+				if(isRunning()) {
+					System.out.println("Error:> "+ioe.getMessage());
+					logger.error("Connection lost!");
+					try {
+						tearDownConnection();
+					} catch (IOException e) {
+						logger.error("Unable to close connection!");
 					}
-				} catch (IOException ioe) {
-					if(isRunning()) {
-						logger.error("Connection lost!");
-						try {
-							tearDownConnection();
-							for(ClientSocketListener listener : listeners) {
-								listener.handleStatus(
-										SocketStatus.CONNECTION_LOST);
-							}
-						} catch (IOException e) {
-							logger.error("Unable to close connection!");
-						}
-					}
-				}				
-			}
-		} catch (IOException ioe) {
-			logger.error("Connection could not be established!");
-			
-		} finally {
-			if(isRunning()) {
-				closeConnection();
-			}
+				}
+			}				
 		}
+		return response;
 	}
 	
 	public synchronized void closeConnection() {
@@ -80,9 +79,6 @@ public class Client extends Thread {
 		
 		try {
 			tearDownConnection();
-			for(ClientSocketListener listener : listeners) {
-				listener.handleStatus(SocketStatus.DISCONNECTED);
-			}
 		} catch (IOException ioe) {
 			logger.error("Unable to close connection!");
 		}
@@ -92,8 +88,8 @@ public class Client extends Thread {
 		setRunning(false);
 		logger.info("tearing down the connection ...");
 		if (clientSocket != null) {
-			//input.close();
-			//output.close();
+			input.close();
+			output.close();
 			clientSocket.close();
 			clientSocket = null;
 			logger.info("connection closed!");
@@ -108,16 +104,17 @@ public class Client extends Thread {
 		running = run;
 	}
 	
-	public void addListener(ClientSocketListener listener){
+	public void addListener(KVCommInterface listener){
 		listeners.add(listener);
 	}
 	
 	/**
-	 * Method sends a TextMessage using this socket.
+	 * Method sends a KVMessage using this socket.
 	 * @param msg the message that is to be sent.
 	 * @throws IOException some I/O error regarding the output stream 
 	 */
-	public void sendMessage(TextMessage msg) throws IOException {
+	public void sendMessage(KVMessage msg) throws IOException {
+		System.out.println("sending "+msg.getMsg());
 		byte[] msgBytes = msg.getMsgBytes();
 		output.write(msgBytes, 0, msgBytes.length);
 		output.flush();
@@ -125,8 +122,8 @@ public class Client extends Thread {
     }
 	
 	
-	private TextMessage receiveMessage() throws IOException {
-		
+	private KVMessage receiveMessage() throws IOException {
+		//TODO: implement FAILED handling from server
 		int index = 0;
 		byte[] msgBytes = null, tmp = null;
 		byte[] bufferBytes = new byte[BUFFER_SIZE];
@@ -135,7 +132,7 @@ public class Client extends Thread {
 		byte read = (byte) input.read();	
 		boolean reading = true;
 		
-		while(read != 13 && reading) {/* carriage return */
+		while(read != 10 && reading) {/* carriage return */
 			/* if buffer filled, copy to msg array */
 			if(index == BUFFER_SIZE) {
 				if(msgBytes == null){
@@ -180,7 +177,14 @@ public class Client extends Thread {
 		msgBytes = tmp;
 		
 		/* build final String */
-		TextMessage msg = new TextMessage(msgBytes);
+		MessageType msg = new MessageType(msgBytes); //reply from server should include status
+		if (msg.error != null){
+			logger.error("Received invalid message from server: "+msg.originalMsg);
+			logger.error(msg.error);
+			System.out.println("Received invalid message from server: "+msg.originalMsg);
+			System.out.println(msg.error);
+		}
+		System.out.println("Receive message:\t '" + msg.getMsg() + "'");
 		logger.info("Receive message:\t '" + msg.getMsg() + "'");
 		return msg;
     }

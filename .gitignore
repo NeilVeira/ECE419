@@ -1,0 +1,6 @@
+StorageServer/bin/*
+StorageServer/*.MF
+StorageServer/*.jar
+StorageServer/logs/*
+.metadata
+

@@ -24,7 +24,7 @@ public class InteractionTest extends TestCase {
 		kvClient.disconnect();
 	}
 	
-	
+	// Tests the put function
 	@Test
 	public void testPut() {
 		String key = "foo";
@@ -38,9 +38,12 @@ public class InteractionTest extends TestCase {
 			ex = e;
 		}
 
-		assertTrue(ex == null && response.getStatus() == StatusType.PUT_SUCCESS);
+		assertNull(ex);
+		assertTrue("PUT_UPDATE PUT_SUCCESS".contains(response.getStatus()));
+		//assertEquals(response.getStatus(),"PUT_SUCCESS");
 	}
 	
+	// Tests put when client is disconnected, should raise exception
 	@Test
 	public void testPutDisconnected() {
 		kvClient.disconnect();
@@ -57,6 +60,7 @@ public class InteractionTest extends TestCase {
 		assertNotNull(ex);
 	}
 
+	// Tests put on an already stored value, should return PUT_UPDATE
 	@Test
 	public void testUpdate() {
 		String key = "updateTestValue";
@@ -74,10 +78,12 @@ public class InteractionTest extends TestCase {
 			ex = e;
 		}
 
-		assertTrue(ex == null && response.getStatus() == StatusType.PUT_UPDATE
-				&& response.getValue().equals(updatedValue));
+		assertNull(ex);
+		assertEquals(response.getStatus(),"PUT_UPDATE");
+		assertEquals(response.getValue(), updatedValue);
 	}
 	
+	// Puts using the value "null" should result in a delete
 	@Test
 	public void testDelete() {
 		String key = "deleteTestValue";
@@ -94,9 +100,11 @@ public class InteractionTest extends TestCase {
 			ex = e;
 		}
 
-		assertTrue(ex == null && response.getStatus() == StatusType.DELETE_SUCCESS);
+		assertNull(ex);
+		assertEquals(response.getStatus(), "DELETE_SUCCESS");
 	}
 	
+	// Tests the get function
 	@Test
 	public void testGet() {
 		String key = "foo";
@@ -111,9 +119,11 @@ public class InteractionTest extends TestCase {
 				ex = e;
 			}
 		
-		assertTrue(ex == null && response.getValue().equals("bar"));
+		assertNull(ex);
+		assertEquals(response.getValue(), "bar");
 	}
 
+	// Tests get on an unset value
 	@Test
 	public void testGetUnsetValue() {
 		String key = "an unset value";
@@ -126,7 +136,8 @@ public class InteractionTest extends TestCase {
 			ex = e;
 		}
 
-		assertTrue(ex == null && response.getStatus() == StatusType.GET_ERROR);
+		assertNull(ex);
+		assertEquals(response.getStatus(), "GET_ERROR");
 	}
 	
 
