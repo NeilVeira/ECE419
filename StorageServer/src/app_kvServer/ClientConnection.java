@@ -47,7 +47,7 @@ public class ClientConnection implements Runnable {
 			output = clientSocket.getOutputStream();
 			input = clientSocket.getInputStream();
 		// send initial message on connect
-			sendMessage(new common.messages.MessageType("connect", "CONNECT_SUCCESS", " ", " "));
+			sendMessage(new common.messages.MessageType("connect", "CONNECT_SUCCESS", "key", "value")); //key & value must not be empty for connect message
 		
 			while(isOpen) {
 				try {

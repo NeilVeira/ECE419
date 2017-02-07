@@ -181,10 +181,7 @@ public class Client {
 		if (msg.error != null){
 			logger.error("Received invalid message from server: "+msg.originalMsg);
 			logger.error(msg.error);
-			System.out.println("Received invalid message from server: "+msg.originalMsg);
-			System.out.println(msg.error);
 		}
-		System.out.println("Receive message:\t '" + msg.getMsg() + "'");
 		logger.info("Receive message:\t '" + msg.getMsg() + "'");
 		return msg;
     }
