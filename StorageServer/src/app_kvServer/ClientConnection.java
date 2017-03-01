@@ -110,16 +110,6 @@ public class ClientConnection implements Runnable {
 				+ clientSocket.getPort() + ">: '" 
 				+ msg.getMsg() +"'");
     }
-	// perserve text message interface
-	public void sendMessage(TextMessage msg) throws IOException {
-		byte[] msgBytes = msg.getMsgBytes();
-		output.write(msgBytes, 0, msgBytes.length);
-		output.flush();
-		logger.info("SEND \t<" 
-				+ clientSocket.getInetAddress().getHostAddress() + ":" 
-				+ clientSocket.getPort() + ">: '" 
-				+ msg.getMsg() +"'");
-    }
 	
 	// Modified to return to me a KV message
 	private common.messages.KVMessage receiveMessage() throws IOException {
