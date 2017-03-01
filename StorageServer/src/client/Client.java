@@ -7,6 +7,7 @@ import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.HashSet;
 import java.util.Set;
+import java.net.SocketTimeoutException;
 
 import org.apache.log4j.Logger;
 
@@ -33,6 +34,7 @@ public class Client {
 			throws UnknownHostException, IOException {
 
 		clientSocket = new Socket(address, port);
+		clientSocket.setSoTimeout(1000);
 		listeners = new HashSet<KVCommInterface>();
 		setRunning(true);
 		logger.info("Connection established");
