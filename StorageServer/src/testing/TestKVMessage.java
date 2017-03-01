@@ -62,4 +62,13 @@ public class TestKVMessage extends TestCase {
 		assertEquals("value",message.getValue());
 		assertEquals("\"put\" \" \" \"key\" \"value\"",message.getMsg());	
 	}
+	
+	public void testParseWithQuotesComplex(){
+		MessageType message = new MessageType(" "," "," "," ");
+		message.parse("\"put\" \" \" \"key\" \"\"\"a\"\"\"\"bc\"\"\"");
+		assertEquals("put",message.getHeader());
+		assertEquals(" ",message.getStatus());
+		assertEquals("key",message.getKey());
+		assertEquals("\"a\"\"bc\"", message.getValue());
+	}
 }

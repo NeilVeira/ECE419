@@ -17,7 +17,7 @@ public class AdditionalTest extends TestCase {
 	private KVStore kvClient;
 
 	public void setUp() {
-		kvClient = new KVStore("localhost", 50000);
+		kvClient = new KVStore("localhost", 50001);
 		try {
 			kvClient.connect();
 		} catch (Exception e) {
@@ -47,7 +47,34 @@ public class AdditionalTest extends TestCase {
 		assertNull(ex);
 	}
 	
-	// Tries puts and gets within the cache size
+	public void testQuoteInValue(){
+		KVMessage response = null;
+		Exception ex = null;
+		
+		//write value with quotes
+		try{
+			response = kvClient.put("key", "\"a\"\"bc\"");
+		}
+		catch (Exception e) {
+			ex = e;
+		}
+		assertNull(ex);
+		//could be update or success depending on whether the test has been run before
+		assertTrue(response.getStatus().equals("PUT_UPDATE")|| response.getStatus().equals("PUT_SUCCESS")); 
+		
+		//read value back
+		try{
+			response = kvClient.get("key");
+		}
+		catch (Exception e) {
+			ex = e;
+		}
+		assertNull(ex);
+		assertEquals(response.getStatus(),"GET_SUCCESS"); 
+		assertEquals(response.getValue(), "\"a\"\"bc\"");
+	}
+	
+	/*// Tries puts and gets within the cache size
 	public void testPutGetSmall() {
 		Exception ex = null;
 		KVMessage response = null;
@@ -248,5 +275,5 @@ public class AdditionalTest extends TestCase {
 			assertNull(ex);
 			assertTrue("GET_SUCCESS".contains(response.getStatus()));
 		}
-	}
+	}*/
 }

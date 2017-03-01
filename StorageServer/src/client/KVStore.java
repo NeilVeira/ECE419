@@ -63,16 +63,17 @@ public class KVStore implements KVCommInterface {
 			throw new Exception(request.error);
 		}
 		
-		//System.out.println("request: " + request.getMsg());
 		client.sendMessage(request);
 		//Wait for client thread to receive message from server
 		KVMessage response = client.getResponse();
 		
 		if (response != null){
 			client.logInfo("KVStore: received response  "+response.getMsg());
+			System.out.println("KVStore: received response  "+response.getMsg());
 		}
 		else{
 			client.logInfo("KVStore: no response received");
+			System.out.println("KVStore: no response received");
 		}
 		return response;
 	}
@@ -94,9 +95,11 @@ public class KVStore implements KVCommInterface {
 		KVMessage response = client.getResponse();
 		if (response != null){
 			client.logInfo("KVStore: received response  "+response.getMsg());
+			System.out.println("KVStore: received response  "+response.getMsg());
 		}
 		else{
 			client.logInfo("KVStore: no response received");
+			System.out.println("KVStore: no response received");
 		}
 		return response;
 	}
