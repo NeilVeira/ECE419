@@ -1,5 +1,7 @@
 package app_kvEcs;
 
+import org.apache.zookeeper.ZooKeeper;
+
 public class ECSClient {
 	
 	/**
