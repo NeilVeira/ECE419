@@ -17,7 +17,7 @@ public class AdditionalTest extends TestCase {
 	private KVStore kvClient;
 
 	public void setUp() {
-		kvClient = new KVStore("localhost", 50001);
+		kvClient = new KVStore("localhost", 50000);
 		try {
 			kvClient.connect();
 		} catch (Exception e) {
@@ -26,11 +26,6 @@ public class AdditionalTest extends TestCase {
 
 	public void tearDown() {
 		kvClient.disconnect();
-	}
-
-	@Test
-	public void testStub() {
-		assertTrue(true);
 	}
 
 	// Tests connecting using the command line handler

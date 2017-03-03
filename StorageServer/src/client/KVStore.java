@@ -1,21 +1,21 @@
 package client;
 
-
 import java.io.IOException;
+
 import java.net.UnknownHostException;
 
 import common.messages.KVMessage;
 import common.messages.MessageType;
+import common.Metadata;
 
 import client.Client;
 import client.KVCommInterface.SocketStatus;
-
-import app_kvClient.KVClient;
 
 public class KVStore implements KVCommInterface {
 	private String address;
 	private int port;
 	private Client client = null;
+	private Metadata metadata;
 	
 	/**
 	 * Initialize KVStore with address and port of KVServer
@@ -25,6 +25,9 @@ public class KVStore implements KVCommInterface {
 	public KVStore(String address, int port) {
 		this.address = address;
 		this.port = port;
+		metadata = new Metadata();
+		//add the given server to the metadata. This will be KVStore's first try when doing a request.
+		metadata.addServer(metadata.new Server(address,port));
 	}
 	
 	@Override
@@ -51,13 +54,15 @@ public class KVStore implements KVCommInterface {
 
 	@Override
 	public KVMessage put(String key, String value) throws Exception {	
-		//empty fields not allowed with our communication protocol. Use space instead.
+		/*//empty fields not allowed with our communication protocol. Use space instead.
 		if (key.equals("")){
 			key = " ";
 		}
 		if (value.equals("")){
 			value = " ";
-		}
+		}*/
+		//empty fields should be ok now
+		
 		MessageType request = new MessageType("put"," ",key,value);
 		if (request.error != null){
 			throw new Exception(request.error);
@@ -80,15 +85,16 @@ public class KVStore implements KVCommInterface {
 
 	@Override
 	public KVMessage get(String key) throws Exception {
-		//empty fields not allowed with our communication protocol. Use space instead.
+		/*//empty fields not allowed with our communication protocol. Use space instead.
 		if (key.equals("")){
 			key = " ";
 		}
-		MessageType request = new MessageType("get"," ",key," ");
 		if (request.error != null){
 			throw new Exception(request.error);
-		}
+		}*/
+		//empty fields should be ok now
 		
+		MessageType request = new MessageType("get","",key,"");
 		//System.out.println("request: " + request.getMsg());
 		client.sendMessage(request);	
 		//Wait for client thread to receive message from server

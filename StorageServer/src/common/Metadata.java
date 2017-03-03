@@ -37,6 +37,7 @@ public class Metadata{
 			e.printStackTrace();
 		}
 		
+
 		//parse data and load into hashRing
 		String[] servers = data.split(",");
 		for (String server : servers){

@@ -71,4 +71,13 @@ public class TestKVMessage extends TestCase {
 		assertEquals("key",message.getKey());
 		assertEquals("\"a\"\"bc\"", message.getValue());
 	}
+	
+	public void testEmptyFields(){
+		String msg = "\"get\" \"\" \"key\" \"\"";
+		MessageType message = new MessageType(msg.getBytes());
+		assertEquals(message.getHeader(), "get");
+		assertEquals(message.getStatus(), "");
+		assertEquals(message.getKey(), "key");
+		assertEquals(message.getValue(), "");
+	}
 }
