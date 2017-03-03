@@ -116,7 +116,6 @@ public class Client {
 	 * @throws IOException some I/O error regarding the output stream 
 	 */
 	public void sendMessage(KVMessage msg) throws IOException {
-		System.out.println("sending "+msg.getMsg());
 		byte[] msgBytes = msg.getMsgBytes();
 		output.write(msgBytes, 0, msgBytes.length);
 		output.flush();
