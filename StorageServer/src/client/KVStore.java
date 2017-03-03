@@ -86,6 +86,7 @@ public class KVStore implements KVCommInterface {
 		}
 		else{
 			client.logInfo("KVStore: no response received");
+			System.out.println("KVStore: no response received");
 		}
 		return response;
 	}
@@ -120,6 +121,7 @@ public class KVStore implements KVCommInterface {
 		}
 		else{
 			client.logInfo("KVStore: no response received");
+			System.out.println("KVStore: no response received");
 		}
 		return response;
 	}
