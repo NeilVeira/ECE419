@@ -69,6 +69,66 @@ public class AdditionalTest extends TestCase {
 		assertEquals(response.getValue(), "\"a\"\"bc\"");
 	}
 	
+	public void testDeleteExists() {
+		KVMessage response = null;
+		Exception ex = null;
+		
+		//put the key-value
+		try {
+			response = kvClient.put("key",  "value");
+		}
+		catch (Exception e) {
+			ex = e;
+		}
+		assertNull(ex);
+		assertTrue(response.getStatus().equals("PUT_UPDATE")|| response.getStatus().equals("PUT_SUCCESS")); 
+		
+		//try to delete it
+		try{
+			response = kvClient.put("key", "null");
+		}
+		catch (Exception e){
+			ex = e;
+		}
+		assertNull(ex);
+		assertEquals(response.getStatus(),"DELETE_SUCCESS");
+		
+		//make sure it's actually gone
+		try {
+			response = kvClient.get("key");
+		}
+		catch (Exception e) {
+			ex = e;
+		}
+		assertEquals(response.getStatus(),"GET_ERROR");
+		assertNull(ex);
+	}
+	
+	public void testDeleteDoesNotExist() {
+		KVMessage response = null;
+		Exception ex = null;
+		
+		//try to delete it
+		try{
+			response = kvClient.put("123456789", "null");
+		}
+		catch (Exception e){
+			ex = e;
+		}
+		assertNull(ex);
+		assertEquals(response.getStatus(),"DELETE_SUCCESS");
+		
+		//make sure key does not exist
+		try{
+			response = kvClient.get("123456789");
+		}
+		catch (Exception e){
+			ex = e;
+		}
+		assertNull(ex);
+		assertEquals(response.getStatus(),"GET_ERROR");
+	}
+	
 	/*// Tries puts and gets within the cache size
 	public void testPutGetSmall() {
 		Exception ex = null;

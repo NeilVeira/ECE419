@@ -17,7 +17,7 @@ import common.messages.MessageType;
 public class KVClient {
 
 	private static Logger logger = Logger.getRootLogger();
-	private static final String PROMPT = "EchoClient> ";
+	private static final String PROMPT = "StorageServiceClient> ";
 	private BufferedReader stdin;
 	private boolean stop = false;
 	
@@ -60,29 +60,6 @@ public class KVClient {
 		} else {
 			header = cmdLine.trim();
 		}
-		
-		//System.out.println(header);
-		//System.out.println(key);
-		//System.out.println(value);
-		
-		// Old method for handling command input
-		/*String[] tokens = cmdLine.split("\\s+"); //"\\s" doesn't work. Incorrectly parses strings like "get   key" because of additional spaces.
-		
-		if (tokens.length >= 1){
-			header = tokens[0].trim();
-		}
-		if (tokens.length >= 2){
-			key = tokens[1].trim();
-		}
-		if (tokens.length >= 3){
-			//put remaining tokens in value
-			value = "";
-			for (int i=2; i<tokens.length; i++){
-				value += tokens[i];
-				if (i < tokens.length-1) 
-					value += " ";
-			}
-		}*/
 
 		MessageType msg = new MessageType(header, status, key, value);
 		
@@ -97,22 +74,23 @@ public class KVClient {
 					serverPort = Integer.parseInt(msg.getValue());
 					kvstore = new KVStore(serverAddress, serverPort);
 					kvstore.connect();
+					System.out.println("Connection successful!");
 				} catch(NumberFormatException nfe) {
 					printError("No valid address. Port must be a number!");
-					logger.info("Unable to parse argument <port>", nfe);
+					logger.warn("Unable to parse argument <port>");
 				} catch (ConnectException e) {
 					printError("Connection refused by host! (Try a different port number)");
-					logger.warn("Connection refused!", e);
+					logger.warn("Connection refused!");
 				} catch (UnknownHostException e) {
 					printError("Unknown Host!");
-					logger.info("Unknown Host!", e);
+					logger.warn("Unknown Host!");
 				} catch (IOException e) {
 					printError("Could not establish connection!");
-					logger.warn("Could not establish connection!", e);
+					logger.warn("Could not establish connection!");
 				} catch (IllegalArgumentException nfe) {
 					printError("Port must be between 1 and 65535!");
-					logger.info("Input port out of range.", nfe);
-				}
+					logger.warn("Input port out of range.");
+				} 
 				break;
 			case "disconnect":
 				if (kvstore != null){
@@ -126,10 +104,42 @@ public class KVClient {
 			case "put":
 				if (kvstore != null){
 					try{
-						kvstore.put(msg.getKey(), msg.getValue());
+						KVMessage put_result = kvstore.put(msg.getKey(), msg.getValue());
+						if(put_result.getStatus().equals("PUT_SUCCESS")) {
+							// Put successful
+							System.out.println("Put successful!");
+							System.out.println("Key: " + put_result.getKey());
+							System.out.println("Value: " + put_result.getValue());
+						} else if(put_result.getStatus().equals("PUT_UPDATE")) {
+							// Put update
+							System.out.println("Updated old value!");
+							System.out.println("Key: " + put_result.getKey());
+							System.out.println("New Value: " + put_result.getValue());
+						} else if(put_result.getStatus().equals("PUT_ERROR")) {
+							// Put error
+							System.out.println("ERROR processing put!");
+							System.out.println("Key: " + put_result.getKey());
+							System.out.println("Value: " + put_result.getValue());
+							logger.warn("Put error");
+						} else if(put_result.getStatus().equals("DELETE_SUCCESS")) {
+							// Delete
+							System.out.println("Deleting value in key!");
+							System.out.println("Key: " + put_result.getKey());
+						} else if(put_result.getStatus().equals("DELETE_ERROR")) {
+							// Delete error
+							System.out.println("ERROR deleting value in key!");
+							System.out.println("Key: " + put_result.getKey());
+							logger.warn("Delete error");
+						} else {
+							// Problem with store or server, unknown status to the client
+							System.out.println("Unknown return status!");
+							System.out.println("Key: " + put_result.getKey());
+							System.out.println("Value: " + put_result.getValue());
+							logger.warn("Client cannot interpret status message " + put_result.getStatus());
+						}
 					}
 					catch (Exception e){
-						
+						printError("Client: put exception");
 					}
 				}
 				else{
@@ -139,10 +149,26 @@ public class KVClient {
 			case "get":
 				if (kvstore != null){
 					try{
-						kvstore.get(msg.getKey());
+						KVMessage get_result = kvstore.get(msg.getKey());
+						if(get_result.getStatus().equals("GET_SUCCESS")) {
+							// Get successful
+							System.out.println("Get successful!");
+							System.out.println("Key: " + get_result.getKey());
+							System.out.println("Value: " + get_result.getValue());
+						} else if(get_result.getStatus().equals("GET_ERROR")) {
+							// Get error
+							System.out.println("ERROR processing get!");
+							System.out.println("Key: " + get_result.getKey());
+							logger.warn("Get error");
+						} else {
+							// Problem with store or server, unknown status to the client
+							System.out.println("Unknown return status!");
+							System.out.println("Key: " + get_result.getKey());
+							logger.warn("Client cannot interpret status message " + get_result.getStatus());
+						}
 					}
 					catch (Exception e){
-						
+						printError("Client: get exception");
 					}
 				}
 				else{

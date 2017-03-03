@@ -67,14 +67,27 @@ public class KVStore implements KVCommInterface {
 		if (request.error != null){
 			throw new Exception(request.error);
 		}
-		
+
+		// In Client.java
 		client.sendMessage(request);
-		//Wait for client thread to receive message from server
+		//Wait for client thread to receive message from server (Client.java function)
 		KVMessage response = client.getResponse();
 		
+		// Should not print in KVStore
+		//System.out.println("Received response " + response.getStatus() + "\n");
+		
 		if (response != null){
+			// Log the response and process what to do
 			client.logInfo("KVStore: received response  "+response.getMsg());
-			System.out.println("KVStore: received response  "+response.getMsg());
+			if(response.getStatus().equals("SERVER_WRITE_LOCK")) {
+				// If write locked then a new server is being added and data is being transferred
+				// We block until server is ready to receive (?)
+				return get(key);
+			} else if(response.getStatus().equals("SERVER_NOT_RESPONSIBLE")) {
+				// TODO: get metadata and get data from another server
+			} else if(response.getStatus().equals("SERVER_STOPPED")) {
+				// TODO: what to do when requested server is stopped
+			}
 		}
 		else{
 			client.logInfo("KVStore: no response received");
@@ -96,12 +109,22 @@ public class KVStore implements KVCommInterface {
 		
 		MessageType request = new MessageType("get","",key,"");
 		//System.out.println("request: " + request.getMsg());
+
 		client.sendMessage(request);	
-		//Wait for client thread to receive message from server
+		//Wait for client thread to receive message from server (Client.java function)
 		KVMessage response = client.getResponse();
+		
+		// Should not print in KVStore
+		//System.out.println("Received response " + response.getStatus() + "\n");
+		
 		if (response != null){
+			// Log the response and process what to do
 			client.logInfo("KVStore: received response  "+response.getMsg());
-			System.out.println("KVStore: received response  "+response.getMsg());
+			if(response.getStatus() == "SERVER_NOT_RESPONSIBLE") {
+				// TODO: get metadata and get data from another server
+			} else if(response.getStatus() == "SERVER_STOPPED") {
+				// TODO: what to do when requested server is stopped
+			}
 		}
 		else{
 			client.logInfo("KVStore: no response received");
