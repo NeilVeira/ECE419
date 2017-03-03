@@ -41,7 +41,7 @@ public class Metadata{
 		//parse data and load into hashRing
 		String[] servers = data.split(",");
 		for (String server : servers){
-			String[] tokens = server.split(" ");
+			String[] tokens = server.split("\\s+");
 			assert (tokens.length == 3);
 			BigInteger hash = new BigInteger(tokens[0]);
 			int port = Integer.parseInt(tokens[2]);
