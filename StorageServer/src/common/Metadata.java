@@ -24,8 +24,33 @@ public class Metadata{
 	}
 	
 	/**
+	 * Construct a metadata object from a string of data (created 
+	 * from Metadata.toString()).
+	 * Parses the data and loads it into the hash ring.
+	 */
+	public Metadata(String data) {
+		try{
+			this.hasher = MessageDigest.getInstance("MD5");
+			this.hashRing = new TreeMap<BigInteger,Server>();
+		}
+		catch (Exception e){
+			e.printStackTrace();
+		}
+		
+		//parse data and load into hashRing
+		String[] servers = data.split(",");
+		for (String server : servers){
+			String[] tokens = server.split(" ");
+			assert (tokens.length == 3);
+			BigInteger hash = new BigInteger(tokens[0]);
+			int port = Integer.parseInt(tokens[2]);
+			Server newServer = new Server(tokens[1], port);
+			hashRing.put(hash, newServer);
+		}
+	}
+	
+	/**
 	 * Return a 128-bit (BigInteger) MD5 hash of the given IP address and port
-	 * @return the hash value
 	 */
 	public BigInteger serverHash(Server server){
 		hasher.update(server.ipAddress.getBytes());
@@ -53,7 +78,6 @@ public class Metadata{
 	
 	/**
 	 * Remove the given server from the metadata
-	 * @param server
 	 */
 	public void removeServer(Server server){
 		BigInteger hash = serverHash(server);
@@ -79,8 +103,29 @@ public class Metadata{
 	}
 	
 	/**
-	 * Encapsulates the IP address and port fields used by the Metadata class
-	 *
+	 * Convert the entire mapping to a String. String is formatted as a comma-delimited
+	 * list of entries, where each entry is a space-delimited list of the form 
+	 * "<hash> <IP address> <port>"
+	 * TODO: this won't work if any of the values contain spaces or commas. Can this ever happen?
+	 */
+	public String toString() {
+		String ret = "";
+		for (Map.Entry<BigInteger,Server> entry : hashRing.entrySet()){
+			ret += entry.getKey().toString() + " ";
+			ret += entry.getValue().ipAddress + " ";
+			ret += String.valueOf(entry.getValue().port);
+			ret += ",";
+		}
+		
+		if (ret.length() > 0){
+			//strip off trailing comma
+			ret = ret.substring(0, ret.length()-1);
+		}
+		return ret;
+	}
+	
+	/**
+	 * Encapsulates the IP address and port fields used by the Metadata class.
 	 */
 	public class Server{
 		public String ipAddress;
