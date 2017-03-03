@@ -3,20 +3,22 @@ package testing;
 import org.junit.Test;
 
 import client.KVStore;
-
+import app_kvClient.KVClient;
+import app_kvServer.KVServer;
 import common.messages.KVMessage;
 
-import app_kvClient.KVClient;
 
 import junit.framework.TestCase;
 
 public class AdditionalTest extends TestCase {
 
-	// TODO add your test cases, at least 3
-
 	private KVStore kvClient;
+	private Exception ex;
+	private KVMessage response;
 
 	public void setUp() {
+		response = null;
+		ex = null;
 		kvClient = new KVStore("localhost", 50000);
 		try {
 			kvClient.connect();
@@ -30,9 +32,7 @@ public class AdditionalTest extends TestCase {
 
 	// Tests connecting using the command line handler
 	public void testHandleConnect() {
-		Exception ex = null;
 		KVClient app = new KVClient();
-
 		try {
 			app.handleCommand("connect localhost 51234");
 		} catch (Exception e) {
@@ -42,91 +42,109 @@ public class AdditionalTest extends TestCase {
 		assertNull(ex);
 	}
 	
-	public void testQuoteInValue(){
-		KVMessage response = null;
-		Exception ex = null;
-		
-		//write value with quotes
-		try{
+	public void testQuoteInValue(){	
+		try{	
+			//write value with quotes
 			response = kvClient.put("key", "\"a\"\"bc\"");
-		}
-		catch (Exception e) {
-			ex = e;
-		}
-		assertNull(ex);
-		//could be update or success depending on whether the test has been run before
-		assertTrue(response.getStatus().equals("PUT_UPDATE")|| response.getStatus().equals("PUT_SUCCESS")); 
-		
-		//read value back
-		try{
+			//could be update or success depending on whether the test has been run before
+			assertTrue(response.getStatus().equals("PUT_UPDATE")|| response.getStatus().equals("PUT_SUCCESS")); 
+			
+			//read value back
 			response = kvClient.get("key");
+			assertEquals(response.getStatus(),"GET_SUCCESS"); 
+			assertEquals(response.getValue(), "\"a\"\"bc\"");
 		}
 		catch (Exception e) {
 			ex = e;
 		}
 		assertNull(ex);
-		assertEquals(response.getStatus(),"GET_SUCCESS"); 
-		assertEquals(response.getValue(), "\"a\"\"bc\"");
 	}
 	
-	public void testDeleteExists() {
-		KVMessage response = null;
-		Exception ex = null;
-		
-		//put the key-value
+	public void testDeleteExists() {		
 		try {
+			//put the key-value
 			response = kvClient.put("key",  "value");
-		}
-		catch (Exception e) {
-			ex = e;
-		}
-		assertNull(ex);
-		assertTrue(response.getStatus().equals("PUT_UPDATE")|| response.getStatus().equals("PUT_SUCCESS")); 
-		
-		//try to delete it
-		try{
+			assertTrue(response.getStatus().equals("PUT_UPDATE")|| response.getStatus().equals("PUT_SUCCESS")); 
+			
+			//try to delete it
 			response = kvClient.put("key", "null");
-		}
-		catch (Exception e){
-			ex = e;
-		}
-		assertNull(ex);
-		assertEquals(response.getStatus(),"DELETE_SUCCESS");
-		
-		//make sure it's actually gone
-		try {
+			assertEquals(response.getStatus(),"DELETE_SUCCESS");
+			
+			//make sure it's actually gone
 			response = kvClient.get("key");
+			assertEquals(response.getStatus(),"GET_ERROR");
 		}
 		catch (Exception e) {
 			ex = e;
 		}
-		assertEquals(response.getStatus(),"GET_ERROR");
 		assertNull(ex);
 	}
 	
-	public void testDeleteDoesNotExist() {
-		KVMessage response = null;
-		Exception ex = null;
-		
-		//try to delete it
-		try{
+	public void testDeleteDoesNotExist() {	
+		try{	
+			//delete key which does not exist. Should return DELETE_SUCCESS status. 
 			response = kvClient.put("123456789", "null");
-		}
-		catch (Exception e){
-			ex = e;
-		}
-		assertNull(ex);
-		assertEquals(response.getStatus(),"DELETE_SUCCESS");
-		
-		//make sure key does not exist
-		try{
+			assertEquals(response.getStatus(),"DELETE_SUCCESS");
+			//make sure key does not exist
 			response = kvClient.get("123456789");
+			assertEquals(response.getStatus(),"GET_ERROR");
 		}
 		catch (Exception e){
 			ex = e;
 		}
 		assertNull(ex);
-		assertEquals(response.getStatus(),"GET_ERROR");
+	}
+	
+	public void testMultipleClientsAgree() {
+		KVStore client2 = new KVStore("localhost",50000);
+		try{
+			client2.connect();
+			//client 1 does a put
+			response = kvClient.put("key1", "abc");
+			assertTrue(response.getStatus().equals("PUT_UPDATE")|| response.getStatus().equals("PUT_SUCCESS")); 
+			
+			//client 2 does a get for the same key. Should get the value just written.
+			response = client2.get("key1");
+		}
+		catch (Exception e){
+			ex = e;
+		}
+		assertNull(ex);
+		assertEquals(response.getStatus(), "GET_SUCCESS");
+		assertEquals(response.getValue(), "abc");
+	}
+	
+	public void testPersistence() {
+		try {
+			//create a new server and client and connect to it
+			KVServer server = new KVServer(50001, 10, "LFU");
+			KVStore client = new KVStore("localhost", 50001);
+			client.connect();
+			
+			//first delete the key to make sure this test always starts from the same state
+			response = client.put("key", "null");
+			assertEquals(response.getStatus(), "DELETE_SUCCESS");
+			//now write it
+			response = client.put("key", "1010");
+			assertTrue(response.getStatus().equals("PUT_UPDATE")|| response.getStatus().equals("PUT_SUCCESS")); 
+			
+			//disconnect and kill the server
+			client.disconnect();
+			server.stopServer();
+			
+			//start up a new server and reconnect
+			KVServer server2 = new KVServer(50001, 10, "LFU");
+			client.connect();
+			
+			//get the value. Should be the same as put.
+			response = client.get("key");
+			assertEquals(response.getStatus(), "GET_SUCCESS");
+			assertEquals(response.getValue(), "1010");
+		}
+		catch (Exception e){
+			ex = e;
+		}
+		assertNull(ex);
 	}
 	
 	/*// Tries puts and gets within the cache size
