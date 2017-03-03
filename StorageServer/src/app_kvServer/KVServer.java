@@ -366,28 +366,9 @@ public class KVServer extends Thread {
 			returnMsg = new common.messages.MessageType("put", "PUT_ERROR", Key, Value);
 			return returnMsg;
 		}
+		
 		// Decide whether it is a update, delete or add
-		if (!this.m_hardDiskValueMap.containsKey(Key)) {
-			// This is an add operation, so add Key Value pair into map
-			this.m_hardDiskValueMap.put(Key, Value);
-			// Rewrite hard Disk file
-			success = this.overwriteHardDiskFile();
-			if (!success) {
-				// If for some reason the rewrite failed then return failure message
-				returnMsg = new common.messages.MessageType("put", "PUT_ERROR", Key, Value);
-				return returnMsg;
-			}
-			// Now try to put the Key/Value pair into the Cache
-			success = this.insertIntoCache(Key, Value);
-			if (!success) {
-				// If for some reason the writing to cache failed then return failure message
-				returnMsg = new common.messages.MessageType("put", "PUT_ERROR", Key, Value);
-				return returnMsg;
-			} else {
-				// Set success message and end of this put-add operation
-				returnMsg = new common.messages.MessageType("put", "PUT_SUCCESS", Key, Value);
-			}
-		} else if (Value.equals("null")) {
+		if (Value.equals("null")) {
 			// this is a delete operation, so remove Key Value pair from map
 			this.m_hardDiskValueMap.remove(Key);
 			// Rewrite hard Disk file
@@ -407,7 +388,29 @@ public class KVServer extends Thread {
 				// Set success message and end of this put-add operation
 				returnMsg = new common.messages.MessageType("put", "DELETE_SUCCESS", Key, Value);
 			}
-		} else {
+		}
+		else if (!this.m_hardDiskValueMap.containsKey(Key)) {
+			// This is an add operation, so add Key Value pair into map
+			this.m_hardDiskValueMap.put(Key, Value);
+			// Rewrite hard Disk file
+			success = this.overwriteHardDiskFile();
+			if (!success) {
+				// If for some reason the rewrite failed then return failure message
+				returnMsg = new common.messages.MessageType("put", "PUT_ERROR", Key, Value);
+				return returnMsg;
+			}
+			// Now try to put the Key/Value pair into the Cache
+			success = this.insertIntoCache(Key, Value);
+			if (!success) {
+				// If for some reason the writing to cache failed then return failure message
+				returnMsg = new common.messages.MessageType("put", "PUT_ERROR", Key, Value);
+				return returnMsg;
+			} else {
+				// Set success message and end of this put-add operation
+				returnMsg = new common.messages.MessageType("put", "PUT_SUCCESS", Key, Value);
+			}
+		} 
+		else {
 			// this is a update operation, so update the Key value Pair, put will update the original pair, or create one if it doesn't exist
 			this.m_hardDiskValueMap.put(Key, Value);
 			// Rewrite hard Disk file
@@ -671,7 +674,7 @@ public class KVServer extends Thread {
 				int cacheSize = Integer.parseInt(args[1]);
 				String strategy = args[2];
 				// Handle invalid input for server strategy argument
-				if (!strategy.equals("FIFO") && !strategy.equals("FIFO") && !strategy.equals("FIFO")) {
+				if (!strategy.equals("FIFO") && !strategy.equals("LRU") && !strategy.equals("LFU")) {
 					System.out.println("Error! strategy argument invalid!");
 					System.out.println("Usage: Server <int port> <int cacheSize> <string strategy: FIFO, LRU or LFU>! Please try again");
 					System.exit(0);

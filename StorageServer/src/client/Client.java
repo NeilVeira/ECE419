@@ -7,6 +7,7 @@ import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.HashSet;
 import java.util.Set;
+import java.net.SocketTimeoutException;
 
 import org.apache.log4j.Logger;
 
@@ -33,6 +34,7 @@ public class Client {
 			throws UnknownHostException, IOException {
 
 		clientSocket = new Socket(address, port);
+		clientSocket.setSoTimeout(1000);
 		listeners = new HashSet<KVCommInterface>();
 		setRunning(true);
 		logger.info("Connection established");
@@ -114,7 +116,6 @@ public class Client {
 	 * @throws IOException some I/O error regarding the output stream 
 	 */
 	public void sendMessage(KVMessage msg) throws IOException {
-		System.out.println("sending "+msg.getMsg());
 		byte[] msgBytes = msg.getMsgBytes();
 		output.write(msgBytes, 0, msgBytes.length);
 		output.flush();
@@ -181,10 +182,7 @@ public class Client {
 		if (msg.error != null){
 			logger.error("Received invalid message from server: "+msg.originalMsg);
 			logger.error(msg.error);
-			System.out.println("Received invalid message from server: "+msg.originalMsg);
-			System.out.println(msg.error);
 		}
-		System.out.println("Receive message:\t '" + msg.getMsg() + "'");
 		logger.info("Receive message:\t '" + msg.getMsg() + "'");
 		return msg;
     }

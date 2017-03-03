@@ -163,19 +163,32 @@ public class MessageType implements KVMessage {
 	 * where each of those fields can have quotes, but doubled. 
 	 * Fields cannot be empty - for empty fields use a single space (" ").
 	 */
-	private void parse(String msg){	
+	public void parse(String msg){
 		msg = msg.trim();
-		//String[] tokens = msg.split("\"[^\"]");
 		List<String> tokens = new ArrayList<String>();
+		
+		//iterate though string character-by-character. 
+		//inData - boolean flag indicating whether the current character is part of a data field or between data fields
+		boolean inData = false; 
 		int start = -1;
 		for (int i=0; i<msg.length(); i++){
-			if (msg.charAt(i) == '"' && (i+1 == msg.length() || msg.charAt(i+1) != '"')){
-				if (start == -1){
+			if (!inData){
+				if (msg.charAt(i) == '"'){
+					inData = true;
 					start = i;
 				}
-				else{
-					tokens.add(msg.substring(start+1,i));
-					start = -1;
+			}
+			else{
+				if (msg.charAt(i) == '"'){
+					//data field ends when current character is quote but next is not
+					if (i+1 == msg.length() || msg.charAt(i+1) != '"'){
+						inData = false;
+						tokens.add(msg.substring(start+1,i));
+					}
+					else{
+						//next character is quote. Double quotes only occur in data field
+						i++; //don't process 2nd quote of double pair
+					}
 				}
 			}
 		}

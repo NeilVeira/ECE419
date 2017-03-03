@@ -47,7 +47,7 @@ public class ClientConnection implements Runnable {
 			output = clientSocket.getOutputStream();
 			input = clientSocket.getInputStream();
 		// send initial message on connect
-			sendMessage(new common.messages.MessageType("connect", "CONNECT_SUCCESS", " ", " "));
+			sendMessage(new common.messages.MessageType("connect", "CONNECT_SUCCESS", "key", "value")); //key & value must not be empty for connect message
 		
 			while(isOpen) {
 				try {
@@ -102,16 +102,6 @@ public class ClientConnection implements Runnable {
 	 */
 	// Change the interface to take a KVMessage instead of TextMessage
 	public void sendMessage(common.messages.KVMessage msg) throws IOException {
-		byte[] msgBytes = msg.getMsgBytes();
-		output.write(msgBytes, 0, msgBytes.length);
-		output.flush();
-		logger.info("SEND \t<" 
-				+ clientSocket.getInetAddress().getHostAddress() + ":" 
-				+ clientSocket.getPort() + ">: '" 
-				+ msg.getMsg() +"'");
-    }
-	// perserve text message interface
-	public void sendMessage(TextMessage msg) throws IOException {
 		byte[] msgBytes = msg.getMsgBytes();
 		output.write(msgBytes, 0, msgBytes.length);
 		output.flush();
