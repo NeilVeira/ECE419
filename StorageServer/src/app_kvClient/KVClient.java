@@ -17,7 +17,7 @@ import common.messages.MessageType;
 public class KVClient {
 
 	private static Logger logger = Logger.getRootLogger();
-	private static final String PROMPT = "EchoClient> ";
+	private static final String PROMPT = "StorageServiceClient> ";
 	private BufferedReader stdin;
 	private boolean stop = false;
 	
@@ -77,20 +77,20 @@ public class KVClient {
 					System.out.println("Connection successful!");
 				} catch(NumberFormatException nfe) {
 					printError("No valid address. Port must be a number!");
-					logger.info("Unable to parse argument <port>", nfe);
+					logger.warn("Unable to parse argument <port>");
 				} catch (ConnectException e) {
 					printError("Connection refused by host! (Try a different port number)");
-					logger.warn("Connection refused!", e);
+					logger.warn("Connection refused!");
 				} catch (UnknownHostException e) {
 					printError("Unknown Host!");
-					logger.info("Unknown Host!", e);
+					logger.warn("Unknown Host!");
 				} catch (IOException e) {
 					printError("Could not establish connection!");
-					logger.warn("Could not establish connection!", e);
+					logger.warn("Could not establish connection!");
 				} catch (IllegalArgumentException nfe) {
 					printError("Port must be between 1 and 65535!");
-					logger.info("Input port out of range.", nfe);
-				}
+					logger.warn("Input port out of range.");
+				} 
 				break;
 			case "disconnect":
 				if (kvstore != null){
