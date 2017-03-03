@@ -15,12 +15,10 @@ public class ECSClient {
 	private static final String PROMPT = "StorageServiceECS> ";
 	private BufferedReader stdin;
 	private boolean stopECSClient;
-	
-	private File configFile;
-	private ZooKeeper zookeeper;
+	private ECS ecs;
 	
 	ECSClient(String configFile){
-		this.configFile = new File(configFile);
+		this.ecs = new ECS(configFile);
 		stopECSClient = false;
 	}
 	
@@ -77,21 +75,22 @@ public class ECSClient {
 		//call corresponding ECS method
 		switch (tokens[0]){
 		case "initService":
-			initService();
+			ecs.initService();
 			break;
 		case "start":
-			start();
+			ecs.start();
 			break;
 		case "stop":
-			stop();
+			ecs.stop();
 			break;
 		case "shutDown":
-			shutDown();
+			stopECSClient = true;
+			ecs.shutDown();
 			break;
 		case "addNode":
 			try{
 				int cacheSize = Integer.parseInt(tokens[1]);
-				addNode(cacheSize, tokens[2]);
+				ecs.addNode(cacheSize, tokens[2]);
 			}
 			catch (NumberFormatException e){
 				printError("Cache size must be an integer");
@@ -100,7 +99,7 @@ public class ECSClient {
 		case "removeNode":
 			try{
 				int index = Integer.parseInt(tokens[1]);
-				removeNode(index);
+				ecs.removeNode(index);
 			}
 			catch (NumberFormatException e){
 				printError("Index must be an integer");
@@ -108,80 +107,6 @@ public class ECSClient {
 			break;
 		}
 	}
-	
-	/**
-	 * Reads and parses the ecs config file, launches the servers, and initializes
-	 * the zookeeper object. 
-	 */
-	private boolean initService() {
-		System.out.println("Initializing service");
-		String connectString = ""; //comma-separated list of "IP address:port" pairs for zookeeper
-		String currentLine;
-		
-		try{
-			BufferedReader FileReader = new BufferedReader(new FileReader(this.configFile));
-			while ((currentLine = FileReader.readLine()) != null) {
-				String[] tokens = currentLine.split(" ");
-				connectString += tokens[1]+":"+tokens[2]+",";
-				//TODO: store this somewhere for start() method to launch them
-			}
-			
-			//TODO: initialize zookeeper
-			
-			return true;
-		}
-		catch (FileNotFoundException e) {
-			System.out.println("Could not find config file "+this.configFile);
-			return false;
-		}
-		catch (Exception e){
-			System.out.println("Error encountered in initService!");
-			System.out.println(e.getMessage());
-			return false;
-		}
-	}
-	
-	/**
-	 * Launch the storage servers chosen by initService
-	 */
-	private void start() {
-		//TODO
-		System.out.println("Starting");
-	}
-	
-	/**
-	 * Stops all running servers in the service
-	 */
-	private void stop() {
-		//TODO
-		System.out.println("Stopping");
-	}
-	
-	/**
-	 * Stops all servers and shuts down the ECS client
-	 */
-	private void shutDown() {
-		stop();
-		stopECSClient = true;
-	}
-	
-	/**
-	 * Creates a new server with the given cache size and replacement strategy
-	 * and adds it to the service
-	 */
-	private void addNode(int cacheSize, String replacementStragey) {
-		//TODO
-		System.out.println("Adding node "+cacheSize+" "+replacementStragey);
-	}
-	
-	/**
-	 * Remove the node with the given index
-	 */
-	private void removeNode(int index) {
-		//TODO
-		System.out.println("Removing node "+index);
-	}
-	
 	
 	private void printError(String error){
 		System.out.println(PROMPT + "Error! " +  error);
