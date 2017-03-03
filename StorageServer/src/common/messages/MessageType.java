@@ -55,8 +55,7 @@ public class MessageType implements KVMessage {
 	
 	/**
 	 * Construct a MessageType with the 4 required fields. All fields should be 
-	 * given with single quotes. 
-	 * DO NOT USE EMPTY STRINGS! Use " " instead.
+	 * given with single quotes. Empty strings are acceptable now. 
 	 */
 	public MessageType(String header, String status, String key, String value)
 	{
@@ -73,10 +72,10 @@ public class MessageType implements KVMessage {
 	public MessageType(byte[] bytes) {
 		this.msgBytes = bytes;
 		String str = new String(this.msgBytes);
-		this.header = " ";
-		this.status = " ";
-		this.key = " ";
-		this.value = " ";
+		this.header = "";
+		this.status = "";
+		this.key = "";
+		this.value = "";
 		parse(str.trim());
 	}	
 
@@ -161,7 +160,6 @@ public class MessageType implements KVMessage {
 	 * The given string MUST have the following format:
 	 * "header" "status" "key" "value"
 	 * where each of those fields can have quotes, but doubled. 
-	 * Fields cannot be empty - for empty fields use a single space (" ").
 	 */
 	public void parse(String msg){
 		msg = msg.trim();
@@ -236,7 +234,7 @@ public class MessageType implements KVMessage {
 			if (!key.trim().equals("") || !value.trim().equals("")){
 				return "Key and value must be empty for message "+header;
 			}
-			break;
+			break;			
 		default:
 			return "Unknown command";
 		}

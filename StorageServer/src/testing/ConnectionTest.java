@@ -27,7 +27,7 @@ public class ConnectionTest extends TestCase {
 
 	// Tests for multiple connections to different ports
 	public void testConnectionMultiple() {
-		for (int i = 50001; i < 51000; i++) {
+		for (int i = 50001; i < 50010; i++) {
 			Exception ex = null;
 			
 			KVStore kvClient = new KVStore("localhost", i);
