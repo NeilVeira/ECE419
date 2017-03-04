@@ -117,7 +117,7 @@ public class AdditionalTest extends TestCase {
 	public void testPersistence() {
 		try {
 			//create a new server and client and connect to it
-			KVServer server = new KVServer(50001, 10, "LFU");
+			KVServer server = new KVServer(50001, 10, "LFU", 0);
 			KVStore client = new KVStore("localhost", 50001);
 			client.connect();
 			
@@ -130,10 +130,10 @@ public class AdditionalTest extends TestCase {
 			
 			//disconnect and kill the server
 			client.disconnect();
-			server.stopServer();
+			server.closeServer();
 			
 			//start up a new server and reconnect
-			KVServer server2 = new KVServer(50001, 10, "LFU");
+			KVServer server2 = new KVServer(50001, 10, "LFU", 0);
 			client.connect();
 			
 			//get the value. Should be the same as put.

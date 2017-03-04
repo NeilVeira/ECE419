@@ -73,4 +73,8 @@ public class TestHashRing extends TestCase {
 		assertEquals(responsible.port, 50000);
 	}
 	
+	public void testConstructFromEmptyString() {
+		HashRing metadata = new HashRing("");
+		assertEquals(metadata.toString(),"");
+	}
 }
