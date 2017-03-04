@@ -68,6 +68,8 @@ public class KVServer extends Thread {
 	private PrintWriter m_hardDiskFileWriter;
 	// This Reader is responsible for Reading the harddisk file
 	private BufferedReader m_hardDiskFileReader;
+	// This is the lock object for ensuring multiple clientconnections don't access hard disk entries at the same time 
+	private Object m_myLock;
 
 	// Create three maps for cache and one map for harddisk file
 	// This map stores the cache key pairs with key, value
@@ -201,6 +203,9 @@ public class KVServer extends Thread {
 		this.m_cacheLRUList = new LinkedList<String>();
 		this.m_cacheLFUMap = new HashMap<String, Integer>();
 		this.m_hardDiskValueMap = new HashMap<String, String>();
+    
+    //Initialize the lock
+		this.m_myLock = new Object();
 
 		// Start the server object
 		System.out.println("Starting Server");
@@ -507,21 +512,24 @@ public class KVServer extends Thread {
 	}
 	// This function is used to delete key value pair from the cache
 	public boolean deleteFromCache(String key, String value) {
-		// When we call this function we don't know if Cache has the Key Value Pair we want to delete
-		System.out.println("Deleting from Cache Key: " + key + " Value: " + value);
-		logger.info("Deleting from Cache Key: " + key + " Value: " + value);
-		// remove the pair to all the other maps and lists we need
-		// remove value in cache value map
-		this.m_cacheValueMap.remove(key);
-		// remove value in cache LFU map
-		this.m_cacheLFUMap.remove(key);
-		// remove key in FIFO linked list
-		this.m_cacheFIFOList.removeFirstOccurrence(key);
-		// remove key in  LRU linked list
-		this.m_cacheLRUList.removeFirstOccurrence(key);
-		// decrease size of cache pairs by 1
-		this.m_currentCacheEntries = this.m_currentCacheEntries - 1;
-		return true;
+		// Insert Scoped Lock here
+		synchronized(m_myLock) {
+			// When we call this function we don't know if Cache has the Key Value Pair we want to delete
+			System.out.println("Deleting from Cache Key: " + key + " Value: " + value);
+			logger.info("Deleting from Cache Key: " + key + " Value: " + value);
+			// remove the pair to all the other maps and lists we need
+			// remove value in cache value map
+			this.m_cacheValueMap.remove(key);
+			// remove value in cache LFU map
+			this.m_cacheLFUMap.remove(key);
+			// remove key in FIFO linked list
+			this.m_cacheFIFOList.removeFirstOccurrence(key);
+			// remove key in  LRU linked list
+			this.m_cacheLRUList.removeFirstOccurrence(key);
+			// decrease size of cache pairs by 1
+			this.m_currentCacheEntries = this.m_currentCacheEntries - 1;
+			return true;
+		}
 	}
 	// This function is used to add a new key value pair into the cache
 	public void addToCache(String key, String value) {
@@ -539,46 +547,49 @@ public class KVServer extends Thread {
 	}
 	// This function is used to put key value pair into the cache
 	public boolean insertIntoCache(String key, String value) {
-		// When we call this function we don't know if Cache is already Full or if that key value pair already exists in it
-		System.out.println("Inserting into Cache Key: " + key + " Value: " + value);
-		logger.info("Inserting into Cache Key: " + key + " Value: " + value);
-		// Check whether this is an update(already exist in cache) if so then we won't have to evict anything 
-		boolean isUpdate =this.m_cacheValueMap.containsKey(key);
-		if (isUpdate) {
-			// update value in cache value map
-			this.m_cacheValueMap.put(key, value);
-			// update as if we got a hit
-			boolean updateSuccess = this.updateCacheHit(key, value);
-			return updateSuccess;
-		}
-		// Not an update but adding new entry, Check whether the cache is full 
-		boolean cacheFull = this.m_currentCacheEntries > this.m_cacheSize;
-		if (cacheFull) {
-			boolean evictSuccess = false;
-			// do a switch statement from strategy and evict first according to one of them and then add to the cache
-			switch (this.m_strategy) {
-			case "FIFO": 
-				evictSuccess = evictFIFO();
-				break;
-			case "LRU":
-				evictSuccess = evictLRU();
-				break;
-			case "LFU":
-				evictSuccess = evictLFU();
-				break;
-			default:
-				evictSuccess = false;
+		// Insert Scoped Lock here
+		synchronized(m_myLock) {
+			// When we call this function we don't know if Cache is already Full or if that key value pair already exists in it
+			System.out.println("Inserting into Cache Key: " + key + " Value: " + value);
+			logger.info("Inserting into Cache Key: " + key + " Value: " + value);
+			// Check whether this is an update(already exist in cache) if so then we won't have to evict anything 
+			boolean isUpdate =this.m_cacheValueMap.containsKey(key);
+			if (isUpdate) {
+				// update value in cache value map
+				this.m_cacheValueMap.put(key, value);
+				// update as if we got a hit
+				boolean updateSuccess = this.updateCacheHit(key, value);
+				return updateSuccess;
 			}
-			if (!evictSuccess) {
-				return false;
+			// Not an update but adding new entry, Check whether the cache is full 
+			boolean cacheFull = this.m_currentCacheEntries > this.m_cacheSize;
+			if (cacheFull) {
+				boolean evictSuccess = false;
+				// do a switch statement from strategy and evict first according to one of them and then add to the cache
+				switch (this.m_strategy) {
+				case "FIFO": 
+					evictSuccess = evictFIFO();
+					break;
+				case "LRU":
+					evictSuccess = evictLRU();
+					break;
+				case "LFU":
+					evictSuccess = evictLFU();
+					break;
+				default:
+					evictSuccess = false;
+				}
+				if (!evictSuccess) {
+					return false;
+				}
+				this.addToCache(key,value);
+				return true;
+			} else {
+				// add the pair
+				this.addToCache(key, value);
 			}
-			this.addToCache(key,value);
 			return true;
-		} else {
-			// add the pair
-			this.addToCache(key, value);
 		}
-		return true;
 	}
 	// This function is used to evict a key value pair according to FIFO
 	public boolean evictFIFO() {
