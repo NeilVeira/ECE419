@@ -1,21 +1,30 @@
-/***
-Implementation of KVMessage interface which is used to store messages between
-the client and server. 
-How to use this class:
-	- Create a message using MessageType(header,status,key,value)
-	- Make sure that error = null
-	- convert to byte array using getBytes()
-	Converting from a byte array:
-	- MessageType(bytes)
-	- Make sure that error = null
-	- Use getHeader(), getStatus, getKey(), etc.
-***/
 package common.messages;
 
 import java.io.Serializable;
 import java.util.*;
 
-
+/**
+ * Implementation of KVMessage interface which is used to store messages between
+ * any client and server. These messages are used to between the kvclient and kvserver
+ * as well as for admin messages between the ECS and the kvservers. 
+ * How to use this class:
+ * 		- Create a message using MessageType(header,status,key,value)
+ * 		- Make sure that error = null
+ * 		- convert to byte array using getBytes()
+ * Converting from a byte array:
+ * 		- MessageType(bytes)
+ * 		- Make sure that error = null
+ * 		- Use getHeader(), getStatus, getKey(), etc. *
+ * Supported message types:
+ * 		- get: tells kvserver to do a get operation
+ * 		- put: tells kvserver to do a put operation
+ * 		- metadata: tells kvserver to update its metadata with the metadata contained in the message
+ *  	- connect: connect to server
+ *  	- disconnect: disconnect from server
+ *  	- logLevel: for changing the kvClient log verbosity
+ *  	- quit: for exiting the kvClient
+ *  	- help: print help
+ */
 public class MessageType implements KVMessage {
 	public String error;
 	private byte[] msgBytes;
@@ -223,6 +232,7 @@ public class MessageType implements KVMessage {
 				return "Log level must be equal to a valid log level.";
 			}
 			break;
+		case "metadata": 
 		case "get":
 			if (key.trim().equals("")){
 				return "Key must not be empty for message "+header;
@@ -234,7 +244,7 @@ public class MessageType implements KVMessage {
 			if (!key.trim().equals("") || !value.trim().equals("")){
 				return "Key and value must be empty for message "+header;
 			}
-			break;			
+			break;
 		default:
 			return "Unknown command";
 		}
