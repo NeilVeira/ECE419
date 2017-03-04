@@ -1,8 +1,7 @@
 package app_kvEcs;
 
 import org.apache.log4j.Level;
-import logger.LogSetup;
-import org.apache.log4j.Logger;
+
 
 import org.apache.zookeeper.ZooKeeper;
 import java.io.*;
@@ -11,15 +10,24 @@ import java.io.*;
  * Class to implement the command line interface for the ECS, similar to KVClient
  */
 public class ECSClient {
-	private static Logger logger = Logger.getRootLogger();
 	private static final String PROMPT = "StorageServiceECS> ";
 	private BufferedReader stdin;
 	private boolean stopECSClient;
 	private ECS ecs;
 	
 	ECSClient(String configFile){
-		this.ecs = new ECS(configFile);
-		stopECSClient = false;
+		stopECSClient = true;
+		try {
+			this.ecs = new ECS(configFile);
+			stopECSClient = false;
+		}
+		catch (IOException e){
+			System.out.println(e.getMessage());
+		}
+		catch (Exception e){
+			System.out.println("Error encountered creating ECS!");
+			e.printStackTrace();
+		}
 	}
 	
 	public void run() {
@@ -158,21 +166,13 @@ public class ECSClient {
 	 * @param args
 	 */
 	public static void main(String[] args) {
-		try{
-			if (args.length != 1){
-				System.out.println("Error! Invalid number of arguments!");
-				System.out.println("Usage: Server <string config file>");
-			}
-			else{
-				new LogSetup("logs/ecs.log", Level.WARN);
-				ECSClient ecsClient = new ECSClient(args[0]);
-				ecsClient.run();
-			}
-		} 
-		catch (IOException e) {
-			System.out.println("Error! Unable to initialize logger!");
-			e.printStackTrace();
-			System.exit(1);
+		if (args.length != 1){
+			System.out.println("Error! Invalid number of arguments!");
+			System.out.println("Usage: Server <string config file>");
+		}
+		else{
+			ECSClient ecsClient = new ECSClient(args[0]);
+			ecsClient.run();
 		}
 	}
 }

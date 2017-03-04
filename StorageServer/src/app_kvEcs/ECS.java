@@ -3,6 +3,9 @@ package app_kvEcs;
 import java.io.*;
 import java.util.*;
 
+import org.apache.log4j.Level;
+import logger.LogSetup;
+import org.apache.log4j.Logger;
 import org.apache.zookeeper.ZooKeeper;
 
 import common.HashRing;
@@ -11,6 +14,7 @@ import common.messages.*;
 import client.Client;
 
 public class ECS {
+	private static Logger logger = Logger.getRootLogger();
 	private File configFile;
 	private ZooKeeper zookeeper;
 	private HashRing metadata;
@@ -22,11 +26,12 @@ public class ECS {
 	/**
 	 * Creates a new ECS instance with the servers in the given config file. 
 	 */
-	public ECS(String configFile){
+	public ECS(String configFile) throws IOException, FileNotFoundException, Exception{
 		this.configFile = new File(configFile);
 		allServers = new ArrayList<Server>();
 		allProcesses = new ArrayList<Process>();
 		totalNumNodes = 0;
+		new LogSetup("logs/ecs.log", Level.INFO); //TODO: change to WARN at the end
 
 		try{
 			String currentLine;
@@ -39,15 +44,8 @@ public class ECS {
 			}			
 			
 		}
-		catch (FileNotFoundException e) {
-			System.out.println("Error! Could not find config file "+this.configFile);
-		}
 		catch (NumberFormatException e) {
-			System.out.println("Error! All ports in config file must be integers");
-		}
-		catch (Exception e){
-			System.out.println("Error encountered creating ECS!");
-			e.printStackTrace();
+			logger.error("Error! All ports in config file must be integers");
 		}
 		
 		for (int i=0; i<totalNumNodes; i++){
@@ -60,7 +58,7 @@ public class ECS {
 	 * the zookeeper object. 
 	 */
 	public void initService(int numberOfNodes, int cacheSize, String replacementStrategy) throws Exception {
-		System.out.println("Initializing service");
+		logger.info("Initializing service");
 		metadata = new HashRing();
 		String connectString = ""; //comma-separated list of "IP address:port" pairs for zookeeper
 		
@@ -85,11 +83,11 @@ public class ECS {
 		
 		for (int i=0; i<numberOfNodes; i++){
 			Server server = allServers.get(indices[i]);
-			System.out.println("Launching server "+server.ipAddress+" "+server.port);
+			logger.info("Launching server "+server.toString());
 			
 			//launch the server
 			String jarPath = new File(System.getProperty("user.dir"), "ms2-server.jar").toString();
-			String launchCmd = "java -jar "+jarPath+" "+server.port+" "+cacheSize+" "+replacementStrategy; 
+			String launchCmd = "java -jar "+jarPath+" "+server.port+" "+cacheSize+" "+replacementStrategy+" "+indices[i]; 
 			String sshCmd = "ssh -n localhost nohup "+launchCmd;
 			
 			//This is a temporary workaround because the ssh doesn't work
@@ -100,7 +98,7 @@ public class ECS {
 				metadata.addServer(server);
 			}
 			catch (IOException e){
-				System.out.println("Warning: Unable to connect to server "+server.toString());
+				logger.warn("Warning: Unable to launch server "+server.toString());
 			}
 			
 			connectString += server.ipAddress+":"+String.valueOf(server.port)+",";
@@ -115,13 +113,16 @@ public class ECS {
 		//TODO: initialize zookeeper with connectString
 		
 		//connect to each server and send them the metadata
+		logger.info("Sending all servers metadata "+metadata.toString());
 		ArrayList<Client> clients = getActiveServers();
 		for (Client client : clients) {
-			KVMessage message = new MessageType("metadata","METADATA_UPDATE",metadata.toString(),"");
+			KVMessage message = new KVAdminMessage("metadata","METADATA_UPDATE","",metadata.toString());
+			System.out.println("message.validityCheck() "+message.validityCheck());
 			client.sendMessage(message);
 			KVMessage response = client.getResponse();
-			//TODO: make sure this is METADATA_ACK status
-			
+			if (!response.getStatus().equals("SUCCESS")){
+				logger.warn("A server did not successfully update its metadata");
+			}			
 			client.closeConnection();
 		}
 	}
@@ -131,7 +132,7 @@ public class ECS {
 	 */
 	public void start() {
 		//TODO
-		System.out.println("Starting");
+		logger.info("Starting");
 	}
 	
 	/**
@@ -139,20 +140,18 @@ public class ECS {
 	 */
 	public void stop() {
 		//TODO
-		System.out.println("Stopping");
+		logger.info("Stopping");
 	}
 	
 	/**
 	 * Stops all servers and shuts down the ECS client
 	 */
 	public void shutDown() {
-		stop();
-		//TODO
-		System.out.println("Shutting down");
+		logger.info("Shutting down");
 		int i=0;
 		for (Process p : allProcesses) {
 			if (p != null){
-				System.out.println("Killing server "+allServers.get(i).ipAddress+" "+allServers.get(i).port);
+				logger.info("Killing server "+allServers.get(i).ipAddress+" "+allServers.get(i).port);
 				p.destroy();
 			}
 			i++;
@@ -165,7 +164,7 @@ public class ECS {
 	 */
 	public void addNode(int cacheSize, String replacementStragey) {
 		//TODO
-		System.out.println("Adding node "+cacheSize+" "+replacementStragey);
+		logger.info("Adding node "+cacheSize+" "+replacementStragey);
 	}
 	
 	/**
@@ -173,7 +172,7 @@ public class ECS {
 	 */
 	public void removeNode(int index) {
 		//TODO
-		System.out.println("Removing node "+index);
+		logger.info("Removing node "+index);
 	}
 	
 	/**
@@ -205,10 +204,10 @@ public class ECS {
 			
 			if (!success) {
 				metadata.removeServer(server);
-				System.out.println("Warning: Unable to connect to server "+server.toString());
+				logger.warn("Warning: Unable to connect to server "+server.toString());
 			}
 			else {
-				System.out.println("Connection successful to server "+server.toString());
+				logger.info("Connection successful to server "+server.toString());
 			}
 		}
 		return clients;
