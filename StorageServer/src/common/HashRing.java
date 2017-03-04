@@ -127,7 +127,7 @@ public class HashRing{
 	/**
 	 * Encapsulates the IP address and port fields used by the HashRing class.
 	 */
-	public class Server{
+	public static class Server{
 		public String ipAddress;
 		public int port;
 		

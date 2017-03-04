@@ -7,6 +7,7 @@ import java.net.UnknownHostException;
 import common.messages.KVMessage;
 import common.messages.MessageType;
 import common.HashRing;
+import common.HashRing.Server;
 
 import client.Client;
 import client.KVCommInterface.SocketStatus;
@@ -27,7 +28,7 @@ public class KVStore implements KVCommInterface {
 		this.port = port;
 		metadata = new HashRing();
 		//add the given server to the metadata. This will be KVStore's first try when doing a request.
-		metadata.addServer(metadata.new Server(address,port));
+		metadata.addServer(new Server(address,port));
 	}
 	
 	@Override

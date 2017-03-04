@@ -51,9 +51,12 @@ public class ECSClient {
 		int expectedNumArgs = 0;
 		switch(tokens[0]){
 		case "initService":
+			expectedNumArgs = 3;
+			break;
 		case "start":
 		case "stop":
 		case "shutDown":
+		case "help":
 			expectedNumArgs = 0;
 			break;
 		case "addNode":
@@ -75,7 +78,17 @@ public class ECSClient {
 		//call corresponding ECS method
 		switch (tokens[0]){
 		case "initService":
-			ecs.initService();
+			try {
+				int numberOfNodes = Integer.parseInt(tokens[1]);
+				int cacheSize = Integer.parseInt(tokens[2]);
+				ecs.initService(numberOfNodes, cacheSize, tokens[3]);
+			}
+			catch (NumberFormatException e){
+				printError("numberOfNodes and cacheSize must be integers");
+			}
+			catch (Exception e){
+				printError(e.getMessage());
+			}
 			break;
 		case "start":
 			ecs.start();
@@ -86,6 +99,9 @@ public class ECSClient {
 		case "shutDown":
 			stopECSClient = true;
 			ecs.shutDown();
+			break;
+		case "help":
+			printHelp();
 			break;
 		case "addNode":
 			try{
@@ -112,6 +128,30 @@ public class ECSClient {
 		System.out.println(PROMPT + "Error! " +  error);
 	}
 	
+	private void printHelp() {
+		StringBuilder sb = new StringBuilder();
+		sb.append(PROMPT).append("ECS CLIENT HELP (Usage):\n");
+		sb.append(PROMPT);
+		sb.append("::::::::::::::::::::::::::::::::");
+		sb.append("::::::::::::::::::::::::::::::::\n");
+		sb.append(PROMPT).append("initService <numberOfNodes> <cacheSize> <replacementStrategy>");
+		sb.append("\t Launch numberOfNodes random nodes from the initial config file\n");
+		sb.append(PROMPT).append("start");
+		sb.append("\t\t\t\t Start the service and all initialized nodes\n");
+		sb.append(PROMPT).append("stop");
+		sb.append("\t\t\t\t\t Stops the service. Remains running but servers no longer accept client requests.\n");
+		sb.append(PROMPT).append("shutdown");
+		sb.append("\t\t\t\t Kills all servers and exits\n");
+		sb.append(PROMPT).append("addNode <cacheSize> <replacementStrategy");
+		sb.append("\t Launch a random node from the initial config file and add it to the service\n");
+		sb.append(PROMPT).append("removeNode <index>");
+		sb.append("\t\t\t Remove the index-th running server from the service.\n");
+		sb.append(PROMPT).append("logLevel");
+		sb.append("\t\t\t\t changes the logLevel \n");
+		sb.append(PROMPT).append("\t\t\t\t\t ");
+		sb.append("ALL | DEBUG | INFO | WARN | ERROR | FATAL | OFF \n");
+		System.out.println(sb.toString());
+	}
 	
 	/**
 	 * Entry point to run the ECS
