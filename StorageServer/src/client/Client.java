@@ -34,12 +34,22 @@ public class Client {
 			throws UnknownHostException, IOException {
 
 		clientSocket = new Socket(address, port);
+		System.out.println("This executes");
 		clientSocket.setSoTimeout(1000);
 		listeners = new HashSet<KVCommInterface>();
 		setRunning(true);
 		logger.info("Connection established");
 		output = clientSocket.getOutputStream();
 		input = clientSocket.getInputStream();
+	}
+	
+	public int soTimeout() {
+		try {
+			return clientSocket.getSoTimeout();
+		} catch (Exception e) {
+			return -1;
+		}
+		
 	}
 	
 	
@@ -59,7 +69,9 @@ public class Client {
 		KVMessage response = null;
 		if (isRunning()) {
 			try {
+				System.out.println("Going to receive!");
 				response = receiveMessage();
+				System.out.println("Finished receive!");
 				
 			} catch (IOException ioe) {
 				if(isRunning()) {

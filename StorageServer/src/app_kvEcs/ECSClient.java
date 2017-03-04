@@ -161,7 +161,7 @@ public class ECSClient {
 		try{
 			if (args.length != 1){
 				System.out.println("Error! Invalid number of arguments!");
-				System.out.println("Usage: Server <string config file>");
+				System.out.println("Usage: Server <string config file path>");
 			}
 			else{
 				new LogSetup("logs/ecs.log", Level.WARN);

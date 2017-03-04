@@ -149,6 +149,7 @@ public class KVClient {
 			case "get":
 				if (kvstore != null){
 					try{
+						System.out.println(Integer.toString(kvstore.soTimeout()));
 						KVMessage get_result = kvstore.get(msg.getKey());
 						if(get_result.getStatus().equals("GET_SUCCESS")) {
 							// Get successful
