@@ -37,16 +37,17 @@ public class HashRing{
 			e.printStackTrace();
 		}
 		
-
 		//parse data and load into serverMap
 		String[] servers = data.split(",");
 		for (String server : servers){
 			String[] tokens = server.split("\\s+");
-			assert (tokens.length == 3);
-			BigInteger hash = new BigInteger(tokens[0]);
-			int port = Integer.parseInt(tokens[2]);
-			Server newServer = new Server(tokens[1], port);
-			serverMap.put(hash, newServer);
+			//ignore invalid servers (usually empty)
+			if (tokens.length == 3){
+				BigInteger hash = new BigInteger(tokens[0]);
+				int port = Integer.parseInt(tokens[2]);
+				Server newServer = new Server(tokens[1], port);
+				serverMap.put(hash, newServer);
+			}
 		}
 	}
 	
@@ -110,7 +111,7 @@ public class HashRing{
 	 */
 	public String toString() {
 		String ret = "";
-		for (Map.Entry<BigInteger,Server> entry : serverMap.entrySet()){
+		for (Map.Entry<BigInteger,Server> entry : serverMap.entrySet()) {
 			ret += entry.getKey().toString() + " ";
 			ret += entry.getValue().ipAddress + " ";
 			ret += String.valueOf(entry.getValue().port);
@@ -125,15 +126,30 @@ public class HashRing{
 	}
 	
 	/**
+	 * Returns a list of all servers in the ring
+	 */
+	public List<Server> getAllServers() {
+		List<Server> allServers = new LinkedList<Server>();
+		for (Map.Entry<BigInteger,Server> entry : serverMap.entrySet()) {
+			allServers.add(entry.getValue());
+		}
+		return allServers;
+	}
+	
+	/**
 	 * Encapsulates the IP address and port fields used by the HashRing class.
 	 */
-	public class Server{
+	public static class Server{
 		public String ipAddress;
 		public int port;
 		
 		public Server(String ipAddress, int port){
 			this.ipAddress = ipAddress;
 			this.port = port;
+		}
+		
+		public String toString(){
+			return this.ipAddress+" "+this.port;
 		}
 	}
 }
