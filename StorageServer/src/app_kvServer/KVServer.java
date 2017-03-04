@@ -31,13 +31,21 @@ import logger.LogSetup;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
-import common.messages.MessageType;
-
+import common.HashRing;
+import common.messages.*;
 import app_kvServer.ClientConnection;
+
 /**
  * Represents a simple Echo Server implementation.
  */
 public class KVServer extends Thread {
+	private enum ServerStatus {
+		ACTIVE,
+		STOPPED,
+		WRITE_LOCKED
+	}
+	ServerStatus status;
+	
 	// I will leave some var names as name instead of m_name since they were given in the skeleton code and I don't want to break stuff
 	private static Logger logger = Logger.getRootLogger();
 	private int port;
@@ -76,52 +84,38 @@ public class KVServer extends Thread {
 
 	private ServerSocket serverSocket;
 	private boolean running;
+	
+	private HashRing metadata;
 
 	/**
-	 * Constructs a (Echo-) Server object which listens to connection attempts 
-	 * at the given port.
+	 * Constructs a KVServer object which listens to connection attempts 
+	 * at the given port. This constructor does all the initialization and starts 
+	 * the server running.
 	 * 
 	 * @param port a port number which the Server is listening to in order to 
-	 * establish a socket connection to a client. The port number should 
-	 * reside in the range of dynamic ports, i.e 49152 - 65535.
-	 */
-	/**
-	 * Start KV Server at given port
-	 * @param port given port for storage server to operate
+	 * 		establish a socket connection to a client. The port number should 
+	 * 		reside in the range of dynamic ports, i.e 49152 - 65535.
 	 * @param cacheSize specifies how many key-value pairs the server is allowed 
-	 *           to keep in-memory
+ *           to keep in-memory
 	 * @param strategy specifies the cache replacement strategy in case the cache 
-	 *           is full and there is a GET- or PUT-request on a key that is 
-	 *           currently not contained in the cache. Options are "FIFO", "LRU", 
-	 *           and "LFU".
+ *           is full and there is a GET- or PUT-request on a key that is 
+ *           currently not contained in the cache. Options are "FIFO", "LRU", 
+ *           and "LFU".
+	 * @param id identifier for this server. It will use a different hard disk file name
+ * 			 based on this integer.            		
 	 */
-	public KVServer(int port, int cacheSize, String strategy) {
-
+	public KVServer(int port, int cacheSize, String strategy, int id) {
 		// Initialize the private variables of the server object
 		System.out.println("Initializing Server Variables");
 		logger.info("Initializing Server Variables");
 		this.port = port;
-		this.m_cacheSize = cacheSize;
-		this.m_strategy = strategy;
-		this.m_currentCacheEntries = 0;
-		this.m_currentHardDiskEntries = 0;
-
-		// Initialize the maps for the server object
-		System.out.println("Initializing Server Maps");
-		logger.info("Initializing Server Maps");
-		this.m_cacheValueMap = new HashMap<String, String>();
-		this.m_cacheFIFOList = new LinkedList<String>();
-		this.m_cacheLRUList = new LinkedList<String>();
-		this.m_cacheLFUMap = new HashMap<String, Integer>();
-		this.m_hardDiskValueMap = new HashMap<String, String>();
-
+		
 		// Initialize harddisk file information
+		this.m_hardDiskFileName = "storage_" + id + ".txt";
 		System.out.println("Initializing Hard Disk File Variables");
 		logger.info("Initializing Hard Disk File Variables");
 		// Get where the program is running from (where the project is)
 		this.m_hardDiskFilePath = System.getProperty("user.dir");
-		// HardCode file name to be storage.txt
-		this.m_hardDiskFileName = "storage.txt";
 		// Output harddisk file location and name for debugging
 		System.out.println("HardDiskFile Name is : " + m_hardDiskFileName + " HardDiskFile Path is : " + m_hardDiskFilePath);
 		logger.info("HardDiskFile Name is : " + m_hardDiskFileName + " HardDiskFile Path is : " + m_hardDiskFilePath);
@@ -144,6 +138,69 @@ public class KVServer extends Thread {
 		m_hardDiskFileWriter = null;
 		// Initialize the file reader to null, assign when we read
 		m_hardDiskFileReader = null;
+		
+		initKVServer("", cacheSize, strategy);
+		//TODO: start server
+	}
+	
+	/**
+	 * Construct a KVServer with only a port and id. This is used for constructing a KVServer
+	 * without initializing the cache attributes and without starting it. The server will be
+	 * in the STOPPED state which is unable to service client requests. 
+	 */
+	public KVServer(int port, int id) {
+		this.port = port;
+		this.m_hardDiskFileName = "storage_" + id + ".txt";
+		// Initialize harddisk file information
+		System.out.println("Initializing Hard Disk File Variables");
+		logger.info("Initializing Hard Disk File Variables");
+		// Get where the program is running from (where the project is)
+		this.m_hardDiskFilePath = System.getProperty("user.dir");
+		// Output harddisk file location and name for debugging
+		System.out.println("HardDiskFile Name is : " + m_hardDiskFileName + " HardDiskFile Path is : " + m_hardDiskFilePath);
+		logger.info("HardDiskFile Name is : " + m_hardDiskFileName + " HardDiskFile Path is : " + m_hardDiskFilePath);
+		// Initialize the harddisk File Instance
+		m_hardDiskFileInstance = new File(m_hardDiskFilePath + "/" + m_hardDiskFileName);
+		// Initialize a new harddisk file for writing or see if it already exists
+		try {
+			m_hardDiskFileExists = m_hardDiskFileInstance.createNewFile();
+		} catch (IOException e) {
+			System.out.println("Error when trying to initialize file instance");
+			e.printStackTrace();
+		}
+		if (m_hardDiskFileExists) {
+			System.out.println("Hard disk File already exists");
+		} else {
+			System.out.println("Created New Hard disk File");
+		}
+		// Initialize the file writer to null, assign when we write
+		// m_hardDiskFileWriter = new PrintWriter(m_hardDiskFileInstance);
+		m_hardDiskFileWriter = null;
+		// Initialize the file reader to null, assign when we read
+		m_hardDiskFileReader = null;
+		
+		this.status = ServerStatus.STOPPED;
+	}
+	
+	/**
+	 * Initialize most of the internal KVServer data objects. 
+	 */
+	public void initKVServer(String metadata, int cacheSize, String replacementStrategy) {
+		this.m_cacheSize = cacheSize;
+		this.m_strategy = replacementStrategy;
+		this.metadata = new HashRing(metadata);
+		
+		this.m_currentCacheEntries = 0;
+		this.m_currentHardDiskEntries = 0;
+
+		// Initialize the maps for the server object
+		System.out.println("Initializing Server Maps");
+		logger.info("Initializing Server Maps");
+		this.m_cacheValueMap = new HashMap<String, String>();
+		this.m_cacheFIFOList = new LinkedList<String>();
+		this.m_cacheLRUList = new LinkedList<String>();
+		this.m_cacheLFUMap = new HashMap<String, Integer>();
+		this.m_hardDiskValueMap = new HashMap<String, String>();
 
 		// Start the server object
 		System.out.println("Starting Server");
@@ -656,38 +713,75 @@ public class KVServer extends Thread {
 			return false;
 		}
 	}
+	
+	private static void printUsage() {
+		System.out.println("Valid usages:");
+		System.out.println("\t<port> <id>");
+		System.out.println("\t<port> <cache size> <replacement strategy>");
+		System.out.println("\t<port> <cache size> <replacement strategy> <id>");
+	}
 
 	/**
 	 * Main entry point for the echo server application. 
-	 * @param args contains the port number at args[0].
+	 * Valid ways to initialize with arguments:
+	 * 		<port> <id>
+	 * 		<port> <cache size> <replacement strategy>
+	 * 		<port> <cache size> <replacement strategy> <id>
 	 */
 	public static void main(String[] args) {
 		try {
 			new LogSetup("logs/server.log", Level.ALL);
-			// change the amount of commandline arguments to be parsed into 3
-			// first one is port, second is cache size, third one is strategy
-			if(args.length != 3) {
-				System.out.println("Error! Invalid number of arguments!");
-				System.out.println("Usage: Server <int port> <int cacheSize> <string strategy: FIFO, LRU or LFU>!");
-			} else {
-				int port = Integer.parseInt(args[0]);
-				int cacheSize = Integer.parseInt(args[1]);
-				String strategy = args[2];
-				// Handle invalid input for server strategy argument
-				if (!strategy.equals("FIFO") && !strategy.equals("LRU") && !strategy.equals("LFU")) {
-					System.out.println("Error! strategy argument invalid!");
-					System.out.println("Usage: Server <int port> <int cacheSize> <string strategy: FIFO, LRU or LFU>! Please try again");
-					System.exit(0);
-				}
-				new KVServer(port, cacheSize, strategy);
+			String portStr="50000", strategy="FIFO", cacheSizeStr="1", idStr="0";
+			
+			//determine what each argument represents based on the number of arguments.
+			if (args.length == 2){
+				//interpret 2 arguments as port and id
+				portStr = args[0];
+				idStr = args[1];
 			}
+			else if (args.length == 3){
+				//interpret 3 arguments as port, cache size, and replacement strategy
+				portStr = args[0];
+				cacheSizeStr = args[1];
+				strategy = args[2];
+			}
+			else if (args.length == 4){
+				//interpret 3 arguments as port, cache size, replacement strategy, and id
+				portStr = args[0];
+				cacheSizeStr = args[1];
+				strategy = args[2];
+				idStr = args[3];
+			}
+			else{
+				System.out.println("Error! Invalid number of arguments!");
+				KVServer.printUsage();
+				System.exit(0);
+			}
+			
+			//validity check arguments
+			if (!strategy.equals("FIFO") && !strategy.equals("LRU") && !strategy.equals("LFU")) {
+				System.out.println("Error! strategy argument invalid! Must be one of FIFO, LRU, LFU");
+				System.exit(0);
+			}
+			int port = Integer.parseInt(portStr);
+			int cacheSize = Integer.parseInt(cacheSizeStr);
+			int id = Integer.parseInt(idStr);
+			
+			if (args.length == 2){
+				new KVServer(port, id);
+			}
+			else{
+				new KVServer(port, cacheSize, strategy, id);
+			}
+			
 		} catch (IOException e) {
 			System.out.println("Error! Unable to initialize logger!");
 			e.printStackTrace();
 			System.exit(1);
 		} catch (NumberFormatException nfe) {
-			System.out.println("Error! Invalid argument <port>! Not a number!");
-			System.out.println("Usage: Server <port>!");
+			System.out.println("Error! Arugments port, cache size, and id must be integers");
+			KVServer.printUsage();
+			nfe.printStackTrace();
 			System.exit(1);
 		}
 	}

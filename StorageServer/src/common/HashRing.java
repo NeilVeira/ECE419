@@ -37,16 +37,17 @@ public class HashRing{
 			e.printStackTrace();
 		}
 		
-
 		//parse data and load into serverMap
 		String[] servers = data.split(",");
 		for (String server : servers){
 			String[] tokens = server.split("\\s+");
-			assert (tokens.length == 3);
-			BigInteger hash = new BigInteger(tokens[0]);
-			int port = Integer.parseInt(tokens[2]);
-			Server newServer = new Server(tokens[1], port);
-			serverMap.put(hash, newServer);
+			//ignore invalid servers (usually empty)
+			if (tokens.length == 3){
+				BigInteger hash = new BigInteger(tokens[0]);
+				int port = Integer.parseInt(tokens[2]);
+				Server newServer = new Server(tokens[1], port);
+				serverMap.put(hash, newServer);
+			}
 		}
 	}
 	
