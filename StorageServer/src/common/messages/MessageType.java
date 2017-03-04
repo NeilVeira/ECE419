@@ -6,7 +6,7 @@ import java.util.*;
 /**
  * Implementation of KVMessage interface which is used to store messages between
  * any client and server. These messages are used to between the kvclient and kvserver
- * as well as for admin messages between the ECS and the kvservers. 
+ * as well as for admin messages between the ECS and the kvservers.  
  * How to use this class:
  * 		- Create a message using MessageType(header,status,key,value)
  * 		- Make sure that error = null
@@ -25,7 +25,7 @@ import java.util.*;
  *  	- quit: for exiting the kvClient
  *  	- help: print help
  */
-public class MessageType implements KVMessage {
+public class MessageType implements KVMessage,KVAdminMessage {
 	public String error;
 	private byte[] msgBytes;
 	private static final char LINE_FEED = 0x0A;

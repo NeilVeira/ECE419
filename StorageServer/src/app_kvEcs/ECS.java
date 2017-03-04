@@ -7,6 +7,8 @@ import org.apache.zookeeper.ZooKeeper;
 
 import common.HashRing;
 import common.HashRing.Server;
+import common.messages.*;
+import client.Client;
 
 public class ECS {
 	private File configFile;
@@ -92,10 +94,14 @@ public class ECS {
 			
 			//This is a temporary workaround because the ssh doesn't work
 			//TODO: use ssh 
-			Process p = Runtime.getRuntime().exec(launchCmd);
-			allProcesses.set(indices[i],  p);
-			
-			metadata.addServer(server);
+			try {
+				Process p = Runtime.getRuntime().exec(launchCmd);
+				allProcesses.set(indices[i],  p);
+				metadata.addServer(server);
+			}
+			catch (IOException e){
+				System.out.println("Warning: Unable to connect to server "+server.toString());
+			}
 			
 			connectString += server.ipAddress+":"+String.valueOf(server.port)+",";
 		}
@@ -108,7 +114,16 @@ public class ECS {
 		
 		//TODO: initialize zookeeper with connectString
 		
-		//TODO: connect to each server and send them the metadata
+		//connect to each server and send them the metadata
+		ArrayList<Client> clients = getActiveServers();
+		for (Client client : clients) {
+			KVMessage message = new MessageType("metadata","METADATA_UPDATE",metadata.toString(),"");
+			client.sendMessage(message);
+			KVMessage response = client.getResponse();
+			//TODO: make sure this is METADATA_ACK status
+			
+			client.closeConnection();
+		}
 	}
 	
 	/**
@@ -160,4 +175,43 @@ public class ECS {
 		//TODO
 		System.out.println("Removing node "+index);
 	}
+	
+	/**
+	 * Get list of Client objects for every active server in the current metadata (i.e.
+	 * servers which can be connected to successfully). 
+	 * Any servers which can't be connected to are removed from the metadata.
+	 */
+	public ArrayList<Client> getActiveServers() {
+		List<Server> activeServers = metadata.getAllServers();
+		ArrayList<Client> clients = new ArrayList<Client>();
+		for (Server server : activeServers) {
+			//try connecting to this server 
+			boolean success;
+			try {
+				Client client = new Client(server.ipAddress, server.port);
+				//wait for "connection successful" response
+				KVMessage response = client.getResponse();
+				if (response != null){
+					success = true;
+					clients.add(client);
+				}
+				else{
+					success = false;
+				}
+			}
+			catch (Exception e){
+				success = false;
+			}
+			
+			if (!success) {
+				metadata.removeServer(server);
+				System.out.println("Warning: Unable to connect to server "+server.toString());
+			}
+			else {
+				System.out.println("Connection successful to server "+server.toString());
+			}
+		}
+		return clients;
+	}
+	
 }

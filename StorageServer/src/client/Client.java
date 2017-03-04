@@ -178,7 +178,7 @@ public class Client {
 		msgBytes = tmp;
 		
 		/* build final String */
-		MessageType msg = new MessageType(msgBytes); //reply from server should include status
+		KVMessage msg = new MessageType(msgBytes); //reply from server should include status
 		if (msg.error != null){
 			logger.error("Received invalid message from server: "+msg.originalMsg);
 			logger.error(msg.error);
