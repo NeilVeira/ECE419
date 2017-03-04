@@ -34,7 +34,6 @@ public class Client {
 			throws UnknownHostException, IOException {
 
 		clientSocket = new Socket(address, port);
-		System.out.println("This executes");
 		clientSocket.setSoTimeout(1000);
 		listeners = new HashSet<KVCommInterface>();
 		setRunning(true);
@@ -69,9 +68,7 @@ public class Client {
 		KVMessage response = null;
 		if (isRunning()) {
 			try {
-				System.out.println("Going to receive!");
 				response = receiveMessage();
-				System.out.println("Finished receive!");
 				
 			} catch (IOException ioe) {
 				if(isRunning()) {
@@ -90,7 +87,6 @@ public class Client {
 	
 	public synchronized void closeConnection() {
 		logger.info("try to close connection ...");
-		
 		try {
 			tearDownConnection();
 		} catch (IOException ioe) {

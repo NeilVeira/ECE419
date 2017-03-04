@@ -194,11 +194,10 @@ public class ECS {
 	public ArrayList<Client> getActiveServers() {
 		List<Server> activeServers = metadata.getAllServers();
 		ArrayList<Client> clients = new ArrayList<Client>();
-		int tryCount = 0;
 		for (int i = 0; i < activeServers.size(); ++i) {
 			Server server = activeServers.get(i);
 			//try connecting to this server 
-			boolean success;
+			boolean success = false;
 			try {
 				Client client = new Client(server.ipAddress, server.port);
 				//wait for "connection successful" response
@@ -216,14 +215,8 @@ public class ECS {
 			}
 			
 			if (!success) {
-				if(tryCount > 10000) {
-					metadata.removeServer(server);
-					System.out.println("Warning: Unable to connect to server "+server.toString());
-					tryCount = 0;
-				} else {
-					tryCount++;
-					i--;
-				}
+				metadata.removeServer(server);
+				System.out.println("Warning: Unable to connect to server "+server.toString());
 			}
 			else {
 				System.out.println("Connection successful to server "+server.toString());
