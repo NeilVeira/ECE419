@@ -1,9 +1,6 @@
 package app_kvEcs;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
+import java.io.*;
 import java.util.*;
 
 import org.apache.zookeeper.ZooKeeper;
@@ -16,6 +13,7 @@ public class ECS {
 	private ZooKeeper zookeeper;
 	private HashRing metadata;
 	private List<Server> allServers; //array of all servers in the system. This never changes.
+	private List<Process> allProcesses; //array of all processes in the system, one for each server (can be null if server is not running).
 	private String launchScript = "launch_server.sh";
 	private int totalNumNodes;
 	
@@ -25,6 +23,7 @@ public class ECS {
 	public ECS(String configFile){
 		this.configFile = new File(configFile);
 		allServers = new ArrayList<Server>();
+		allProcesses = new ArrayList<Process>();
 		totalNumNodes = 0;
 
 		try{
@@ -49,6 +48,9 @@ public class ECS {
 			e.printStackTrace();
 		}
 		
+		for (int i=0; i<totalNumNodes; i++){
+			allProcesses.add(null);
+		}
 	}
 	
 	/**
@@ -82,7 +84,16 @@ public class ECS {
 		for (int i=0; i<numberOfNodes; i++){
 			Server server = allServers.get(indices[i]);
 			System.out.println("Launching server "+server.ipAddress+" "+server.port);
-			//TODO: run the ssh command/script
+			
+			//launch the server
+			String jarPath = new File(System.getProperty("user.dir"), "ms2-server.jar").toString();
+			String launchCmd = "java -jar "+jarPath+" "+server.port+" "+cacheSize+" "+replacementStrategy; 
+			String sshCmd = "ssh -n localhost nohup "+launchCmd;
+			
+			//This is a temporary workaround because the ssh doesn't work
+			//TODO: use ssh 
+			Process p = Runtime.getRuntime().exec(launchCmd);
+			allProcesses.set(indices[i],  p);
 			
 			metadata.addServer(server);
 			
@@ -96,7 +107,8 @@ public class ECS {
 		System.out.println("Zookeeper connect string: "+connectString);
 		
 		//TODO: initialize zookeeper with connectString
-
+		
+		//TODO: connect to each server and send them the metadata
 	}
 	
 	/**
@@ -122,6 +134,14 @@ public class ECS {
 		stop();
 		//TODO
 		System.out.println("Shutting down");
+		int i=0;
+		for (Process p : allProcesses) {
+			if (p != null){
+				System.out.println("Killing server "+allServers.get(i).ipAddress+" "+allServers.get(i).port);
+				p.destroy();
+			}
+			i++;
+		}
 	}
 	
 	/**
