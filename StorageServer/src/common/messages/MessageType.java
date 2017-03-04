@@ -25,15 +25,15 @@ import java.util.*;
  *  	- quit: for exiting the kvClient
  *  	- help: print help
  */
-public class MessageType implements KVMessage,KVAdminMessage {
+public class MessageType implements KVMessage {
 	public String error;
 	private byte[] msgBytes;
 	private static final char LINE_FEED = 0x0A;
 	private static final char RETURN = 0x0D;
-	private String key;
-	private String value;
-	private String header;
-	private String status;
+	protected String key;
+	protected String value;
+	protected String header;
+	protected String status;
 	
 	/**
 	 * Replace all single quotes in the string with double quotes
@@ -232,7 +232,6 @@ public class MessageType implements KVMessage,KVAdminMessage {
 				return "Log level must be equal to a valid log level.";
 			}
 			break;
-		case "metadata": 
 		case "get":
 			if (key.trim().equals("")){
 				return "Key must not be empty for message "+header;
