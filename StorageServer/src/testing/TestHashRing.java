@@ -3,16 +3,16 @@ package testing;
 import org.junit.Test;
 import org.junit.Assert;
 
-import common.Metadata;
+import common.HashRing;
 import java.math.BigInteger;
 
 import junit.framework.TestCase;
 
-public class TestMetadata extends TestCase {
-	Metadata md;
+public class TestHashRing extends TestCase {
+	HashRing md;
 	
 	public void setUp() {
-		this.md = new Metadata();
+		this.md = new HashRing();
 	}
 
 	public void tearDown() {
@@ -47,7 +47,7 @@ public class TestMetadata extends TestCase {
 		md.addServer(md.new Server("localhost",50001));
 		md.addServer(md.new Server("localhost",50002));
 		md.addServer(md.new Server("127.0.0.1",1234));
-		Metadata.Server responsible = md.getResponsible("key");
+		HashRing.Server responsible = md.getResponsible("key");
 		assertEquals(responsible.ipAddress, "localhost");
 		assertEquals(responsible.port, 50001);
 	}
@@ -58,16 +58,16 @@ public class TestMetadata extends TestCase {
 		md.addServer(md.new Server("localhost",50001));
 		md.addServer(md.new Server("localhost",50002));
 		md.addServer(md.new Server("127.0.0.1",1234));
-		Metadata.Server responsible = md.getResponsible("17");
+		HashRing.Server responsible = md.getResponsible("17");
 		assertEquals(responsible.ipAddress, "localhost");
 		assertEquals(responsible.port, 50000);
 	}
 	
 	public void testConstructFromString() {
 		String data = "-134847710425560069445028245650825152028 localhost 50000,-93864682652215908080847256054918673801 localhost 50002,36187173043867385737752624992350489329 127.0.0.1 1234,136415732930669195156142751695833227657 localhost 50001";
-		Metadata md2 = new Metadata(data);
+		HashRing md2 = new HashRing(data);
 		assertEquals(md2.toString(), data);
-		Metadata.Server responsible = md2.getResponsible("17");
+		HashRing.Server responsible = md2.getResponsible("17");
 		assertEquals(responsible.ipAddress, "localhost");
 		assertEquals(responsible.port, 50000);
 	}

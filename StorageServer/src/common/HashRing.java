@@ -9,14 +9,14 @@ import java.util.*;
  * Class to manage the mapping of servers to hash ranges
  * and the hash ring. 
  */
-public class Metadata{
+public class HashRing{
 	private MessageDigest hasher;
-	private TreeMap<BigInteger,Server> hashRing;
+	private TreeMap<BigInteger,Server> serverMap;
 	
-	public Metadata(){
+	public HashRing(){
 		try{
 			this.hasher = MessageDigest.getInstance("MD5");
-			this.hashRing = new TreeMap<BigInteger,Server>();
+			this.serverMap = new TreeMap<BigInteger,Server>();
 		}
 		catch (Exception e){
 			e.printStackTrace();
@@ -24,21 +24,21 @@ public class Metadata{
 	}
 	
 	/**
-	 * Construct a metadata object from a string of data (created 
-	 * from Metadata.toString()).
+	 * Construct a HashRing object from a string of data (created 
+	 * from HashRing.toString()).
 	 * Parses the data and loads it into the hash ring.
 	 */
-	public Metadata(String data) {
+	public HashRing(String data) {
 		try{
 			this.hasher = MessageDigest.getInstance("MD5");
-			this.hashRing = new TreeMap<BigInteger,Server>();
+			this.serverMap = new TreeMap<BigInteger,Server>();
 		}
 		catch (Exception e){
 			e.printStackTrace();
 		}
 		
 
-		//parse data and load into hashRing
+		//parse data and load into serverMap
 		String[] servers = data.split(",");
 		for (String server : servers){
 			String[] tokens = server.split("\\s+");
@@ -46,7 +46,7 @@ public class Metadata{
 			BigInteger hash = new BigInteger(tokens[0]);
 			int port = Integer.parseInt(tokens[2]);
 			Server newServer = new Server(tokens[1], port);
-			hashRing.put(hash, newServer);
+			serverMap.put(hash, newServer);
 		}
 	}
 	
@@ -74,29 +74,29 @@ public class Metadata{
 	 */
 	public void addServer(Server server){
 		BigInteger hash = serverHash(server);
-		hashRing.put(hash, server);
+		serverMap.put(hash, server);
 	}
 	
 	/**
-	 * Remove the given server from the metadata
+	 * Remove the given server from the hash ring
 	 */
 	public void removeServer(Server server){
 		BigInteger hash = serverHash(server);
-		hashRing.remove(hash);
+		serverMap.remove(hash);
 	}
 	
 	/**
 	 * Return the server responsible for the data key or null if the 
-	 * ring is empty. (NOT TESTED YET!)
+	 * ring is empty. 
 	 */
 	public Server getResponsible(String key){
 		BigInteger keyHash = objectHash(key);
-		Map.Entry<BigInteger,Server> entry = hashRing.ceilingEntry(keyHash);
+		Map.Entry<BigInteger,Server> entry = serverMap.ceilingEntry(keyHash);
 		if (entry == null){
 			//key is past the last server - wrap around to first
-			entry = hashRing.firstEntry();
+			entry = serverMap.firstEntry();
 			if (entry == null){
-				//hashRing is empty
+				//serverMap is empty
 				return null;
 			}
 		}
@@ -107,11 +107,10 @@ public class Metadata{
 	 * Convert the entire mapping to a String. String is formatted as a comma-delimited
 	 * list of entries, where each entry is a space-delimited list of the form 
 	 * "<hash> <IP address> <port>"
-	 * TODO: this won't work if any of the values contain spaces or commas. Can this ever happen?
 	 */
 	public String toString() {
 		String ret = "";
-		for (Map.Entry<BigInteger,Server> entry : hashRing.entrySet()){
+		for (Map.Entry<BigInteger,Server> entry : serverMap.entrySet()){
 			ret += entry.getKey().toString() + " ";
 			ret += entry.getValue().ipAddress + " ";
 			ret += String.valueOf(entry.getValue().port);
@@ -126,7 +125,7 @@ public class Metadata{
 	}
 	
 	/**
-	 * Encapsulates the IP address and port fields used by the Metadata class.
+	 * Encapsulates the IP address and port fields used by the HashRing class.
 	 */
 	public class Server{
 		public String ipAddress;
