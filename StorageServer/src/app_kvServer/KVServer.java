@@ -328,8 +328,8 @@ public class KVServer extends Thread {
 		case "help":
 			returnMsg = handleHelp(msg);
 			break;
-		case "quit":
-			returnMsg = handleQuit(msg);
+		case "shutdown":
+			returnMsg = handleShutdown(msg);
 			break;
 		case "init":
 			returnMsg = handleInit(msg);
@@ -340,7 +340,7 @@ public class KVServer extends Thread {
 		case "metadata":
 			returnMsg = handleMetadata(msg);
 		default:
-			return returnMsg = new common.messages.MessageType("", "", "", "");
+			return returnMsg = new common.messages.KVAdminMessage("", "", "", "");
 		}
 		return returnMsg;
 	}
@@ -355,12 +355,12 @@ public class KVServer extends Thread {
 	
 	public KVMessage handleStart(KVMessage msg) {
 		startServer();
-		return new MessageType("start","SUCCESS","","");
+		return new KVAdminMessage("start","SUCCESS","","");
 	}
 	
 	public KVMessage handleStop(KVMessage msg) {
 		stopServer();
-		return new MessageType("stop","SUCCESS","","");
+		return new KVAdminMessage("stop","SUCCESS","","");
 	}
 	
 	/**
@@ -371,7 +371,7 @@ public class KVServer extends Thread {
 	 */
 	public KVMessage handleMetadata(KVMessage msg) {
 		this.metadata = new HashRing(msg.getKey());
-		return new MessageType("metadata","SUCCESS","","");
+		return new KVAdminMessage("metadata","SUCCESS","","");
 	}
 	
 	// This function is used to handle a client connect request
@@ -396,7 +396,7 @@ public class KVServer extends Thread {
 		String Value = msg.getValue();
 		// Set the new log level
 		logger.setLevel(Level.toLevel(Value));
-		common.messages.KVMessage returnMsg = new common.messages.MessageType("logLevel", "SUCCESS", " ", " ");
+		common.messages.KVMessage returnMsg = new common.messages.KVAdminMessage("logLevel", "SUCCESS", " ", " ");
 		return returnMsg;
 	}
 	// This function is used to handle a client help message
@@ -406,16 +406,23 @@ public class KVServer extends Thread {
 		common.messages.KVMessage returnMsg = msg; ;
 		return returnMsg;
 	}
-	// This function is used to handle a client quit message
-	public common.messages.KVMessage handleQuit(common.messages.KVMessage msg) {
-		System.out.println("Handling Quit");
-		logger.info("Handling Quit");
-		common.messages.KVMessage returnMsg = new common.messages.MessageType("quit", "SUCCESS", " ", " ");
-		// Should be handled in ClientConnection to terminate that socket only
+	
+	// This function is used to handle a quit message
+	// These are processed even in the stopped state because they come from the ECS.
+	public common.messages.KVMessage handleShutdown(common.messages.KVMessage msg) {
+		System.out.println("Handling Shutdown");
+		logger.info("Handling Shutdown");
+		closeServer();
+		common.messages.KVMessage returnMsg = new common.messages.KVAdminMessage("shutdown", "SUCCESS", " ", " ");
 		return returnMsg;
 	}
+	
 	// This function is used to handle a client get request
 	public common.messages.KVMessage handleGet(common.messages.KVMessage msg) {
+		if (status == ServerStatus.STOPPED){
+			return new KVAdminMessage("get","SERVER_STOPPED",msg.getKey(),msg.getValue());
+		}
+		
 		System.out.println("Handling Get");
 		logger.info("Handling Get");
 		String Key = msg.getKey();
@@ -431,11 +438,11 @@ public class KVServer extends Thread {
 			success = this.updateCacheHit(Key, Value);
 			if (!success) {
 				// If for some reason updating the pair in cache failed then return failure message
-				returnMsg = new common.messages.MessageType("get", "GET_ERROR", Key, Value);
+				returnMsg = new common.messages.KVAdminMessage("get", "GET_ERROR", Key, Value);
 				return returnMsg;
 			} else {
 				// Set success message and end of this get operation
-				returnMsg = new common.messages.MessageType("get", "GET_SUCCESS", Key, Value);
+				returnMsg = new common.messages.KVAdminMessage("get", "GET_SUCCESS", Key, Value);
 			}
 		} else {
 			// Cache Miss
@@ -443,7 +450,7 @@ public class KVServer extends Thread {
 			success = this.repopulateHardDiskMap();
 			if (!success) {
 				// If for some reason the load failed then return failure message
-				returnMsg = new common.messages.MessageType("get", "GET_ERROR", Key, Value);
+				returnMsg = new common.messages.KVAdminMessage("get", "GET_ERROR", Key, Value);
 				return returnMsg;
 			}
 			// Need to get the Key Value pair from hard disk map
@@ -451,7 +458,7 @@ public class KVServer extends Thread {
 			keyExists = this.m_hardDiskValueMap.containsKey(Key);
 			if (!keyExists) {
 				// If the pair does not exist in the hard disk file either
-				returnMsg = new common.messages.MessageType("get", "GET_ERROR", Key, Value);
+				returnMsg = new common.messages.KVAdminMessage("get", "GET_ERROR", Key, Value);
 				return returnMsg;
 			}
 			// Get the Value from hard disk map
@@ -460,17 +467,21 @@ public class KVServer extends Thread {
 			success = this.insertIntoCache(Key, Value);
 			if (!success) {
 				// If for some reason the writing to cache failed then return failure message
-				returnMsg = new common.messages.MessageType("get", "GET_ERROR", Key, Value);
+				returnMsg = new common.messages.KVAdminMessage("get", "GET_ERROR", Key, Value);
 				return returnMsg;
 			} else {
 				// Set success message and end of this put-add operation
-				returnMsg = new common.messages.MessageType("get", "GET_SUCCESS", Key, Value);
+				returnMsg = new common.messages.KVAdminMessage("get", "GET_SUCCESS", Key, Value);
 			}
 		}
 		return returnMsg;
 	}
 	// This function is used to handle a client put request
 	public common.messages.KVMessage handlePut(common.messages.KVMessage msg) {
+		if (status != ServerStatus.ACTIVE){
+			return new KVAdminMessage("get","SERVER_STOPPED",msg.getKey(),msg.getValue());
+		}
+		
 		System.out.println("Handling Put");
 		logger.info("Handling Put");
 		String Key = msg.getKey();
@@ -480,7 +491,7 @@ public class KVServer extends Thread {
 		boolean success = this.repopulateHardDiskMap();
 		if (!success) {
 			// If for some reason the load failed then return failure message
-			returnMsg = new common.messages.MessageType("put", "PUT_ERROR", Key, Value);
+			returnMsg = new common.messages.KVAdminMessage("put", "PUT_ERROR", Key, Value);
 			return returnMsg;
 		}
 		
@@ -492,18 +503,18 @@ public class KVServer extends Thread {
 			success = this.overwriteHardDiskFile();
 			if (!success) {
 				// If for some reason the rewrite failed then return failure message
-				returnMsg = new common.messages.MessageType("put", "DELETE_ERROR", Key, Value);
+				returnMsg = new common.messages.KVAdminMessage("put", "DELETE_ERROR", Key, Value);
 				return returnMsg;
 			}
 			// Need to Delete the Key/Value pair if it is in the cache as well
 			success = this.deleteFromCache(Key, Value);
 			if (!success) {
 				// If for some reason the deleting from the cache failed then return failure message
-				returnMsg = new common.messages.MessageType("put", "DELETE_ERROR", Key, Value);
+				returnMsg = new common.messages.KVAdminMessage("put", "DELETE_ERROR", Key, Value);
 				return returnMsg;
 			} else {
 				// Set success message and end of this put-add operation
-				returnMsg = new common.messages.MessageType("put", "DELETE_SUCCESS", Key, Value);
+				returnMsg = new common.messages.KVAdminMessage("put", "DELETE_SUCCESS", Key, Value);
 			}
 		}
 		else if (!this.m_hardDiskValueMap.containsKey(Key)) {
@@ -513,18 +524,18 @@ public class KVServer extends Thread {
 			success = this.overwriteHardDiskFile();
 			if (!success) {
 				// If for some reason the rewrite failed then return failure message
-				returnMsg = new common.messages.MessageType("put", "PUT_ERROR", Key, Value);
+				returnMsg = new common.messages.KVAdminMessage("put", "PUT_ERROR", Key, Value);
 				return returnMsg;
 			}
 			// Now try to put the Key/Value pair into the Cache
 			success = this.insertIntoCache(Key, Value);
 			if (!success) {
 				// If for some reason the writing to cache failed then return failure message
-				returnMsg = new common.messages.MessageType("put", "PUT_ERROR", Key, Value);
+				returnMsg = new common.messages.KVAdminMessage("put", "PUT_ERROR", Key, Value);
 				return returnMsg;
 			} else {
 				// Set success message and end of this put-add operation
-				returnMsg = new common.messages.MessageType("put", "PUT_SUCCESS", Key, Value);
+				returnMsg = new common.messages.KVAdminMessage("put", "PUT_SUCCESS", Key, Value);
 			}
 		} 
 		else {
@@ -534,18 +545,18 @@ public class KVServer extends Thread {
 			success = this.overwriteHardDiskFile();
 			if (!success) {
 				// If for some reason the rewrite failed then return failure message
-				returnMsg = new common.messages.MessageType("put", "PUT_ERROR", Key, Value);
+				returnMsg = new common.messages.KVAdminMessage("put", "PUT_ERROR", Key, Value);
 				return returnMsg;
 			}
 			// Need to get cache to use the new Key/Value pair if it is in the cache as well
 			success = this.insertIntoCache(Key, Value);
 			if (!success) {
 				// If for some reason the writing to cache failed then return failure message
-				returnMsg = new common.messages.MessageType("put", "PUT_ERROR", Key, Value);
+				returnMsg = new common.messages.KVAdminMessage("put", "PUT_ERROR", Key, Value);
 				return returnMsg;
 			} else {
 				// Set success message and end of this put-add operation
-				returnMsg = new common.messages.MessageType("put", "PUT_UPDATE", Key, Value);
+				returnMsg = new common.messages.KVAdminMessage("put", "PUT_UPDATE", Key, Value);
 			}
 		}
 		return returnMsg;
@@ -755,6 +766,7 @@ public class KVServer extends Thread {
 	 * Stops the server insofar that it won't listen at the given port any more.
 	 */
 	public void closeServer(){
+		logger.info("Shutting down server");
 		running = false;
 		try {
 			serverSocket.close();
