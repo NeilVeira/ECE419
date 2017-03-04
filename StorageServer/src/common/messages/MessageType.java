@@ -232,7 +232,6 @@ public class MessageType implements KVMessage,KVAdminMessage {
 				return "Log level must be equal to a valid log level.";
 			}
 			break;
-		case "metadata": 
 		case "get":
 			if (key.trim().equals("")){
 				return "Key must not be empty for message "+header;

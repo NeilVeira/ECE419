@@ -40,9 +40,9 @@ import app_kvServer.ClientConnection;
  */
 public class KVServer extends Thread {
 	private enum ServerStatus {
-		ACTIVE,
-		STOPPED,
-		WRITE_LOCKED
+		ACTIVE, 		/* Processes client requests */
+		STOPPED,		/* Does not process client requests. Note that it's still "running" in that it still listens on the socket. */
+		WRITE_LOCKED	/* Only processes get requests */
 	}
 	ServerStatus status;
 	
@@ -141,8 +141,9 @@ public class KVServer extends Thread {
 		// Initialize the file reader to null, assign when we read
 		m_hardDiskFileReader = null;
 		
+		//For now always create the server in the stopped state initially. May change this later.
+		this.status = ServerStatus.STOPPED;
 		initKVServer("", cacheSize, strategy);
-		//TODO: start server
 	}
 	
 	/**
@@ -204,13 +205,29 @@ public class KVServer extends Thread {
 		this.m_cacheLFUMap = new HashMap<String, Integer>();
 		this.m_hardDiskValueMap = new HashMap<String, String>();
     
-    //Initialize the lock
+		//Initialize the lock
 		this.m_myLock = new Object();
 
 		// Start the server object
 		System.out.println("Starting Server");
 		logger.info("Starting Server");
 		this.start();
+	}
+	
+	/**
+	 * Functions control the server's status.
+	 */
+	public void stopServer() {
+		this.status = ServerStatus.STOPPED;
+	}
+	public void startServer() {
+		this.status = ServerStatus.ACTIVE;
+	}
+	public void lockWrite() {
+		this.status = ServerStatus.WRITE_LOCKED;
+	}
+	public void unLockWrite() {
+		startServer();
 	}
 
 	// This function is used to rewrite the harddisk file with the key value pairs from the harddisk map
@@ -314,11 +331,49 @@ public class KVServer extends Thread {
 		case "quit":
 			returnMsg = handleQuit(msg);
 			break;
+		case "init":
+			returnMsg = handleInit(msg);
+		case "start":
+			returnMsg = handleStart(msg);
+		case "stop":
+			returnMsg = handleStop(msg);
+		case "metadata":
+			returnMsg = handleMetadata(msg);
 		default:
-			return returnMsg = new common.messages.MessageType(" ", " ", " ", " ");
+			return returnMsg = new common.messages.MessageType("", "", "", "");
 		}
 		return returnMsg;
 	}
+	
+	public KVMessage handleInit(KVMessage msg) {
+		//We may not actually need this message. The ECS can construct a server with the 
+		//cache size and replacement strategy specified, and just send a metadata message to 
+		//initialize the metadata. This way the metadata update message essentially replaces 
+		//the init message in terms of functionality.
+		return msg;
+	}
+	
+	public KVMessage handleStart(KVMessage msg) {
+		startServer();
+		return new MessageType("start","SUCCESS","","");
+	}
+	
+	public KVMessage handleStop(KVMessage msg) {
+		stopServer();
+		return new MessageType("stop","SUCCESS","","");
+	}
+	
+	/**
+	 * Handle a metadata update message received from the ecs.
+	 * Metadata is stored in the key field. 
+	 * This function is used when all necessary data transfers are already
+	 * complete, so we just need to update the internal metadata variable.
+	 */
+	public KVMessage handleMetadata(KVMessage msg) {
+		this.metadata = new HashRing(msg.getKey());
+		return new MessageType("metadata","SUCCESS","","");
+	}
+	
 	// This function is used to handle a client connect request
 	public common.messages.KVMessage handleConnect(common.messages.KVMessage msg) {
 		System.out.println("Handling Connect, echo back nothing to do");
@@ -341,7 +396,7 @@ public class KVServer extends Thread {
 		String Value = msg.getValue();
 		// Set the new log level
 		logger.setLevel(Level.toLevel(Value));
-		common.messages.KVMessage returnMsg = new common.messages.MessageType("logLevel", "success", " ", " ");
+		common.messages.KVMessage returnMsg = new common.messages.MessageType("logLevel", "SUCCESS", " ", " ");
 		return returnMsg;
 	}
 	// This function is used to handle a client help message
@@ -355,7 +410,7 @@ public class KVServer extends Thread {
 	public common.messages.KVMessage handleQuit(common.messages.KVMessage msg) {
 		System.out.println("Handling Quit");
 		logger.info("Handling Quit");
-		common.messages.KVMessage returnMsg = new common.messages.MessageType("quit", "success", " ", " ");
+		common.messages.KVMessage returnMsg = new common.messages.MessageType("quit", "SUCCESS", " ", " ");
 		// Should be handled in ClientConnection to terminate that socket only
 		return returnMsg;
 	}
@@ -662,13 +717,14 @@ public class KVServer extends Thread {
 		this.m_currentCacheEntries = this.m_currentCacheEntries - 1;
 		return true;
 	}
+	
 	/**
 	 * Initializes and starts the server. 
 	 * Loops until the the server should be closed.
 	 */
 	public void run() {
 
-		running = initializeServer();
+		running = initializeSocket();
 
 		if(serverSocket != null) {
 			while(isRunning()){
@@ -698,7 +754,7 @@ public class KVServer extends Thread {
 	/**
 	 * Stops the server insofar that it won't listen at the given port any more.
 	 */
-	public void stopServer(){
+	public void closeServer(){
 		running = false;
 		try {
 			serverSocket.close();
@@ -708,8 +764,11 @@ public class KVServer extends Thread {
 		}
 	}
 
-	private boolean initializeServer() {
-		logger.info("Initialize server ...");
+	/**
+	 * Creates the socket and starts listening on it.
+	 */
+	private boolean initializeSocket() {
+		logger.info("Initialize socket ...");
 		try {
 			serverSocket = new ServerSocket(port);
 			logger.info("Server listening on port: " 
