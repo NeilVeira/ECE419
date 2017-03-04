@@ -3,6 +3,7 @@ package app_kvEcs;
 import java.io.*;
 import java.util.*;
 
+import org.apache.log4j.Logger;
 import org.apache.zookeeper.ZooKeeper;
 
 import common.HashRing;
@@ -18,11 +19,12 @@ public class ECS {
 	private List<Process> allProcesses; //array of all processes in the system, one for each server (can be null if server is not running).
 	private String launchScript = "launch_server.sh";
 	private int totalNumNodes;
+	private Logger logger = Logger.getRootLogger();
 	
 	/**
 	 * Creates a new ECS instance with the servers in the given config file. 
 	 */
-	public ECS(String configFile){
+	public ECS(String configFile) {
 		// Argument is the path of the configuration file (ecs.config)
 		this.configFile = new File(configFile);
 		allServers = new ArrayList<Server>();
