@@ -203,7 +203,7 @@ public class KVClient {
 	
 	private void printHelp() {
 		StringBuilder sb = new StringBuilder();
-		sb.append(PROMPT).append("ECHO CLIENT HELP (Usage):\n");
+		sb.append(PROMPT).append("STORAGE SERVICE CLIENT HELP (Usage):\n");
 		sb.append(PROMPT);
 		sb.append("::::::::::::::::::::::::::::::::");
 		sb.append("::::::::::::::::::::::::::::::::\n");
