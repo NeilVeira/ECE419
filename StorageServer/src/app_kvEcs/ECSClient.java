@@ -171,6 +171,8 @@ public class ECSClient {
 		sb.append("\t\t\t\t changes the logLevel \n");
 		sb.append(PROMPT).append("\t\t\t\t\t ");
 		sb.append("ALL | DEBUG | INFO | WARN | ERROR | FATAL | OFF \n");
+		sb.append(PROMPT).append("printState");
+		sb.append("\t\t\t\t Prints a list of all the servers and their current status\n");
 		System.out.println(sb.toString());
 	}
 	

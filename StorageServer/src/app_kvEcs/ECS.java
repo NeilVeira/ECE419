@@ -27,6 +27,7 @@ public class ECS {
 	private int totalNumNodes;
 	private KVServer.ServerStatus status;
 	private String metadataFile;
+	private String backupConfigFile;
 	
 	/**
 	 * Creates a new ECS instance with the servers in the given config file. 
@@ -40,6 +41,7 @@ public class ECS {
 		totalNumNodes = 0;
 		status = KVServer.ServerStatus.STOPPED;
 		metadataFile = "ecs_metadata.txt";
+		backupConfigFile = "ecs_config_backup.txt";
 		this.metadata = new HashRing();
 
 		try{
@@ -52,8 +54,10 @@ public class ECS {
 				int port = Integer.parseInt(tokens[2]);
 				allServers.add(new Server(tokens[1], port, totalNumNodes));
 				totalNumNodes++;
-			}			
-			
+			}		
+	
+			checkConfig();
+			writeConfig();
 		}
 		catch (NumberFormatException e) {
 			logger.error("Error! All ports in config file must be integers");
@@ -62,6 +66,68 @@ public class ECS {
 		for (int i=0; i < totalNumNodes; i++) {
 			// Add an empty process for each node
 			allProcesses.add(null);
+		}
+	}
+	
+	/**
+	 * Reads the previous configuration from the backup config file. 
+	 * If that configuration is different from the current one, deletes the metadata file
+	 * so that the system will restart from scratch.
+	 */
+	private void checkConfig() {
+		boolean changed = false;
+		try {
+			//open file and parse it
+			String currentLine;
+			BufferedReader FileReader = new BufferedReader(new FileReader(backupConfigFile));
+			List<Server> backupServers = new ArrayList<Server>();
+			int id=0;
+			while ((currentLine = FileReader.readLine()) != null) {
+				backupServers.add(new Server(currentLine));
+			}
+			
+			//check that backupServers = this.allServers
+			if (backupServers.size() != allServers.size()){
+				logger.warn("Config file appears to have changed since the ECS was last run. Restarting from fresh state.");
+				changed = true;
+			}
+			else{
+				for (id=0; id<allServers.size(); id++){
+					Server a = allServers.get(id);
+					Server b = backupServers.get(id);
+					if (!a.ipAddress.equals(b.ipAddress) || a.port != b.port || a.id != b.id){
+						logger.warn("Config file appears to have changed since the ECS was last run. Restarting from fresh state.");
+						changed = true;
+						break;
+					}
+				}
+			}
+			
+			
+		} catch (Exception e){
+			logger.warn("Could not read backup config file. Starting from fresh state.");
+			changed = true;
+		}
+		
+		if (changed) {
+			File file = new File(metadataFile);
+			file.delete();
+		}
+	}
+	
+	/**
+	 * Writes the current set of servers to the backup config file.
+	 */
+	public void writeConfig() {
+		try {
+			PrintWriter writer = new PrintWriter(backupConfigFile, "UTF-8");
+			for (Server server : allServers){
+				writer.println(server.toString());
+			}
+			writer.close();
+		}
+		catch (Exception e) {
+			logger.warn("Could not backup config file");
 		}
 	}
 	
@@ -160,6 +226,7 @@ public class ECS {
 		//connect to each server and send them the metadata
 		KVMessage message = new KVAdminMessage("metadata","METADATA_UPDATE","",metadata.toString());
 		broadcast(message, 2);
+		writeMetadata();
 	}
 	
 	/**
@@ -196,9 +263,10 @@ public class ECS {
 	}
 	
 	/**
-	 * Creates a new server with the given cache size and replacement strategy
-	 * and adds it to the service. 
+	 * Randomly chooses an inactive server from the server pool, runs it with the 
+	 * given cache size and replacement strategy, and adds it to the service. 
 	 * Returns true on success.
+	 * This is the method which should be used by the ECS client.
 	 */
 	public boolean addRandomNode(int cacheSize, String replacementStrategy) {
 		//TODO
@@ -225,8 +293,18 @@ public class ECS {
 		return addNode(index, cacheSize, replacementStrategy);
 	}
 	
+	/**
+	 * Runs the node with the given index, cache size, and replacement strategy.
+	 * Returns true on success.
+	 * If the given server is already running this does nothing and returns false.
+	 */
 	public boolean addNode(int index, int cacheSize, String replacementStrategy) {
 		Server newServer = allServers.get(index);
+		//check if new server is already in the system
+		if (metadata.contains(newServer)){
+			return false;
+		}
+		
 		logger.info("Adding new server "+newServer.toString());
 		
 		runServer(newServer, cacheSize, replacementStrategy);
@@ -283,6 +361,7 @@ public class ECS {
 			}
 		}
 		
+		writeMetadata();
 		return true;
 	}
 	
@@ -483,6 +562,7 @@ public class ECS {
 			logger.warn("Could not write metadata to file");
 		}
 	}
+	
 	
 	public void printState() {
 		System.out.println("\nStorage service current state");
