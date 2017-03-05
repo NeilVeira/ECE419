@@ -24,6 +24,7 @@ public class ECS {
 	private String launchScript = "launch_server.sh";
 	private int totalNumNodes;
 	private KVServer.ServerStatus status;
+	private String metadataFile;
 	
 	/**
 	 * Creates a new ECS instance with the servers in the given config file. 
@@ -36,6 +37,7 @@ public class ECS {
 		// Initialize node (servers) number to zero, increment for each line of config file
 		totalNumNodes = 0;
 		status = KVServer.ServerStatus.STOPPED;
+		metadataFile = "ecs_metadata.txt";
 
 		try{
 			String currentLine;
@@ -64,11 +66,7 @@ public class ECS {
 	 * Reads and parses the ecs config file, launches the servers, and initializes
 	 * the zookeeper object. 
 	 */
-	public void initService(int numberOfNodes, int cacheSize, String replacementStrategy) throws Exception {
-		logger.info("Initializing service");
-		metadata = new HashRing();
-		String connectString = ""; //comma-separated list of "IP address:port" pairs for zookeeper
-		
+	public void initService(int numberOfNodes, int cacheSize, String replacementStrategy) throws Exception {		
 		// Validity checking for arguments
 		if (numberOfNodes <= 0) {
 			throw new Exception("Number of nodes must be a positive integer");
@@ -80,6 +78,29 @@ public class ECS {
 		if (!replacementStrategy.equals("FIFO") && !replacementStrategy.equals("LRU") && !replacementStrategy.equals("LFU")) {
 			throw new Exception("Invalid replacement strategy "+replacementStrategy+". Only FIFO, LRU, and LFU are accepted.");
 		}
+		
+		logger.info("Initializing service");
+		//String connectString = ""; //comma-separated list of "IP address:port" pairs for zookeeper
+		
+		//try to read the old metadata from the file
+		try {
+			BufferedReader FileReader = new BufferedReader(new FileReader(metadataFile));
+			String data = FileReader.readLine();
+			metadata = new HashRing(data);
+		} 
+		catch (Exception e){
+			metadata = new HashRing();
+			logger.warn("Could not load metadata from file");
+		}
+
+		//For proper persistency all the servers that were running when the ecs was last online
+		//must be started. Then transfer all their data to the newly initialized nodes
+		//with a series of add and remove operations. 
+		List<Server> previousServers = metadata.getAllServers();
+		for (Server server : previousServers) {
+			runServer(server, cacheSize, replacementStrategy); 
+		}
+		broadcast(new KVAdminMessage("metadata","METADATA_UPDATE","",metadata.toString()));
 			
 		// Generate numberOfNodes random indices from 1 to n
 		Integer[] indices = new Integer[totalNumNodes];
@@ -89,17 +110,46 @@ public class ECS {
 		// Randomize the list of indices
 		Collections.shuffle(Arrays.asList(indices)); 
 		
+		//run the first numberOfNodes indices
 		for (int i=0; i<numberOfNodes; i++){
-			Server server = allServers.get(indices[i]);
-			runServer(server, cacheSize, replacementStrategy);
-			connectString += server.ipAddress+":"+String.valueOf(server.port)+",";
+			int idx = indices[i];
+			//check if this server is in previousServers (already running)
+			//Do O(N^2) search because there's no way the number of servers will be so large that it matters.
+			boolean found = false;
+			for (Server server : previousServers) {
+				if (server.id == idx){
+					found = true;
+					break;
+				}
+			}
+			if (!found){
+				addNode(idx, cacheSize, replacementStrategy);
+				//Server server = allServers.get(idx);
+				//runServer(server, cacheSize, replacementStrategy);
+				//connectString += server.ipAddress+":"+String.valueOf(server.port)+",";
+			}
 		}
 		
-		if (connectString.length() > 0){
+		//remove previous servers which are not among the new servers
+		for (Server server : previousServers) {
+			//Do O(N^2) search because there's no way the number of servers will be so large that it matters.
+			boolean found = false;
+			for (int i=0; i<numberOfNodes; i++) {
+				if (server.id == indices[i]){
+					found = true;
+					break;
+				}
+			}
+			if (!found){
+				removeNode(server.id);
+			}
+		}
+		
+		/*if (connectString.length() > 0){
 			//strip off trailing comma
 			connectString = connectString.substring(0,connectString.length()-1);
 		}
-		System.out.println("Zookeeper connect string: "+connectString);
+		logger.debug("Zookeeper connect string: "+connectString);*/
 		
 		//TODO: initialize zookeeper with connectString
 		
@@ -146,7 +196,7 @@ public class ECS {
 	 * and adds it to the service. 
 	 * Returns true on success.
 	 */
-	public boolean addNode(int cacheSize, String replacementStrategy) {
+	public boolean addRandomNode(int cacheSize, String replacementStrategy) {
 		//TODO
 		logger.info("Adding node "+cacheSize+" "+replacementStrategy);
 		
@@ -167,7 +217,12 @@ public class ECS {
 		//pick a random value from available servers
 		Random random = new Random();
 		int i = random.nextInt(availableNodes.size());
-		Server newServer = allServers.get(availableNodes.get(i));
+		int index = availableNodes.get(i);
+		return addNode(index, cacheSize, replacementStrategy);
+	}
+	
+	public boolean addNode(int index, int cacheSize, String replacementStrategy) {
+		Server newServer = allServers.get(index);
 		logger.info("Adding new server "+newServer.toString());
 		
 		runServer(newServer, cacheSize, replacementStrategy);
@@ -342,8 +397,8 @@ public class ECS {
 		if (p != null){
 			logger.info("Killing server "+server.ipAddress+" "+server.port);
 			
-			//Neil's hack: remove this later
-			/*Scanner reader = new Scanner(System.in);  
+			/*//Neil's hack: remove this later
+			Scanner reader = new Scanner(System.in);  
 			System.out.println("Paused. Enter a number: ");
 			int n = reader.nextInt(); */
 			
@@ -367,5 +422,19 @@ public class ECS {
 		//send message
 		client.sendMessage(message);
 		return client.getResponse();
+	}
+	
+	/**
+	 * Write metadata to metadata file.
+	 */
+	public void writeMetadata() {
+		try {
+			PrintWriter writer = new PrintWriter(metadataFile, "UTF-8");
+			writer.println(metadata.toString());
+			writer.close();
+		}
+		catch (Exception e) {
+			logger.error("Could not write metadata to file");
+		}
 	}
 }

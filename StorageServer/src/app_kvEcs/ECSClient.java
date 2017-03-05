@@ -119,7 +119,7 @@ public class ECSClient {
 		case "addNode":
 			try{
 				int cacheSize = Integer.parseInt(tokens[1]);
-				ecs.addNode(cacheSize, tokens[2]);
+				ecs.addRandomNode(cacheSize, tokens[2]);
 			}
 			catch (NumberFormatException e){
 				printError("Cache size must be an integer");
@@ -137,6 +137,8 @@ public class ECSClient {
 			}
 			break;
 		}
+		//backup the metadata after every operation in case the ecs gets killed unexpectedly
+		ecs.writeMetadata();
 	}
 	
 	private void printError(String error){
