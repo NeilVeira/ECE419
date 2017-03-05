@@ -58,84 +58,77 @@ public class KVStore implements KVCommInterface {
 	}
 
 	@Override
-	public KVMessage put(String key, String value) throws Exception {	
-		/*//empty fields not allowed with our communication protocol. Use space instead.
-		if (key.equals("")){
-			key = " ";
-		}
-		if (value.equals("")){
-			value = " ";
-		}*/
-		//empty fields should be ok now
-		
-		MessageType request = new MessageType("put"," ",key,value);
+	public KVMessage put(String key, String value) throws Exception {		
+		MessageType request = new MessageType("put","",key,value);
 		if (request.error != null){
 			throw new Exception(request.error);
-		}
-
-		// In Client.java
-		client.sendMessage(request);
-		//Wait for client thread to receive message from server (Client.java function)
-		KVMessage response = client.getResponse();
-		
-		// Should not print in KVStore
-		//System.out.println("Received response " + response.getStatus() + "\n");
-		
-		if (response != null){
-			// Log the response and process what to do
-			client.logInfo("KVStore: received response  "+response.getMsg());
-			if(response.getStatus().equals("SERVER_WRITE_LOCK")) {
-				// If write locked then a new server is being added and data is being transferred
-				// We block until server is ready to receive (?)
-				return get(key);
-			} else if(response.getStatus().equals("SERVER_NOT_RESPONSIBLE")) {
-				// TODO: get metadata and get data from another server
-			} else if(response.getStatus().equals("SERVER_STOPPED")) {
-				// TODO: what to do when requested server is stopped
-			}
-		}
-		else{
-			client.logInfo("KVStore: no response received");
-			System.out.println("KVStore: no response received");
-		}
-		return response;
+		}		
+		return sendRequest(request);
 	}
 
 	@Override
 	public KVMessage get(String key) throws Exception {
-		/*//empty fields not allowed with our communication protocol. Use space instead.
-		if (key.equals("")){
-			key = " ";
-		}
+		MessageType request = new MessageType("get","",key,"");
 		if (request.error != null){
 			throw new Exception(request.error);
-		}*/
-		//empty fields should be ok now
-		
-		MessageType request = new MessageType("get","",key,"");
-		//System.out.println("request: " + request.getMsg());
-
-		client.sendMessage(request);	
-		//Wait for client thread to receive message from server (Client.java function)
-		KVMessage response = client.getResponse();
-		
-		// Should not print in KVStore
-		//System.out.println("Received response " + response.getStatus() + "\n");
-		
-		if (response != null){
-			// Log the response and process what to do
-			client.logInfo("KVStore: received response  "+response.getMsg());
-			if(response.getStatus() == "SERVER_NOT_RESPONSIBLE") {
-				// TODO: get metadata and get data from another server
-			} else if(response.getStatus() == "SERVER_STOPPED") {
-				// TODO: what to do when requested server is stopped
-			}
 		}
-		else{
+		return sendRequest(request);
+	}
+	
+	/**
+	 * Try to send the request to the server. 
+	 * If the server replies with SERVER_WRITE_LOCK or SERVER_STOPPED, wait and then try again. 
+	 * If the server replies with SERVER_NOT_RESPONSIBLE, update the metadata, determine what server
+	 * should be responsible, connect to it, and try again. 
+	 */
+	private KVMessage sendRequest(KVMessage request) {
+		KVMessage response = null;
+		do {
+			client.logInfo("KVStore: sending request "+request.getMsg());
+			try {
+				client.sendMessage(request);
+			}
+			catch (IOException e) {
+				client.logError("Unable to send request "+request.getMsg());
+				return null;
+			}
+			
+			//Wait for client thread to receive message from server (Client.java function)
+			//TODO: timeout if no response is received
+			response = client.getResponse();
+			client.logInfo("KVStore: received response  "+response.getMsg());
+			
+			if (response.getStatus().equals("SERVER_WRITE_LOCK") || response.getStatus().equals("SERVER_STOPPED")){
+				// If write locked then a new server is being added and data is being transferred
+				// We block until server is ready to receive (?)
+				//TODO: block for some time before trying again
+			}
+			else if (response.getStatus().equals("SERVER_NOT_RESPONSIBLE")){
+				// get update metadata and determine responsible server
+				String mdata = response.getValue(); 
+				this.metadata = new Metadata(mdata);
+				Metadata.Server responsibleServer = metadata.getResponsible(request.getKey());
+				//disconnect from the current server and try to connect to the new one
+				disconnect();
+				this.address = responsibleServer.ipAddress;
+				this.port = responsibleServer.port;
+				try {
+					connect();
+				} catch(Exception e) {
+					//TODO: try to connect to any other server in the metadata
+					client.logError("KVStore: Unable to connect to new server "+this.address+" on port "+this.port);
+					return null;
+				}
+			}
+			else {
+				break;
+			}
+			
+		} while (true);
+		
+		if (response == null){
 			client.logInfo("KVStore: no response received");
-			System.out.println("KVStore: no response received");
 		}
 		return response;
 	}
-	
 }
