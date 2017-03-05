@@ -23,14 +23,17 @@ public class KVStoreTest extends TestCase {
 	private KVServer server;
 
 	public void setUp() {
+		// Initialize a new server with port 50001.
 		server = new KVServer(50001, 10, "FIFO", 1);
 		try {
 			while(server.getStatus() != "ACTIVE") server.startServer();
+			// Fill the new server with artificial metadata so we can test SERVER_NOT_RESPONSIBLE and server switching
 			HashRing metadata = new HashRing("136415732930669195156142751695833227657 localhost 50001 1,-134847710425560069445028245650825152028 localhost 50000 0");
 			server.handleMetadata(new KVAdminMessage("metadata","METADATA_UPDATE","",metadata.toString()));
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
+		// We also initialize the client here
 		kvClient = new KVStore("localhost", 50001);
 		// Blocks until server is ready to connect
 		while(kvClient.isConnected() == false) {
@@ -70,6 +73,8 @@ public class KVStoreTest extends TestCase {
 	@Test
 	public void testWrongServer() {
 		String key = "01";
+		// Tested the key so it will allocate to the 50000 server.
+		
 		//HashRing hashFind = new HashRing();
 		//System.out.println(hashFind.objectHash(key).toString());
 		String value = "Wrong";
@@ -97,10 +102,13 @@ public class KVStoreTest extends TestCase {
 		Exception ex = null;
 
 		try {
+			// Verify that the server is stopped before we send out the put
 			while(server.getStatus() != "STOPPED") server.stopServer();
 			response = kvClient.put(key, value);
+			// Have to make sure the server is running again for the other tests
 			while(server.getStatus() != "ACTIVE") server.startServer();
 		} catch (Exception e) {
+			// Make sure the server is running, even if this test causes exception
 			while(server.getStatus() != "ACTIVE") server.startServer();
 			ex = e;
 		}
@@ -114,18 +122,15 @@ public class KVStoreTest extends TestCase {
 	public void testWLServer() {
 		String key = "foo";
 		String value = "WL";
-		System.out.println("YOOOOOOOOOOOOOO");
 		KVMessage response = null;
 		Exception ex = null;
 
 		try {
+			// Set write lock on the server
 			while(server.getStatus() != "WRITE_LOCKED") server.lockWrite();
+			// In KVStore it will keep retrying until 10 iterations of 500ms each, 5 seconds total
 			response = kvClient.put(key, value);
-			/*try {
-				Thread.sleep(5000);
-			} catch (InterruptedException e) {
-				
-			}*/
+			// Unlock the server for the other tests
 			while(server.getStatus() != "ACTIVE") server.unLockWrite();
 		} catch (Exception e) {
 			while(server.getStatus() != "ACTIVE") server.unLockWrite();
@@ -133,6 +138,7 @@ public class KVStoreTest extends TestCase {
 		}
 
 		assertNull(ex);
-		assertTrue("PUT_UPDATE PUT_SUCCESS".contains(response.getStatus()));
+		// KVStore returns PUT_ERROR if write locked server times out
+		assertTrue("PUT_ERROR".contains(response.getStatus()));
 	}
 }

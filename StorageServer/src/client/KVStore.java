@@ -116,12 +116,38 @@ public class KVStore implements KVCommInterface {
 				// If write locked then a new server is being added and data is being transferred
 				// We block until server is ready to receive
 				client.logInfo("Server is temporarily locked for writing. Waiting and retrying");
-				try {
-					TimeUnit.SECONDS.sleep(1);
-					return sendRequest(request);
-				} catch (InterruptedException e){
-					; //doesn't really matter
+				int timeOutCount = 10;
+				// We try 10 times, each time with 500ms delay, to reach a server with write_lock
+				while(timeOutCount!=0) {
+					timeOutCount--;
+					try {
+						Thread.sleep(500);
+					} catch (InterruptedException e){
+						; //doesn't really matter
+					}
+					
+					try {
+						client.sendMessage(request);
+					}
+					catch (IOException e) {
+						boolean success = connectToAnyServer();
+						if (!success) {
+							return null;
+						}
+					}
+					
+					response = client.getResponse();
+					client.logInfo("KVStore: received response  "+response.getMsg());
+					
+					if (response.getStatus().equals("SERVER_WRITE_LOCK")){
+						continue;
+					} else {
+						return sendRequest(request);
+					}
 				}
+				client.logError("Timed out retrying on server with write lock!");
+				// Returns a PUT_ERROR to the KVClient, since there is no other suitable status code
+				return new MessageType(response.getHeader(), "PUT_ERROR", response.getKey(), response.getValue());
 			}
 			else if (response.getStatus().equals("SERVER_NOT_RESPONSIBLE")) {
 				// get update metadata and determine responsible server

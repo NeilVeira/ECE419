@@ -516,7 +516,7 @@ public class KVServer extends Thread {
 		if (status == ServerStatus.STOPPED){
 			return new KVAdminMessage("get","SERVER_STOPPED",msg.getKey(),msg.getValue());
 		} else if (status == ServerStatus.WRITE_LOCKED){
-			return new KVAdminMessage("get","WRITE_LOCKED",msg.getKey(),msg.getValue());
+			return new KVAdminMessage("get","SERVER_WRITE_LOCK",msg.getKey(),msg.getValue());
 		}
 		
 		System.out.println("Handling Put");
