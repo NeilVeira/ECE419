@@ -93,12 +93,12 @@ public class ECS {
 			//This is a temporary workaround because the ssh doesn't work
 			//TODO: use ssh 
 			try {
-				Process p = Runtime.getRuntime().exec(launchCmd);
+				Process p = Runtime.getRuntime().exec(sshCmd);
 				allProcesses.set(indices[i],  p);
 				metadata.addServer(server);
 			}
 			catch (IOException e){
-				logger.warn("Warning: Unable to launch server "+server.toString());
+				logger.warn("Warning: Unable to launch server "+server.toString()+". Error: "+e.getMessage());
 			}
 			
 			connectString += server.ipAddress+":"+String.valueOf(server.port)+",";
@@ -113,34 +113,29 @@ public class ECS {
 		//TODO: initialize zookeeper with connectString
 		
 		//connect to each server and send them the metadata
-		logger.info("Sending all servers metadata "+metadata.toString());
-		ArrayList<Client> clients = getActiveServers();
-		for (Client client : clients) {
-			KVMessage message = new KVAdminMessage("metadata","METADATA_UPDATE","",metadata.toString());
-			System.out.println("message.validityCheck() "+message.validityCheck());
-			client.sendMessage(message);
-			KVMessage response = client.getResponse();
-			if (!response.getStatus().equals("SUCCESS")){
-				logger.warn("A server did not successfully update its metadata");
-			}			
-			client.closeConnection();
-		}
+		KVMessage message = new KVAdminMessage("metadata","METADATA_UPDATE","",metadata.toString());
+		broadcast(message);
 	}
 	
 	/**
 	 * Launch the storage servers chosen by initService
 	 */
 	public void start() {
-		//TODO
 		logger.info("Starting");
+		//Send a start command to all active servers.
+		//TODO: This is not intended to be the final way of doing this. We should use a zookeeper
+		//znode; this is just to get the functionality so we can move on for now. 
+		broadcast(new KVAdminMessage("start","","",""));		
 	}
 	
 	/**
 	 * Stops all running servers in the service
 	 */
 	public void stop() {
-		//TODO
 		logger.info("Stopping");
+		//TODO: This is not intended to be the final way of doing this. We should use a zookeeper
+		//znode; this is just to get the functionality so we can move on for now.
+		broadcast(new KVAdminMessage("stop","","",""));	
 	}
 	
 	/**
@@ -180,7 +175,7 @@ public class ECS {
 	 * servers which can be connected to successfully). 
 	 * Any servers which can't be connected to are removed from the metadata.
 	 */
-	public ArrayList<Client> getActiveServers() {
+	private ArrayList<Client> getActiveServers() {
 		List<Server> activeServers = metadata.getAllServers();
 		ArrayList<Client> clients = new ArrayList<Client>();
 		for (Server server : activeServers) {
@@ -211,6 +206,31 @@ public class ECS {
 			}
 		}
 		return clients;
+	}
+	
+	/**
+	 * Send the given message to all responsive servers in the metadata.
+	 */
+	private void broadcast(KVMessage message) {
+		//connect to each server and send them the metadata
+		logger.info("Broadcasting "+message.getMsg());
+		ArrayList<Client> clients = getActiveServers();
+		if (clients.size() == 0){
+			logger.warn("There does not appear to be any servers online.");
+		}
+		for (Client client : clients) {
+			try {
+				client.sendMessage(message);
+				KVMessage response = client.getResponse();
+				if (!response.getStatus().equals("SUCCESS")) {
+					logger.warn("A server did not successfully process the request "+message.toString());
+				}	
+			}
+			catch (IOException e){
+				logger.warn("A server did not successfully process the request "+message.toString());
+			}
+			client.closeConnection();
+		}
 	}
 	
 }

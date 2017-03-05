@@ -49,11 +49,11 @@ public class ECSClient {
 	 */
 	public void handleCommand(String cmdLine) {
 		//TODO: logging
-		String[] tokens = cmdLine.split("\\s+");
-		if (tokens.length == 0){
+		if (cmdLine.trim().length() == 0){
 			//ignore empty command
 			return;
 		}
+		String[] tokens = cmdLine.split("\\s+");
 		
 		//Check that the command has the correct number of arguments
 		int expectedNumArgs = 0;
