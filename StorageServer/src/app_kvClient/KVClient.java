@@ -42,6 +42,10 @@ public class KVClient {
 
 	public void handleCommand(String cmdLine) {
 		//parse cmdLine by spaces	
+		if (cmdLine.trim().length() == 0){
+			//ignore empty commands
+			return;
+		}
 		
 		// Parses the input this way so we allow multiple spaces between command and key and value. AKA "  put   foo   bar 1 2 3 " is equivalent to "put foo bar 1 2 3 "
 		String header=" ", status=" ", key=" ", value=" ";
