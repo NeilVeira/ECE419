@@ -1,8 +1,8 @@
 package app_kvEcs;
 
 import org.apache.log4j.Level;
-
-
+import logger.LogSetup;
+import org.apache.log4j.Logger;
 import org.apache.zookeeper.ZooKeeper;
 import java.io.*;
 
@@ -179,7 +179,7 @@ public class ECSClient {
 				System.out.println("Usage: Server <string config file path>");
 			}
 			else{
-				new LogSetup("logs/ecs.log", Level.WARN);
+				new LogSetup("logs/ecs.log", Level.INFO); //TODO: change to WARN at the end
 				ECSClient ecsClient = new ECSClient(args[0]);
 				ecsClient.run();
 			}

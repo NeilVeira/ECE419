@@ -22,7 +22,6 @@ public class ECS {
 	private List<Process> allProcesses; //array of all processes in the system, one for each server (can be null if server is not running).
 	private String launchScript = "launch_server.sh";
 	private int totalNumNodes;
-	private Logger logger = Logger.getRootLogger();
 	
 	/**
 	 * Creates a new ECS instance with the servers in the given config file. 
@@ -34,7 +33,6 @@ public class ECS {
 		allProcesses = new ArrayList<Process>();
 		// Initialize node (servers) number to zero, increment for each line of config file
 		totalNumNodes = 0;
-		new LogSetup("logs/ecs.log", Level.INFO); //TODO: change to WARN at the end
 
 		try{
 			String currentLine;
