@@ -27,6 +27,9 @@ public class KVAdminMessage extends MessageType {
 	{
 		switch (header) {
 		case "connect": 
+			if (!status.equals("CONNECT_SUCCESS") && (key.trim().equals("") || value.trim().equals(""))){
+				return "Key and value must not be empty for message "+header;
+			}
 		case "put":
 		case "admin_put":
 		case "removeNode":

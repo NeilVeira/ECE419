@@ -47,7 +47,7 @@ public class ClientConnection implements Runnable {
 			output = clientSocket.getOutputStream();
 			input = clientSocket.getInputStream();
 		// send initial message on connect
-			sendMessage(new common.messages.KVAdminMessage("connect", "CONNECT_SUCCESS", "dummy", "dummy")); //key & value must not be empty for connect message
+			sendMessage(new common.messages.KVAdminMessage("connect", "CONNECT_SUCCESS", "", "")); 
 
 		
 			while(isOpen) {
@@ -71,7 +71,12 @@ public class ClientConnection implements Runnable {
 							System.out.println("Last command from client " + latestMsg + " encountered a problem on Server side!");
 							sendMessage(returnMsg);
 						}
-					} else {
+					} 
+					else if (latestMsg.getHeader().trim().equals("")) {
+						//echo empty messages
+						sendMessage(latestMsg);
+					}
+					else {
 						// If it is a bad message output error and echo it back to the client
 						System.out.println("Message from Client was not valid, sending errorous message back to client");
 						System.out.println(latestMsg.error);
@@ -112,7 +117,7 @@ public class ClientConnection implements Runnable {
 		byte[] msgBytes = msg.getMsgBytes();
 		output.write(msgBytes, 0, msgBytes.length);
 		output.flush();
-		logger.info("SEND \t<" 
+		logger.debug("SEND \t<" 
 				+ clientSocket.getInetAddress().getHostAddress() + ":" 
 				+ clientSocket.getPort() + ">: '" 
 				+ msg.getMsg() +"'");
@@ -180,7 +185,7 @@ public class ClientConnection implements Runnable {
 		
 		/* build final String */
 		common.messages.KVMessage msg = new common.messages.KVAdminMessage(msgBytes);
-		logger.info("RECEIVE \t<" 
+		logger.debug("RECEIVE \t<" 
 				+ clientSocket.getInetAddress().getHostAddress() + ":" 
 				+ clientSocket.getPort() + ">: '" 
 				+ msg.getMsg().trim() + "'");

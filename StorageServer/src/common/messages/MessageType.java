@@ -220,6 +220,9 @@ public class MessageType implements KVMessage {
 	{
 		switch (header) {
 		case "connect": 
+			if (!status.equals("CONNECT_SUCCESS") && (key.trim().equals("") || value.trim().equals(""))){
+				return "Key and value must not be empty for message "+header;
+			}
 		case "put":
 			//use IP address and port as key & value
 			if (key.trim().equals("") || value.trim().equals("")){

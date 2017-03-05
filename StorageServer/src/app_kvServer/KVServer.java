@@ -953,7 +953,6 @@ public class KVServer extends Thread {
 	 */
 	public static void main(String[] args) {
 		try {
-			new LogSetup("logs/server.log", Level.ALL);
 			String portStr="50000", strategy="FIFO", cacheSizeStr="1", idStr="0";
 			
 			//determine what each argument represents based on the number of arguments.
@@ -980,6 +979,8 @@ public class KVServer extends Thread {
 				KVServer.printUsage();
 				System.exit(0);
 			}
+			
+			new LogSetup("logs/server_"+idStr+".log", Level.ALL);
 			
 			//validity check arguments
 			if (!strategy.equals("FIFO") && !strategy.equals("LRU") && !strategy.equals("LFU")) {

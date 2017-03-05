@@ -2,6 +2,7 @@ package app_kvEcs;
 
 import java.io.*;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Level;
 import logger.LogSetup;
@@ -100,6 +101,12 @@ public class ECS {
 		for (Server server : previousServers) {
 			runServer(server, cacheSize, replacementStrategy); 
 		}
+		//need to wait a bit for all servers to get online before trying to connect and broadcast metadata
+		System.out.println("Waiting for servers to run");
+		try {
+			TimeUnit.SECONDS.sleep(1); 		
+		} catch (InterruptedException e){}
+		
 		broadcast(new KVAdminMessage("metadata","METADATA_UPDATE","",metadata.toString()));
 			
 		// Generate numberOfNodes random indices from 1 to n
@@ -226,6 +233,11 @@ public class ECS {
 		logger.info("Adding new server "+newServer.toString());
 		
 		runServer(newServer, cacheSize, replacementStrategy);
+		//need to wait a bit for all servers to get online before trying to connect
+		System.out.println("Waiting for server to run");
+		try {
+			TimeUnit.SECONDS.sleep(1); 	
+		} catch (InterruptedException e) {}
 		
 		//tell the successor server to transfer the data to the new server
 		Server successor = metadata.getSuccessor(newServer);
@@ -368,16 +380,11 @@ public class ECS {
 	private void runServer(Server server, int cacheSize, String replacementStrategy) {
 		logger.info("Launching server "+server.toString());
 		
-		//Neil's hack: remove this later
-		/*Scanner reader = new Scanner(System.in);  
-		System.out.println("Paused. Enter a number: ");
-		int n = reader.nextInt(); 
-		metadata.addServer(server);*/
-		
 		// Launch the server
 		String jarPath = new File(System.getProperty("user.dir"), "ms2-server.jar").toString();
-		String launchCmd = "java -jar "+jarPath+" "+server.port+" "+cacheSize+" "+replacementStrategy+" "+server.id; 
-		String sshCmd = "ssh -n localhost nohup "+launchCmd;
+		String launchCmd = "java -jar "+jarPath+" "+server.port+" "+cacheSize+" "+replacementStrategy+" "+server.id+" &"; 
+		String sshCmd = "ssh -n "+server.ipAddress+" nohup "+launchCmd;
+		System.out.println(sshCmd);
 		
 		// Use ssh to launch servers
 		try {
@@ -392,22 +399,22 @@ public class ECS {
 	
 
 	private void killServer(int id) {		
+		
 		Process p = allProcesses.get(id);
 		Server server = allServers.get(id);
+		logger.info("Killing server "+server.ipAddress+" "+server.port);
 		if (p != null){
-			logger.info("Killing server "+server.ipAddress+" "+server.port);
-			
-			/*//Neil's hack: remove this later
-			Scanner reader = new Scanner(System.in);  
-			System.out.println("Paused. Enter a number: ");
-			int n = reader.nextInt(); */
-			
-			try {
-				Process killing_p = Runtime.getRuntime().exec("ssh -n localhost nohup fuser -k " + allServers.get(id).port + "/tcp");
-			} catch (IOException e) {
-				System.out.println(e.getMessage());
-			}
 			p.destroy();
+		}
+		allProcesses.set(id, null);
+		
+		String killCmd = "ssh -n "+"localhost"+" nohup fuser -k " + server.port + "/tcp";
+		System.out.println("Running command "+killCmd);			
+		try {
+			Process killing_p = Runtime.getRuntime().exec(killCmd);
+			//killing_p.destroy();
+		} catch (IOException e) {
+			System.out.println(e.getMessage()); 
 		}
 	}
 	
@@ -434,7 +441,7 @@ public class ECS {
 			writer.close();
 		}
 		catch (Exception e) {
-			logger.error("Could not write metadata to file");
+			logger.warn("Could not write metadata to file");
 		}
 	}
 }
