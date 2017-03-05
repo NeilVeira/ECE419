@@ -1,12 +1,13 @@
 package client;
 
 import java.io.IOException;
-
 import java.net.UnknownHostException;
+import java.util.concurrent.TimeUnit;
 
 import common.messages.KVMessage;
 import common.messages.MessageType;
 import common.HashRing;
+import common.HashRing.Server;
 
 import client.Client;
 import client.KVCommInterface.SocketStatus;
@@ -93,16 +94,26 @@ public class KVStore implements KVCommInterface {
 			response = client.getResponse();
 			client.logInfo("KVStore: received response  "+response.getMsg());
 			
-			if (response.getStatus().equals("SERVER_WRITE_LOCK") || response.getStatus().equals("SERVER_STOPPED")){
+			if (response.getStatus().equals("SERVER_STOPPED")){
+				//The entire system is disabled for an indefinite amount of time, so there's 
+				//no point waiting and trying again. Give the user the stopped message.
+				return new MessageType(request.getHeader(), "SERVER_STOPPED", request.getKey(), request.getValue());
+			}
+			else if (response.getStatus().equals("SERVER_WRITE_LOCK")){
 				// If write locked then a new server is being added and data is being transferred
-				// We block until server is ready to receive (?)
-				//TODO: block for some time before trying again
+				// We block until server is ready to receive
+				System.out.println("Server is temporarily locked for writing. Waiting and retrying");
+				try {
+					TimeUnit.SECONDS.sleep(2);
+				} catch (InterruptedException e){
+					; //doesn't really matter
+				}
 			}
 			else if (response.getStatus().equals("SERVER_NOT_RESPONSIBLE")){
 				// get update metadata and determine responsible server
 				String mdata = response.getValue(); 
-				this.metadata = new Metadata(mdata);
-				Metadata.Server responsibleServer = metadata.getResponsible(request.getKey());
+				this.metadata = new HashRing(mdata);
+				HashRing.Server responsibleServer = metadata.getResponsible(request.getKey());
 				//disconnect from the current server and try to connect to the new one
 				disconnect();
 				this.address = responsibleServer.ipAddress;
