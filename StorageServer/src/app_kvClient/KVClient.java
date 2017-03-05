@@ -134,6 +134,9 @@ public class KVClient {
 							System.out.println("ERROR deleting value in key!");
 							System.out.println("Key: " + put_result.getKey());
 							logger.warn("Delete error");
+						} else if(put_result.getStatus().equals("SERVER_STOPPED")) {
+							System.out.println("The system is currently stopped for an indefinite amount of time."+
+									"Please try again later.");
 						} else {
 							// Problem with store or server, unknown status to the client
 							System.out.println("Unknown return status!");
