@@ -25,15 +25,15 @@ import java.util.*;
  *  	- quit: for exiting the kvClient
  *  	- help: print help
  */
-public class MessageType implements KVMessage,KVAdminMessage {
+public class MessageType implements KVMessage {
 	public String error;
 	private byte[] msgBytes;
 	private static final char LINE_FEED = 0x0A;
 	private static final char RETURN = 0x0D;
-	private String key;
-	private String value;
-	private String header;
-	private String status;
+	protected String key;
+	protected String value;
+	protected String header;
+	protected String status;
 	
 	/**
 	 * Replace all single quotes in the string with double quotes
@@ -220,6 +220,9 @@ public class MessageType implements KVMessage,KVAdminMessage {
 	{
 		switch (header) {
 		case "connect": 
+			if (!status.equals("CONNECT_SUCCESS") && (key.trim().equals("") || value.trim().equals(""))){
+				return "Key and value must not be empty for message "+header;
+			}
 		case "put":
 			//use IP address and port as key & value
 			if (key.trim().equals("") || value.trim().equals("")){
@@ -232,7 +235,6 @@ public class MessageType implements KVMessage,KVAdminMessage {
 				return "Log level must be equal to a valid log level.";
 			}
 			break;
-		case "metadata": 
 		case "get":
 			if (key.trim().equals("")){
 				return "Key must not be empty for message "+header;
@@ -243,6 +245,11 @@ public class MessageType implements KVMessage,KVAdminMessage {
 		case "quit":
 			if (!key.trim().equals("") || !value.trim().equals("")){
 				return "Key and value must be empty for message "+header;
+			}
+			break;
+		case "metadata":
+			if (value.trim().equals("") && !status.equals("SUCCESS")) {
+				return "Value must not be empty for message "+header;
 			}
 			break;
 		default:

@@ -3,7 +3,6 @@ package app_kvEcs;
 import org.apache.log4j.Level;
 import logger.LogSetup;
 import org.apache.log4j.Logger;
-
 import org.apache.zookeeper.ZooKeeper;
 import java.io.*;
 
@@ -11,17 +10,28 @@ import java.io.*;
  * Class to implement the command line interface for the ECS, similar to KVClient
  */
 public class ECSClient {
-	private static Logger logger = Logger.getRootLogger();
+	private Logger logger = Logger.getRootLogger();
 	private static final String PROMPT = "StorageServiceECS> ";
 	private BufferedReader stdin;
 	private boolean stopECSClient;
 	private ECS ecs;
 	
 	ECSClient(String configFile){
-		this.ecs = new ECS(configFile);
-		stopECSClient = false;
+		stopECSClient = true;
+		try {
+			this.ecs = new ECS(configFile);
+			stopECSClient = false;
+		}
+		catch (IOException e){
+			System.out.println(e.getMessage());
+		}
+		catch (Exception e){
+			System.out.println("Error encountered creating ECS!");
+			e.printStackTrace();
+		}
 	}
 	
+	// Runs the client to read input from a user operating on ECS
 	public void run() {
 		while (!stopECSClient){
 			stdin = new BufferedReader(new InputStreamReader(System.in));
@@ -40,12 +50,11 @@ public class ECSClient {
 	 * Handle string command from command line
 	 */
 	public void handleCommand(String cmdLine) {
-		//TODO: logging
-		String[] tokens = cmdLine.split("\\s+");
-		if (tokens.length == 0){
+    if (cmdLine.trim().length() == 0){
 			//ignore empty command
 			return;
 		}
+		String[] tokens = cmdLine.split("\\s+");
 		
 		//Check that the command has the correct number of arguments
 		int expectedNumArgs = 0;
@@ -67,15 +76,17 @@ public class ECSClient {
 			break;
 		default:
 			printError("Unknown command "+tokens[0]);
+			logger.info("Unknown command "+tokens[0]);
 			return;			
 		}
 		
 		if (tokens.length != expectedNumArgs+1){
 			printError("Incorrect number of arguments for command "+tokens[0]);
+			logger.info("Incorrect number of arguments for command "+tokens[0]);
 			return;
 		}
 		
-		//call corresponding ECS method
+		// Call corresponding ECS method using switch
 		switch (tokens[0]){
 		case "initService":
 			try {
@@ -85,9 +96,11 @@ public class ECSClient {
 			}
 			catch (NumberFormatException e){
 				printError("numberOfNodes and cacheSize must be integers");
+				logger.info("initService input encountered number format exception");
 			}
 			catch (Exception e){
 				printError(e.getMessage());
+				logger.warn(e.getMessage());
 			}
 			break;
 		case "start":
@@ -106,10 +119,11 @@ public class ECSClient {
 		case "addNode":
 			try{
 				int cacheSize = Integer.parseInt(tokens[1]);
-				ecs.addNode(cacheSize, tokens[2]);
+				ecs.addRandomNode(cacheSize, tokens[2]);
 			}
 			catch (NumberFormatException e){
 				printError("Cache size must be an integer");
+				logger.info("addNode input encountered number format exception");
 			}
 			break;
 		case "removeNode":
@@ -119,9 +133,12 @@ public class ECSClient {
 			}
 			catch (NumberFormatException e){
 				printError("Index must be an integer");
+				logger.info("removeNode input encountered number format exception");
 			}
 			break;
 		}
+		//backup the metadata after every operation in case the ecs gets killed unexpectedly
+		ecs.writeMetadata();
 	}
 	
 	private void printError(String error){
@@ -161,10 +178,10 @@ public class ECSClient {
 		try{
 			if (args.length != 1){
 				System.out.println("Error! Invalid number of arguments!");
-				System.out.println("Usage: Server <string config file>");
+				System.out.println("Usage: Server <string config file path>");
 			}
 			else{
-				new LogSetup("logs/ecs.log", Level.WARN);
+				new LogSetup("logs/ecs.log", Level.DEBUG); //TODO: change to WARN at the end
 				ECSClient ecsClient = new ECSClient(args[0]);
 				ecsClient.run();
 			}

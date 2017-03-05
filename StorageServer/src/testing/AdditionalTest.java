@@ -130,7 +130,7 @@ public class AdditionalTest extends TestCase {
 			
 			//disconnect and kill the server
 			client.disconnect();
-			server.stopServer();
+			server.closeServer();
 			
 			//start up a new server and reconnect
 			KVServer server2 = new KVServer(50001, 10, "LFU", 0);

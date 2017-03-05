@@ -3,5 +3,5 @@ StorageServer/*.MF
 StorageServer/*.jar
 StorageServer/logs/*
 .metadata
-storage.txt
+storage*.txt
 

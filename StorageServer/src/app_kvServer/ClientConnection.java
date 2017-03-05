@@ -47,7 +47,8 @@ public class ClientConnection implements Runnable {
 			output = clientSocket.getOutputStream();
 			input = clientSocket.getInputStream();
 		// send initial message on connect
-			sendMessage(new common.messages.MessageType("connect", "CONNECT_SUCCESS", "key", "value")); //key & value must not be empty for connect message
+			sendMessage(new common.messages.KVAdminMessage("connect", "CONNECT_SUCCESS", "", "")); 
+
 		
 			while(isOpen) {
 				try {
@@ -58,22 +59,33 @@ public class ClientConnection implements Runnable {
 						common.messages.KVMessage returnMsg = m_server.handleClientMessage(latestMsg);
 						if (returnMsg.validityCheck() == null) {
 							// If returned KVMessage was valid send it back to the client
-							System.out.println("Last command from client " + latestMsg.getHeader() + " was Successfully Processed by Server!");
+							if (returnMsg.getStatus().equals("SERVER_STOPPED") || returnMsg.getStatus().equals("SERVER_WRITE_LOCK") || returnMsg.getStatus().equals("SERVER_NOT_RESPONSIBLE")){
+								System.out.println("Last command from client " + latestMsg.getHeader() + " was not processed by Server.");
+							}
+							else {
+								System.out.println("Last command from client " + latestMsg.getHeader() + " was Successfully Processed by Server!");
+							}
 							sendMessage(returnMsg);
 						} else {
 							// If returned KVMessage is not valid it will have all blank fields
-							System.out.println("Last command from client " + latestMsg.getHeader() + " encountered a problem on Server side!");
+							System.out.println("Last command from client " + latestMsg + " encountered a problem on Server side!");
 							sendMessage(returnMsg);
 						}
-					} else {
+					} 
+					else if (latestMsg.getHeader().trim().equals("")) {
+						//echo empty messages
+						sendMessage(latestMsg);
+					}
+					else {
 						// If it is a bad message output error and echo it back to the client
 						System.out.println("Message from Client was not valid, sending errorous message back to client");
-						sendMessage(new common.messages.MessageType(latestMsg.getHeader(), "FAILED", latestMsg.getKey(), latestMsg.getValue()));
+						System.out.println(latestMsg.error);
+						sendMessage(new common.messages.KVAdminMessage(latestMsg.getHeader(), "FAILED", latestMsg.getKey(), latestMsg.getValue()));
 					}
 				/* connection either terminated by the client or lost due to 
 				 * network problems*/	
 				} catch (IOException ioe) {
-					logger.error("Error! Connection lost!");
+					logger.error("Connection lost!");
 					isOpen = false;
 				}				
 			}
@@ -105,7 +117,7 @@ public class ClientConnection implements Runnable {
 		byte[] msgBytes = msg.getMsgBytes();
 		output.write(msgBytes, 0, msgBytes.length);
 		output.flush();
-		logger.info("SEND \t<" 
+		logger.debug("SEND \t<" 
 				+ clientSocket.getInetAddress().getHostAddress() + ":" 
 				+ clientSocket.getPort() + ">: '" 
 				+ msg.getMsg() +"'");
@@ -172,8 +184,8 @@ public class ClientConnection implements Runnable {
 		msgBytes = tmp;
 		
 		/* build final String */
-		common.messages.KVMessage msg = new common.messages.MessageType(msgBytes);
-		logger.info("RECEIVE \t<" 
+		common.messages.KVMessage msg = new common.messages.KVAdminMessage(msgBytes);
+		logger.debug("RECEIVE \t<" 
 				+ clientSocket.getInetAddress().getHostAddress() + ":" 
 				+ clientSocket.getPort() + ">: '" 
 				+ msg.getMsg().trim() + "'");

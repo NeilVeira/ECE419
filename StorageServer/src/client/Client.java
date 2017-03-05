@@ -42,6 +42,15 @@ public class Client {
 		input = clientSocket.getInputStream();
 	}
 	
+	public int soTimeout() {
+		try {
+			return clientSocket.getSoTimeout();
+		} catch (Exception e) {
+			return -1;
+		}
+		
+	}
+	
 	
 	// Use client.logInfo("asdf") to log information
 	public void logInfo(String input){
@@ -78,7 +87,6 @@ public class Client {
 	
 	public synchronized void closeConnection() {
 		logger.info("try to close connection ...");
-		
 		try {
 			tearDownConnection();
 		} catch (IOException ioe) {
