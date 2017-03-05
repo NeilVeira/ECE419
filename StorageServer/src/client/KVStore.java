@@ -18,6 +18,7 @@ public class KVStore implements KVCommInterface {
 	private int port;
 	private Client client = null;
 	private HashRing metadata;
+	private boolean connected = false;
 	
 	/**
 	 * Initialize KVStore with address and port of KVServer
@@ -43,7 +44,12 @@ public class KVStore implements KVCommInterface {
 		KVMessage response = client.getResponse();
 		if (response != null){
 			client.logInfo("KVStore: received response "+response.getMsg());
+			connected = true;
 		}
+	}
+	
+	public boolean isConnected() {
+		return connected;
 	}
 
 	@Override
@@ -111,18 +117,19 @@ public class KVStore implements KVCommInterface {
 				// We block until server is ready to receive
 				client.logInfo("Server is temporarily locked for writing. Waiting and retrying");
 				try {
-					TimeUnit.SECONDS.sleep(2);
+					TimeUnit.SECONDS.sleep(1);
+					return sendRequest(request);
 				} catch (InterruptedException e){
 					; //doesn't really matter
 				}
 			}
-			else if (response.getStatus().equals("SERVER_NOT_RESPONSIBLE")){
+			else if (response.getStatus().equals("SERVER_NOT_RESPONSIBLE")) {
 				// get update metadata and determine responsible server
 				String mdata = response.getValue(); 
 				this.metadata = new HashRing(mdata);
 				HashRing.Server responsibleServer = metadata.getResponsible(request.getKey());
 				client.logInfo("Received SERVER_NOT_RESPONSIBLE. Connecting to server "+responsibleServer.toString());
-				
+				//System.out.println("Received SERVER_NOT_RESPONSIBLE. Connecting to server "+responsibleServer.toString());
 				//disconnect from the current server and try to connect to the new one
 				disconnect();
 				this.address = responsibleServer.ipAddress;
@@ -137,6 +144,7 @@ public class KVStore implements KVCommInterface {
 						return null;
 					}
 				}
+				return sendRequest(request);
 			}
 			else {
 				break;
