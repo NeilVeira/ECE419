@@ -42,7 +42,7 @@ public class ECS {
 				// Each line is a server
 				String[] tokens = currentLine.split(" ");
 				int port = Integer.parseInt(tokens[2]);
-				allServers.add(new Server(tokens[1], port));
+				allServers.add(new Server(tokens[1], port, totalNumNodes));
 				totalNumNodes++;
 			}			
 			
@@ -88,23 +88,7 @@ public class ECS {
 		
 		for (int i=0; i<numberOfNodes; i++){
 			Server server = allServers.get(indices[i]);
-			logger.info("Launching server "+server.toString());
-			
-			// Launch the server
-			String jarPath = new File(System.getProperty("user.dir"), "ms2-server.jar").toString();
-			String launchCmd = "java -jar "+jarPath+" "+server.port+" "+cacheSize+" "+replacementStrategy+" "+indices[i]; 
-			String sshCmd = "ssh -n localhost nohup "+launchCmd;
-			
-			// Use ssh to launch servers
-			try {
-				Process p = Runtime.getRuntime().exec(sshCmd);
-				allProcesses.set(indices[i],  p);
-				metadata.addServer(server);
-			}
-			catch (IOException e){
-				logger.warn("Warning: Unable to ssh to server "+server.toString()+". Error: "+e.getMessage());
-			}
-			
+			runServer(server, cacheSize, replacementStrategy);
 			connectString += server.ipAddress+":"+String.valueOf(server.port)+",";
 		}
 		
@@ -147,18 +131,8 @@ public class ECS {
 	 */
 	public void shutDown() {
 		logger.info("Shutting down");
-		int i=0;
-		for (Process p : allProcesses) {
-			if (p != null){
-				logger.info("Killing server "+allServers.get(i).ipAddress+" "+allServers.get(i).port);
-				try {
-					Process killing_p = Runtime.getRuntime().exec("ssh -n localhost nohup fuser -k " + allServers.get(i).port + "/tcp");
-				} catch (IOException e) {
-					System.out.println(e.getMessage());
-				}
-				p.destroy();
-			}
-			i++;
+		for (int i=0; i<totalNumNodes; i++) {
+			killServer(i);			
 		}
 	}
 	
@@ -192,6 +166,7 @@ public class ECS {
 			//try connecting to this server 
 			boolean success = false;
 			try {
+				logger.debug("Trying to connect to server "+server.toString());
 				Client client = new Client(server.ipAddress, server.port);
 				//wait for "connection successful" response
 				KVMessage response = client.getResponse();
@@ -204,6 +179,7 @@ public class ECS {
 				}
 			}
 			catch (Exception e){
+				logger.debug(e.getMessage());
 				success = false;
 			}
 			
@@ -243,4 +219,49 @@ public class ECS {
 		}
 	}
 	
+	private void runServer(Server server, int cacheSize, String replacementStrategy) {
+		logger.info("Launching server "+server.toString());
+		
+		//Neil's hack: remove this later
+		/*Scanner reader = new Scanner(System.in);  
+		System.out.println("Paused. Enter a number: ");
+		int n = reader.nextInt(); 
+		metadata.addServer(server);*/
+		
+		// Launch the server
+		String jarPath = new File(System.getProperty("user.dir"), "ms2-server.jar").toString();
+		String launchCmd = "java -jar "+jarPath+" "+server.port+" "+cacheSize+" "+replacementStrategy+" "+server.id; 
+		String sshCmd = "ssh -n localhost nohup "+launchCmd;
+		
+		// Use ssh to launch servers
+		try {
+			Process p = Runtime.getRuntime().exec(sshCmd);
+			allProcesses.set(server.id,  p);
+			metadata.addServer(server);
+		}
+		catch (IOException e){
+			logger.warn("Warning: Unable to ssh to server "+server.toString()+". Error: "+e.getMessage());
+		}
+	}
+	
+
+	private void killServer(int id) {		
+		Process p = allProcesses.get(id);
+		Server server = allServers.get(id);
+		if (p != null){
+			logger.info("Killing server "+server.ipAddress+" "+server.port);
+			
+			//Neil's hack: remove this later
+			/*Scanner reader = new Scanner(System.in);  
+			System.out.println("Paused. Enter a number: ");
+			int n = reader.nextInt(); */
+			
+			try {
+				Process killing_p = Runtime.getRuntime().exec("ssh -n localhost nohup fuser -k " + allServers.get(id).port + "/tcp");
+			} catch (IOException e) {
+				System.out.println(e.getMessage());
+			}
+			p.destroy();
+		}
+	}
 }

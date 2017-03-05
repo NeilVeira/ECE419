@@ -80,7 +80,7 @@ public class ClientConnection implements Runnable {
 				/* connection either terminated by the client or lost due to 
 				 * network problems*/	
 				} catch (IOException ioe) {
-					logger.error("Error! Connection lost!");
+					logger.error("Connection lost!");
 					isOpen = false;
 				}				
 			}

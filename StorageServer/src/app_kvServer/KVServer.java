@@ -32,6 +32,7 @@ import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
 import common.HashRing;
+import common.HashRing.Server;
 import common.messages.*;
 import app_kvServer.ClientConnection;
 
@@ -88,6 +89,7 @@ public class KVServer extends Thread {
 	private boolean running;
 	
 	private HashRing metadata;
+	private int id;
 
 	/**
 	 * Constructs a KVServer object which listens to connection attempts 
@@ -111,6 +113,7 @@ public class KVServer extends Thread {
 		System.out.println("Initializing Server Variables");
 		logger.info("Initializing Server Variables");
 		this.port = port;
+		this.id = id;
 		
 		// Initialize harddisk file information
 		this.m_hardDiskFileName = "storage_" + id + ".txt";
@@ -153,6 +156,7 @@ public class KVServer extends Thread {
 	 */
 	public KVServer(int port, int id) {
 		this.port = port;
+		this.id = id;
 		this.m_hardDiskFileName = "storage_" + id + ".txt";
 		// Initialize harddisk file information
 		System.out.println("Initializing Hard Disk File Variables");
@@ -425,12 +429,19 @@ public class KVServer extends Thread {
 	public common.messages.KVMessage handleGet(common.messages.KVMessage msg) {
 		if (status == ServerStatus.STOPPED){
 			return new KVAdminMessage("get","SERVER_STOPPED",msg.getKey(),msg.getValue());
-		}
+		}		
 		
 		System.out.println("Handling Get");
 		logger.info("Handling Get");
 		String Key = msg.getKey();
 		String Value = msg.getValue();
+		
+		//check if this server is responsible for this key
+		Server responsible = metadata.getResponsible(Key);
+		if (responsible.id != this.id){
+			return new KVAdminMessage("get","SERVER_NOT_RESPONSIBLE","",metadata.toString());
+		}
+		
 		common.messages.KVMessage returnMsg = null;
 		boolean success = false;
 		// First check whether the Key Value pair get wants is in the cache
@@ -490,6 +501,12 @@ public class KVServer extends Thread {
 		logger.info("Handling Put");
 		String Key = msg.getKey();
 		String Value = msg.getValue();
+		//check if this server is responsible for this key
+		Server responsible = metadata.getResponsible(Key);
+		if (responsible.id != this.id){
+			return new KVAdminMessage("put","SERVER_NOT_RESPONSIBLE","",metadata.toString());
+		}
+		
 		common.messages.KVMessage returnMsg = null;
 		// first load the hard disk file into our map
 		boolean success = this.repopulateHardDiskMap();
@@ -565,6 +582,7 @@ public class KVServer extends Thread {
 		}
 		return returnMsg;
 	}
+	
 	// This function is used to update the Cache Key Value Pair in case it was used
 	public boolean updateCacheHit(String key, String value) {
 		// When we call this function we know Cache has the key value pair

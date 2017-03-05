@@ -5,6 +5,8 @@ import java.security.MessageDigest;
 import java.math.BigInteger;
 import java.util.*;
 
+import client.Client;
+
 /**
  * Class to manage the mapping of servers to hash ranges
  * and the hash ring. 
@@ -42,10 +44,13 @@ public class HashRing{
 		for (String server : servers){
 			String[] tokens = server.split("\\s+");
 			//ignore invalid servers (usually empty)
-			if (tokens.length == 3){
+			if (tokens.length >= 3){
 				BigInteger hash = new BigInteger(tokens[0]);
 				int port = Integer.parseInt(tokens[2]);
 				Server newServer = new Server(tokens[1], port);
+				if (tokens.length >= 4){
+					newServer.id = Integer.parseInt(tokens[3]);
+				}
 				serverMap.put(hash, newServer);
 			}
 		}
@@ -114,7 +119,8 @@ public class HashRing{
 		for (Map.Entry<BigInteger,Server> entry : serverMap.entrySet()) {
 			ret += entry.getKey().toString() + " ";
 			ret += entry.getValue().ipAddress + " ";
-			ret += String.valueOf(entry.getValue().port);
+			ret += String.valueOf(entry.getValue().port)+" ";
+			ret += String.valueOf(entry.getValue().id);
 			ret += ",";
 		}
 		
@@ -135,21 +141,29 @@ public class HashRing{
 		}
 		return allServers;
 	}
-	
+
 	/**
 	 * Encapsulates the IP address and port fields used by the HashRing class.
 	 */
 	public static class Server{
 		public String ipAddress;
 		public int port;
+		public int id;
 		
 		public Server(String ipAddress, int port){
 			this.ipAddress = ipAddress;
 			this.port = port;
+			this.id = 0;
+		}
+		
+		public Server(String ipAddress, int port, int id){
+			this.ipAddress = ipAddress;
+			this.port = port;
+			this.id = id;
 		}
 		
 		public String toString(){
-			return this.ipAddress+" "+this.port;
+			return this.ipAddress+" "+this.port+" "+this.id;
 		}
 	}
 }
