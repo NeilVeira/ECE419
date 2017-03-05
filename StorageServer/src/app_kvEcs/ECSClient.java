@@ -1,8 +1,7 @@
 package app_kvEcs;
 
 import org.apache.log4j.Level;
-import logger.LogSetup;
-import org.apache.log4j.Logger;
+
 
 import org.apache.zookeeper.ZooKeeper;
 import java.io.*;
@@ -18,8 +17,18 @@ public class ECSClient {
 	private ECS ecs;
 	
 	ECSClient(String configFile){
-		this.ecs = new ECS(configFile);
-		stopECSClient = false;
+		stopECSClient = true;
+		try {
+			this.ecs = new ECS(configFile);
+			stopECSClient = false;
+		}
+		catch (IOException e){
+			System.out.println(e.getMessage());
+		}
+		catch (Exception e){
+			System.out.println("Error encountered creating ECS!");
+			e.printStackTrace();
+		}
 	}
 	
 	// Runs the client to read input from a user operating on ECS
@@ -41,11 +50,11 @@ public class ECSClient {
 	 * Handle string command from command line
 	 */
 	public void handleCommand(String cmdLine) {
-		String[] tokens = cmdLine.split("\\s+");
-		if (tokens.length == 0){
+    if (cmdLine.trim().length() == 0){
 			//ignore empty command
 			return;
 		}
+		String[] tokens = cmdLine.split("\\s+");
 		
 		//Check that the command has the correct number of arguments
 		int expectedNumArgs = 0;

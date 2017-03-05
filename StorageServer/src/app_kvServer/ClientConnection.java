@@ -47,7 +47,8 @@ public class ClientConnection implements Runnable {
 			output = clientSocket.getOutputStream();
 			input = clientSocket.getInputStream();
 		// send initial message on connect
-			sendMessage(new common.messages.KVAdminMessage("connect", "CONNECT_SUCCESS", "key", "value")); //key & value must not be empty for connect message
+			sendMessage(new common.messages.KVAdminMessage("connect", "CONNECT_SUCCESS", "dummy", "dummy")); //key & value must not be empty for connect message
+
 		
 			while(isOpen) {
 				try {
@@ -73,6 +74,7 @@ public class ClientConnection implements Runnable {
 					} else {
 						// If it is a bad message output error and echo it back to the client
 						System.out.println("Message from Client was not valid, sending errorous message back to client");
+						System.out.println(latestMsg.error);
 						sendMessage(new common.messages.KVAdminMessage(latestMsg.getHeader(), "FAILED", latestMsg.getKey(), latestMsg.getValue()));
 					}
 				/* connection either terminated by the client or lost due to 

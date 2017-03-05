@@ -306,10 +306,10 @@ public class KVServer extends Thread {
 	}
 	// This function is the entry point for handling a client message, at this point the message is valid, first called in ClientConnection
 	public common.messages.KVMessage handleClientMessage(common.messages.KVMessage msg) {
-		String Header = msg.getHeader();
+		String header = msg.getHeader();
 		common.messages.KVMessage returnMsg;
 		// Decide on the appropriate handler based on what the client message was through the use of a switch statement
-		switch (Header) {
+		switch (header) {
 		case "connect": 
 			returnMsg = handleConnect(msg);
 			break;
@@ -330,6 +330,18 @@ public class KVServer extends Thread {
 			break;
 		case "shutdown":
 			returnMsg = handleShutdown(msg);
+			break;
+		case "init":
+			returnMsg = handleInit(msg);
+			break;
+		case "start":
+			returnMsg = handleStart(msg);
+			break;
+		case "stop":
+			returnMsg = handleStop(msg);
+			break;
+		case "metadata":
+			returnMsg = handleMetadata(msg);
 			break;
 		case "init":
 			returnMsg = handleInit(msg);
@@ -365,12 +377,12 @@ public class KVServer extends Thread {
 	
 	/**
 	 * Handle a metadata update message received from the ecs.
-	 * Metadata is stored in the key field. 
+	 * Metadata is stored in the value field. 
 	 * This function is used when all necessary data transfers are already
 	 * complete, so we just need to update the internal metadata variable.
 	 */
 	public KVMessage handleMetadata(KVMessage msg) {
-		this.metadata = new HashRing(msg.getKey());
+		this.metadata = new HashRing(msg.getValue());
 		return new KVAdminMessage("metadata","SUCCESS","","");
 	}
 	

@@ -55,6 +55,11 @@ public class KVAdminMessage extends MessageType {
 				return "Key and value must be empty for message "+header;
 			}
 			break;
+		case "metadata":
+			if (value.trim().equals("") && !status.equals("SUCCESS")) {
+				return "Value must not be empty for message "+header;
+			}
+			break;
 		default:
 			return "Unknown command";
 		}
