@@ -110,6 +110,31 @@ public class HashRing{
 	}
 	
 	/**
+	 * Returns the server which comes after the given one in the ring.
+	 * If the given server is not in the ring, returns whichever servers comes
+	 * after its hypothetical position if it were in the ring. 
+	 */
+	public Server getSuccessor(Server server) {
+		BigInteger hash = serverHash(server);
+		Map.Entry<BigInteger,Server> entry = serverMap.higherEntry(hash);
+		if (entry == null){
+			entry = serverMap.firstEntry();
+			if (entry == null) {
+				return null;
+			}
+		}
+		return entry.getValue();
+	}
+	
+	/**
+	 * Return true if the given server is contained in the hash ring
+	 */
+	public boolean contains(Server server) {
+		BigInteger hash = serverHash(server);
+		return serverMap.containsKey(hash);
+	}
+	
+	/**
 	 * Convert the entire mapping to a String. String is formatted as a comma-delimited
 	 * list of entries, where each entry is a space-delimited list of the form 
 	 * "<hash> <IP address> <port>"
@@ -160,6 +185,14 @@ public class HashRing{
 			this.ipAddress = ipAddress;
 			this.port = port;
 			this.id = id;
+		}
+		
+		//construct from a string
+		public Server(String str) {
+			String[] tokens = str.split("\\s+");
+			this.ipAddress = tokens[0];
+			this.port = Integer.parseInt(tokens[1]);
+			this.id = Integer.parseInt(tokens[2]);
 		}
 		
 		public String toString(){

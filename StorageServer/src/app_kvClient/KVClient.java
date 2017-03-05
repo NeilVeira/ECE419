@@ -136,7 +136,7 @@ public class KVClient {
 							logger.warn("Delete error");
 						} else if(put_result.getStatus().equals("SERVER_STOPPED")) {
 							System.out.println("The system is currently stopped for an indefinite amount of time."+
-									"Please try again later.");
+									" Please try again later.");
 						} else {
 							// Problem with store or server, unknown status to the client
 							System.out.println("Unknown return status!");
@@ -156,7 +156,7 @@ public class KVClient {
 			case "get":
 				if (kvstore != null){
 					try{
-						System.out.println(Integer.toString(kvstore.soTimeout()));
+						//System.out.println(Integer.toString(kvstore.soTimeout()));
 						KVMessage get_result = kvstore.get(msg.getKey());
 						if(get_result.getStatus().equals("GET_SUCCESS")) {
 							// Get successful
@@ -168,6 +168,9 @@ public class KVClient {
 							System.out.println("ERROR processing get!");
 							System.out.println("Key: " + get_result.getKey());
 							logger.warn("Get error");
+						} else if (get_result.getStatus().equals("SERVER_STOPPED")) {
+							System.out.println("The system is currently stopped for an indefinite amount of time."+
+									" Please try again later.");
 						} else {
 							// Problem with store or server, unknown status to the client
 							System.out.println("Unknown return status!");

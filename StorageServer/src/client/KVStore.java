@@ -53,9 +53,9 @@ public class KVStore implements KVCommInterface {
 		}
 	}
 	
-	public int soTimeout() {
+	/*public int soTimeout() {
 		return client.soTimeout();
-	}
+	}*/
 
 	@Override
 	public KVMessage put(String key, String value) throws Exception {		

@@ -28,6 +28,8 @@ public class KVAdminMessage extends MessageType {
 		switch (header) {
 		case "connect": 
 		case "put":
+		case "admin_put":
+		case "removeNode":
 			//use IP address and port as key & value
 			if (key.trim().equals("") || value.trim().equals("")){
 				return "Key and value must not be empty for message "+header;
@@ -40,6 +42,7 @@ public class KVAdminMessage extends MessageType {
 			}
 			break;
 		case "get":
+		case "addNode":
 			if (key.trim().equals("")){
 				return "Key must not be empty for message "+header;
 			}

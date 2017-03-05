@@ -12,6 +12,7 @@ import common.HashRing;
 import common.HashRing.Server;
 import common.messages.*;
 import client.Client;
+import app_kvServer.KVServer;
 
 public class ECS {
 	private static Logger logger = Logger.getRootLogger();
@@ -22,6 +23,7 @@ public class ECS {
 	private List<Process> allProcesses; //array of all processes in the system, one for each server (can be null if server is not running).
 	private String launchScript = "launch_server.sh";
 	private int totalNumNodes;
+	private KVServer.ServerStatus status;
 	
 	/**
 	 * Creates a new ECS instance with the servers in the given config file. 
@@ -33,6 +35,7 @@ public class ECS {
 		allProcesses = new ArrayList<Process>();
 		// Initialize node (servers) number to zero, increment for each line of config file
 		totalNumNodes = 0;
+		status = KVServer.ServerStatus.STOPPED;
 
 		try{
 			String currentLine;
@@ -112,8 +115,9 @@ public class ECS {
 		logger.info("Starting");
 		//Send a start command to all active servers.
 		//TODO: This is not intended to be the final way of doing this. We should use a zookeeper
-		//znode; this is just to get the functionality so we can move on for now. 
-		broadcast(new KVAdminMessage("start","","",""));		
+		//znode; this is just to get the functionality so we can move on for now.
+		this.status = KVServer.ServerStatus.ACTIVE; 
+		broadcast(new KVAdminMessage("start","","",""));
 	}
 	
 	/**
@@ -123,6 +127,7 @@ public class ECS {
 		logger.info("Stopping");
 		//TODO: This is not intended to be the final way of doing this. We should use a zookeeper
 		//znode; this is just to get the functionality so we can move on for now.
+		this.status = KVServer.ServerStatus.STOPPED;
 		broadcast(new KVAdminMessage("stop","","",""));	
 	}
 	
@@ -138,19 +143,105 @@ public class ECS {
 	
 	/**
 	 * Creates a new server with the given cache size and replacement strategy
-	 * and adds it to the service
+	 * and adds it to the service. 
+	 * Returns true on success.
 	 */
-	public void addNode(int cacheSize, String replacementStrategy) {
+	public boolean addNode(int cacheSize, String replacementStrategy) {
 		//TODO
 		logger.info("Adding node "+cacheSize+" "+replacementStrategy);
+		
+		//determine which servers are not currently in the metadata
+		//List<Server> currentServers = metadata.getAllServers();
+		ArrayList<Integer> availableNodes = new ArrayList<Integer>();
+		for (int id=0; id<totalNumNodes; id++){
+			Server server = allServers.get(id);
+			if (!metadata.contains(server)){
+				availableNodes.add(server.id);
+			}
+		}
+		if (availableNodes.size() == 0){
+			logger.warn("There are no available nodes to add");
+			return false;
+		}
+		
+		//pick a random value from available servers
+		Random random = new Random();
+		int i = random.nextInt(availableNodes.size());
+		Server newServer = allServers.get(availableNodes.get(i));
+		logger.info("Adding new server "+newServer.toString());
+		
+		runServer(newServer, cacheSize, replacementStrategy);
+		
+		//tell the successor server to transfer the data to the new server
+		Server successor = metadata.getSuccessor(newServer);
+		try {
+			KVMessage response = sendSingleMessage(successor, new KVAdminMessage("addNode","",newServer.toString(),""));
+			if (!response.getStatus().equals("SUCCESS")){
+				logger.error("Unable to add server "+newServer.toString());
+				return false;
+			}
+		}
+		catch (Exception e) {
+			logger.error("Unable to send moveData message to server "+successor.toString()+
+					"Error: "+e.getMessage());
+			return false;
+		}
+		
+		// broadcast metadata update
+		metadata.addServer(newServer);
+		broadcast(new KVAdminMessage("metadata","","",metadata.toString()));
+		
+		//start the new node
+		if (status ==  KVServer.ServerStatus.ACTIVE){
+			try {
+				sendSingleMessage(newServer, new KVAdminMessage("start","","",""));
+			}
+			catch (Exception e){
+				logger.error("Unable to send start to new server. "+e.getMessage());
+				return false;
+			}
+		}
+		
+		return true;
 	}
 	
 	/**
-	 * Remove the node with the given index
+	 * Remove the node with the given index. This index if defined according
+	 * to the initial configuration file. 
 	 */
-	public void removeNode(int index) {
-		//TODO
+	public boolean removeNode(int index) {
 		logger.info("Removing node "+index);
+		//validity checking
+		if (index < 0 || index >= totalNumNodes){
+			logger.error("index "+index+" out of range");
+			return false;
+		}
+		Server server = allServers.get(index);
+		if (!metadata.contains(server)){
+			logger.error("Server "+index+" is already offline");
+			return false;
+		}
+		
+		Server successor = metadata.getSuccessor(server);
+		try {
+			KVMessage response = sendSingleMessage(server, new KVAdminMessage("removeNode","",successor.toString(),server.toString()));
+			if (!response.getStatus().equals("SUCCESS")){
+				logger.error("Unable to remove server "+server.toString());
+				return false;
+			}
+		}
+		catch (Exception e) {
+			logger.error("Unable to send moveData message to server "+successor.toString()+
+					"Error: "+e.getMessage());
+			return false;
+		}
+		
+		//update metadata
+		metadata.removeServer(server);
+		broadcast(new KVAdminMessage("metadata","","",metadata.toString()));
+		killServer(index);
+		
+		return true;
 	}
 	
 	/**
@@ -263,5 +354,18 @@ public class ECS {
 			}
 			p.destroy();
 		}
+	}
+	
+	/**
+	 * Send a message to a specific server and return its response
+	 */
+	private KVMessage sendSingleMessage(Server server, KVMessage message) throws IOException {
+		Client client = new Client(server.ipAddress, server.port);
+		//wait for "connection successful" response
+		KVMessage response = client.getResponse();
+		
+		//send message
+		client.sendMessage(message);
+		return client.getResponse();
 	}
 }
