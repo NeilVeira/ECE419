@@ -22,14 +22,17 @@ public class ECS {
 	private List<Process> allProcesses; //array of all processes in the system, one for each server (can be null if server is not running).
 	private String launchScript = "launch_server.sh";
 	private int totalNumNodes;
+	private Logger logger = Logger.getRootLogger();
 	
 	/**
 	 * Creates a new ECS instance with the servers in the given config file. 
 	 */
-	public ECS(String configFile) throws IOException, FileNotFoundException, Exception{
+	public ECS(String configFile) throws IOException, FileNotFoundException, Exception{  
+		// Argument is the path of the configuration file (ecs.config)
 		this.configFile = new File(configFile);
 		allServers = new ArrayList<Server>();
 		allProcesses = new ArrayList<Process>();
+		// Initialize node (servers) number to zero, increment for each line of config file
 		totalNumNodes = 0;
 		new LogSetup("logs/ecs.log", Level.INFO); //TODO: change to WARN at the end
 
@@ -37,6 +40,8 @@ public class ECS {
 			String currentLine;
 			BufferedReader FileReader = new BufferedReader(new FileReader(this.configFile));
 			while ((currentLine = FileReader.readLine()) != null) {
+				// Config file in format of "server_name server_address port"
+				// Each line is a server
 				String[] tokens = currentLine.split(" ");
 				int port = Integer.parseInt(tokens[2]);
 				allServers.add(new Server(tokens[1], port));
@@ -48,7 +53,8 @@ public class ECS {
 			logger.error("Error! All ports in config file must be integers");
 		}
 		
-		for (int i=0; i<totalNumNodes; i++){
+		for (int i=0; i < totalNumNodes; i++) {
+			// Add an empty process for each node
 			allProcesses.add(null);
 		}
 	}
@@ -62,43 +68,43 @@ public class ECS {
 		metadata = new HashRing();
 		String connectString = ""; //comma-separated list of "IP address:port" pairs for zookeeper
 		
-		//validity checking for arguments
-		if (numberOfNodes <= 0){
+		// Validity checking for arguments
+		if (numberOfNodes <= 0) {
 			throw new Exception("Number of nodes must be a positive integer");
 		}
-		if (numberOfNodes > totalNumNodes){
+		if (numberOfNodes > totalNumNodes) {
 			throw new Exception("Cannot initialize service with "+numberOfNodes+" nodes."
 					+" Only "+totalNumNodes+" known nodes exist.");
 		}
-		if (!replacementStrategy.equals("FIFO") && !replacementStrategy.equals("LRU") && !replacementStrategy.equals("LFU")){
-			throw new Exception("Invalid replacement strategy "+replacementStrategy);
+		if (!replacementStrategy.equals("FIFO") && !replacementStrategy.equals("LRU") && !replacementStrategy.equals("LFU")) {
+			throw new Exception("Invalid replacement strategy "+replacementStrategy+". Only FIFO, LRU, and LFU are accepted.");
 		}
 			
-		//generate numberOfNodes random indices from 1 to n
+		// Generate numberOfNodes random indices from 1 to n
 		Integer[] indices = new Integer[totalNumNodes];
-		for (int i=0; i<indices.length; i++){
+		for (int i=0; i < indices.length; i++){
 			indices[i] = i;
 		}
-		Collections.shuffle(Arrays.asList(indices)); //randomize the list of indices
+		// Randomize the list of indices
+		Collections.shuffle(Arrays.asList(indices)); 
 		
 		for (int i=0; i<numberOfNodes; i++){
 			Server server = allServers.get(indices[i]);
 			logger.info("Launching server "+server.toString());
 			
-			//launch the server
+			// Launch the server
 			String jarPath = new File(System.getProperty("user.dir"), "ms2-server.jar").toString();
 			String launchCmd = "java -jar "+jarPath+" "+server.port+" "+cacheSize+" "+replacementStrategy+" "+indices[i]; 
 			String sshCmd = "ssh -n localhost nohup "+launchCmd;
 			
-			//This is a temporary workaround because the ssh doesn't work
-			//TODO: use ssh 
+			// Use ssh to launch servers
 			try {
 				Process p = Runtime.getRuntime().exec(sshCmd);
 				allProcesses.set(indices[i],  p);
 				metadata.addServer(server);
 			}
 			catch (IOException e){
-				logger.warn("Warning: Unable to launch server "+server.toString()+". Error: "+e.getMessage());
+				logger.warn("Warning: Unable to ssh to server "+server.toString()+". Error: "+e.getMessage());
 			}
 			
 			connectString += server.ipAddress+":"+String.valueOf(server.port)+",";
@@ -147,6 +153,11 @@ public class ECS {
 		for (Process p : allProcesses) {
 			if (p != null){
 				logger.info("Killing server "+allServers.get(i).ipAddress+" "+allServers.get(i).port);
+				try {
+					Process killing_p = Runtime.getRuntime().exec("ssh -n localhost nohup fuser -k " + allServers.get(i).port + "/tcp");
+				} catch (IOException e) {
+					System.out.println(e.getMessage());
+				}
 				p.destroy();
 			}
 			i++;
@@ -157,9 +168,9 @@ public class ECS {
 	 * Creates a new server with the given cache size and replacement strategy
 	 * and adds it to the service
 	 */
-	public void addNode(int cacheSize, String replacementStragey) {
+	public void addNode(int cacheSize, String replacementStrategy) {
 		//TODO
-		logger.info("Adding node "+cacheSize+" "+replacementStragey);
+		logger.info("Adding node "+cacheSize+" "+replacementStrategy);
 	}
 	
 	/**
@@ -178,9 +189,10 @@ public class ECS {
 	private ArrayList<Client> getActiveServers() {
 		List<Server> activeServers = metadata.getAllServers();
 		ArrayList<Client> clients = new ArrayList<Client>();
-		for (Server server : activeServers) {
+		for (int i = 0; i < activeServers.size(); ++i) {
+			Server server = activeServers.get(i);
 			//try connecting to this server 
-			boolean success;
+			boolean success = false;
 			try {
 				Client client = new Client(server.ipAddress, server.port);
 				//wait for "connection successful" response

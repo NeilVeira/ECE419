@@ -343,6 +343,14 @@ public class KVServer extends Thread {
 		case "metadata":
 			returnMsg = handleMetadata(msg);
 			break;
+		case "init":
+			returnMsg = handleInit(msg);
+		case "start":
+			returnMsg = handleStart(msg);
+		case "stop":
+			returnMsg = handleStop(msg);
+		case "metadata":
+			returnMsg = handleMetadata(msg);
 		default:
 			return returnMsg = new common.messages.KVAdminMessage("", "", "", "");
 		}

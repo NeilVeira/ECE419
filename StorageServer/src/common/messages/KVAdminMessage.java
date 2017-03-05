@@ -40,6 +40,7 @@ public class KVAdminMessage extends MessageType {
 			}
 			break;
 		case "get":
+		case "metadata":
 			if (key.trim().equals("")){
 				return "Key must not be empty for message "+header;
 			}

@@ -48,6 +48,7 @@ public class ClientConnection implements Runnable {
 			input = clientSocket.getInputStream();
 		// send initial message on connect
 			sendMessage(new common.messages.KVAdminMessage("connect", "CONNECT_SUCCESS", "dummy", "dummy")); //key & value must not be empty for connect message
+
 		
 			while(isOpen) {
 				try {
