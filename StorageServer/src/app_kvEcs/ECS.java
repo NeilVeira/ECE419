@@ -14,6 +14,7 @@ import common.HashRing.Server;
 import common.messages.*;
 import client.Client;
 import app_kvServer.KVServer;
+import app_kvServer.KVServer.ServerStatus;
 
 public class ECS {
 	private static Logger logger = Logger.getRootLogger();
@@ -39,6 +40,7 @@ public class ECS {
 		totalNumNodes = 0;
 		status = KVServer.ServerStatus.STOPPED;
 		metadataFile = "ecs_metadata.txt";
+		this.metadata = new HashRing();
 
 		try{
 			String currentLine;
@@ -91,7 +93,7 @@ public class ECS {
 		} 
 		catch (Exception e){
 			metadata = new HashRing();
-			logger.warn("Could not load metadata from file");
+			logger.warn("Could not load previous metadata from file");
 		}
 
 		//For proper persistency all the servers that were running when the ecs was last online
@@ -101,13 +103,8 @@ public class ECS {
 		for (Server server : previousServers) {
 			runServer(server, cacheSize, replacementStrategy); 
 		}
-		//need to wait a bit for all servers to get online before trying to connect and broadcast metadata
-		System.out.println("Waiting for servers to run");
-		try {
-			TimeUnit.SECONDS.sleep(1); 		
-		} catch (InterruptedException e){}
 		
-		broadcast(new KVAdminMessage("metadata","METADATA_UPDATE","",metadata.toString()));
+		broadcast(new KVAdminMessage("metadata","METADATA_UPDATE","",metadata.toString()), 5);
 			
 		// Generate numberOfNodes random indices from 1 to n
 		Integer[] indices = new Integer[totalNumNodes];
@@ -162,7 +159,7 @@ public class ECS {
 		
 		//connect to each server and send them the metadata
 		KVMessage message = new KVAdminMessage("metadata","METADATA_UPDATE","",metadata.toString());
-		broadcast(message);
+		broadcast(message, 2);
 	}
 	
 	/**
@@ -174,7 +171,7 @@ public class ECS {
 		//TODO: This is not intended to be the final way of doing this. We should use a zookeeper
 		//znode; this is just to get the functionality so we can move on for now.
 		this.status = KVServer.ServerStatus.ACTIVE; 
-		broadcast(new KVAdminMessage("start","","",""));
+		broadcast(new KVAdminMessage("start","","",""), 1);
 	}
 	
 	/**
@@ -185,7 +182,7 @@ public class ECS {
 		//TODO: This is not intended to be the final way of doing this. We should use a zookeeper
 		//znode; this is just to get the functionality so we can move on for now.
 		this.status = KVServer.ServerStatus.STOPPED;
-		broadcast(new KVAdminMessage("stop","","",""));	
+		broadcast(new KVAdminMessage("stop","","",""), 1);	
 	}
 	
 	/**
@@ -233,11 +230,28 @@ public class ECS {
 		logger.info("Adding new server "+newServer.toString());
 		
 		runServer(newServer, cacheSize, replacementStrategy);
-		//need to wait a bit for all servers to get online before trying to connect
-		System.out.println("Waiting for server to run");
-		try {
-			TimeUnit.SECONDS.sleep(1); 	
-		} catch (InterruptedException e) {}
+		
+		//We musn't proceed from here unless the new server is online. Try to connect to it 
+		//a few times to make sure it is. If after a certain number of tries it still isn't online
+		//then abort.
+		int numTries = 5;
+		boolean success = false;
+		for (int tries=0; tries<numTries && !success; tries++){
+			try {
+				Client client = new Client(newServer.ipAddress, newServer.port);
+				success = true;
+			}
+			catch (IOException e) {
+				logger.debug("Unable to connect to server "+newServer.toString()+". Waiting 1 second and trying again.");
+				try {
+					TimeUnit.SECONDS.sleep(1); 		
+				} catch (InterruptedException ex){}
+			}
+		}
+		if (!success) {
+			logger.error("Unable to connect to server "+newServer.toString()+" after "+numTries+" tries. Aborting addNode.");
+			return false;
+		}
 		
 		//tell the successor server to transfer the data to the new server
 		Server successor = metadata.getSuccessor(newServer);
@@ -256,7 +270,7 @@ public class ECS {
 		
 		// broadcast metadata update
 		metadata.addServer(newServer);
-		broadcast(new KVAdminMessage("metadata","","",metadata.toString()));
+		broadcast(new KVAdminMessage("metadata","","",metadata.toString()), 5);
 		
 		//start the new node
 		if (status ==  KVServer.ServerStatus.ACTIVE){
@@ -305,7 +319,7 @@ public class ECS {
 		
 		//update metadata
 		metadata.removeServer(server);
-		broadcast(new KVAdminMessage("metadata","","",metadata.toString()));
+		broadcast(new KVAdminMessage("metadata","","",metadata.toString()), 5);
 		killServer(index);
 		
 		return true;
@@ -314,51 +328,78 @@ public class ECS {
 	/**
 	 * Get list of Client objects for every active server in the current metadata (i.e.
 	 * servers which can be connected to successfully). 
-	 * Any servers which can't be connected to are removed from the metadata.
+	 * If a server can't be connected to, wait for 1 second and try again up to a maximum
+	 * of numTries times.
+	 * Any servers which can't still be connected to are removed from the metadata.
 	 */
-	private ArrayList<Client> getActiveServers() {
+	private ArrayList<Client> getActiveServers(int numTries) {
 		List<Server> activeServers = metadata.getAllServers();
 		ArrayList<Client> clients = new ArrayList<Client>();
+		boolean success=false;
+		
 		for (int i = 0; i < activeServers.size(); ++i) {
 			Server server = activeServers.get(i);
-			//try connecting to this server 
-			boolean success = false;
-			try {
-				logger.debug("Trying to connect to server "+server.toString());
-				Client client = new Client(server.ipAddress, server.port);
-				//wait for "connection successful" response
-				KVMessage response = client.getResponse();
-				if (response != null){
-					success = true;
-					clients.add(client);
+			
+			int triesRemaining = numTries;
+			while (triesRemaining > 0){
+				//try connecting to this server 
+				success = false;
+				try {
+					logger.debug("Trying to connect to server "+server.toString());
+					Client client = new Client(server.ipAddress, server.port);
+					//wait for "connection successful" response
+					KVMessage response = client.getResponse();
+					if (response != null){
+						success = true;
+						clients.add(client);
+					}
+					else{
+						success = false;
+					}
 				}
-				else{
+				catch (Exception e){
+					logger.debug(e.getMessage());
 					success = false;
 				}
+				
+				if (!success) {
+					triesRemaining--;
+					if (triesRemaining > 0){
+						logger.debug("Unable to connect to server "+server.toString()+". Waiting 1 second and trying again.");
+						try {
+							TimeUnit.SECONDS.sleep(1); 		
+						} catch (InterruptedException e){}
+					}
+				}
+				else {
+					logger.info("Connection successful to server "+server.toString());
+					break;
+				}
 			}
-			catch (Exception e){
-				logger.debug(e.getMessage());
-				success = false;
-			}
-			
+
+			//connected successfully or tried unsuccessfully numTries times
 			if (!success) {
+				triesRemaining--;
 				metadata.removeServer(server);
-				logger.warn("Warning: Unable to connect to server "+server.toString());
+				logger.error("Unable to connect to server "+server.toString()+" after "+numTries+" attempts.");
 			}
 			else {
 				logger.info("Connection successful to server "+server.toString());
 			}
 		}
+		
 		return clients;
 	}
 	
 	/**
 	 * Send the given message to all responsive servers in the metadata.
+	 * If unable to connect the the server, wait for 1 second and try again for 
+	 * a maximum of numTries times.
 	 */
-	private void broadcast(KVMessage message) {
+	private void broadcast(KVMessage message, int numTries) {
 		//connect to each server and send them the metadata
 		logger.info("Broadcasting "+message.getMsg());
-		ArrayList<Client> clients = getActiveServers();
+		ArrayList<Client> clients = getActiveServers(numTries);
 		if (clients.size() == 0){
 			logger.warn("There does not appear to be any servers online.");
 		}
@@ -384,7 +425,6 @@ public class ECS {
 		String jarPath = new File(System.getProperty("user.dir"), "ms2-server.jar").toString();
 		String launchCmd = "java -jar "+jarPath+" "+server.port+" "+cacheSize+" "+replacementStrategy+" "+server.id+" &"; 
 		String sshCmd = "ssh -n "+server.ipAddress+" nohup "+launchCmd;
-		System.out.println(sshCmd);
 		
 		// Use ssh to launch servers
 		try {
@@ -409,7 +449,6 @@ public class ECS {
 		allProcesses.set(id, null);
 		
 		String killCmd = "ssh -n "+"localhost"+" nohup fuser -k " + server.port + "/tcp";
-		System.out.println("Running command "+killCmd);			
 		try {
 			Process killing_p = Runtime.getRuntime().exec(killCmd);
 			//killing_p.destroy();
@@ -443,5 +482,17 @@ public class ECS {
 		catch (Exception e) {
 			logger.warn("Could not write metadata to file");
 		}
+	}
+	
+	public void printState() {
+		System.out.println("\nStorage service current state");
+		System.out.println("==========================================");
+		System.out.println("Status: "+(status==ServerStatus.STOPPED ? "STOPPED" : "ACTIVE"));
+		System.out.println(totalNumNodes+" servers in the system");
+		for (int id=0; id<totalNumNodes; id++){
+			Server server = allServers.get(id);
+			System.out.println("Server "+server.toString()+"\t\t"+(metadata.contains(server) ? "online" : "offline"));
+		}
+		System.out.println("");
 	}
 }

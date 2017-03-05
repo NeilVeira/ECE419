@@ -66,6 +66,7 @@ public class ECSClient {
 		case "stop":
 		case "shutDown":
 		case "help":
+		case "printState":
 			expectedNumArgs = 0;
 			break;
 		case "addNode":
@@ -135,6 +136,9 @@ public class ECSClient {
 				printError("Index must be an integer");
 				logger.info("removeNode input encountered number format exception");
 			}
+			break;
+		case "printState":
+			ecs.printState();
 			break;
 		}
 		//backup the metadata after every operation in case the ecs gets killed unexpectedly

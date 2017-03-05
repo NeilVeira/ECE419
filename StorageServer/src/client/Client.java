@@ -127,7 +127,7 @@ public class Client {
 		byte[] msgBytes = msg.getMsgBytes();
 		output.write(msgBytes, 0, msgBytes.length);
 		output.flush();
-		logger.info("Send message:\t '" + msg.getMsg() + "'");
+		logger.debug("Send message:\t '" + msg.getMsg() + "'");
     }
 	
 	
@@ -191,7 +191,7 @@ public class Client {
 			logger.error("Received invalid message from server: "+msg.originalMsg);
 			logger.error(msg.error);
 		}
-		logger.info("Receive message:\t '" + msg.getMsg() + "'");
+		logger.debug("Receive message:\t '" + msg.getMsg() + "'");
 		return msg;
     }
  	

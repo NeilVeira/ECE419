@@ -238,7 +238,7 @@ public class KVServer extends Thread {
 
 	// This function is used to rewrite the harddisk file with the key value pairs from the harddisk map
 	// Returns boolean, true for success, false for failure
-	public boolean overwriteHardDiskFile() {
+	private boolean overwriteHardDiskFile() {
 		try {
 			System.out.println("Starting to overwrite Hard disk File from Hard Disc Map");
 			logger.info("Starting to overwrite Hard disk File from Hard Disc Map");
@@ -266,7 +266,7 @@ public class KVServer extends Thread {
 	}
 	// This function is used to repopulate the harddisk map with the key value pairs from the harddisk file
 	// Returns boolean, true for success, false for failure
-	public boolean repopulateHardDiskMap() {
+	private boolean repopulateHardDiskMap() {
 		try {
 			System.out.println("Starting to repopulate Hard disk Map from Hard Disc File");
 			logger.info("Starting to repopulate Hard disk Map from Hard Disc File");
@@ -703,7 +703,7 @@ public class KVServer extends Thread {
 	}
 	
 	// This function is used to update the Cache Key Value Pair in case it was used
-	public boolean updateCacheHit(String key, String value) {
+	private boolean updateCacheHit(String key, String value) {
 		// When we call this function we know Cache has the key value pair
 		System.out.println("Got Hit from Cache, Pair was Key: " + key + " Value: " + value);
 		logger.info("Got Hit from Cache, Pair was Key: " + key + " Value: " + value);
@@ -718,7 +718,7 @@ public class KVServer extends Thread {
 		return true;
 	}
 	// This function is used to delete key value pair from the cache
-	public boolean deleteFromCache(String key, String value) {
+	private boolean deleteFromCache(String key, String value) {
 		// Insert Scoped Lock here
 		synchronized(m_myLock) {
 			// When we call this function we don't know if Cache has the Key Value Pair we want to delete
@@ -739,7 +739,7 @@ public class KVServer extends Thread {
 		}
 	}
 	// This function is used to add a new key value pair into the cache
-	public void addToCache(String key, String value) {
+	private void addToCache(String key, String value) {
 		// add the pair to all the other maps and lists we need
 		// add value in cache value map
 		this.m_cacheValueMap.put(key, value);
@@ -753,7 +753,7 @@ public class KVServer extends Thread {
 		this.m_currentCacheEntries = this.m_currentCacheEntries + 1;
 	}
 	// This function is used to put key value pair into the cache
-	public boolean insertIntoCache(String key, String value) {
+	private boolean insertIntoCache(String key, String value) {
 		// Insert Scoped Lock here
 		synchronized(m_myLock) {
 			// When we call this function we don't know if Cache is already Full or if that key value pair already exists in it
@@ -799,7 +799,7 @@ public class KVServer extends Thread {
 		}
 	}
 	// This function is used to evict a key value pair according to FIFO
-	public boolean evictFIFO() {
+	private boolean evictFIFO() {
 		// When we call this function we know Cache is already Full
 		// Find the key of the element we want to evict
 		String key = this.m_cacheFIFOList.getFirst();
@@ -819,7 +819,7 @@ public class KVServer extends Thread {
 		return true;
 	}
 	// This function is used to evict a key value pair according to LRU
-	public boolean evictLRU() {
+	private boolean evictLRU() {
 		// When we call this function we know Cache is already Full
 		// Find the key of the element we want to evict
 		// Iterate through all pairs of LFU map
@@ -840,7 +840,7 @@ public class KVServer extends Thread {
 		return true;
 	}
 	// This function is used to evict a key value pair according to LFU
-	public boolean evictLFU() {
+	private boolean evictLFU() {
 		// When we call this function we know Cache is already Full
 		// Find the key of the element we want to evict
 		String key = null;
