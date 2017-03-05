@@ -449,7 +449,7 @@ public class KVServer extends Thread {
 		
 		//check if this server is responsible for this key
 		Server responsible = metadata.getResponsible(Key);
-		if (responsible.id != this.id){
+		if (responsible == null || responsible.id != this.id){
 			return new KVAdminMessage("get","SERVER_NOT_RESPONSIBLE",msg.getKey(),metadata.toString());
 		}
 		
@@ -679,7 +679,7 @@ public class KVServer extends Thread {
 				String value = entry.getValue();
 				Server responsible = metadata.getResponsible(key);
 				
-				if (responsible.id == server.id){
+				if (responsible != null && responsible.id == server.id){
 					movedKeys.add(key);
 					logger.debug("Transferring "+key);
 					//send a special put message which overrides status and responsibility checking

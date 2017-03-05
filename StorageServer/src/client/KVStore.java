@@ -2,6 +2,7 @@ package client;
 
 import java.io.IOException;
 import java.net.UnknownHostException;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import common.messages.KVMessage;
@@ -89,8 +90,10 @@ public class KVStore implements KVCommInterface {
 				client.sendMessage(request);
 			}
 			catch (IOException e) {
-				client.logError("Unable to send request "+request.getMsg());
-				return null;
+				boolean success = connectToAnyServer();
+				if (!success) {
+					return null;
+				}
 			}
 			
 			//Wait for client thread to receive message from server (Client.java function)
@@ -106,7 +109,7 @@ public class KVStore implements KVCommInterface {
 			else if (response.getStatus().equals("SERVER_WRITE_LOCK")){
 				// If write locked then a new server is being added and data is being transferred
 				// We block until server is ready to receive
-				System.out.println("Server is temporarily locked for writing. Waiting and retrying");
+				client.logInfo("Server is temporarily locked for writing. Waiting and retrying");
 				try {
 					TimeUnit.SECONDS.sleep(2);
 				} catch (InterruptedException e){
@@ -118,16 +121,21 @@ public class KVStore implements KVCommInterface {
 				String mdata = response.getValue(); 
 				this.metadata = new HashRing(mdata);
 				HashRing.Server responsibleServer = metadata.getResponsible(request.getKey());
+				client.logInfo("Received SERVER_NOT_RESPONSIBLE. Connecting to server "+responsibleServer.toString());
+				
 				//disconnect from the current server and try to connect to the new one
 				disconnect();
 				this.address = responsibleServer.ipAddress;
 				this.port = responsibleServer.port;
 				try {
 					connect();
-				} catch(Exception e) {
-					//TODO: try to connect to any other server in the metadata
-					client.logError("KVStore: Unable to connect to new server "+this.address+" on port "+this.port);
-					return null;
+				} 
+				catch(Exception e) {
+					//try to connect to any other server in the metadata
+					boolean success = connectToAnyServer();
+					if (!success) {
+						return null;
+					}
 				}
 			}
 			else {
@@ -140,5 +148,25 @@ public class KVStore implements KVCommInterface {
 			client.logInfo("KVStore: no response received");
 		}
 		return response;
+	}
+	
+	/**
+	 * Run through all the known servers in the metadata, trying to connect to any of them.
+	 * Returns true if successful.
+	 */
+	private boolean connectToAnyServer() {
+		List<Server> allServers = metadata.getAllServers();
+		for (Server server : allServers) {
+			this.address = server.ipAddress;
+			this.port = server.port;
+			try {
+				connect();
+				return true;
+			} catch(Exception ex) {
+				
+			}
+		}
+		client.logError("KVStore: Unable to connect to any server in the system.");
+		return false;
 	}
 }
