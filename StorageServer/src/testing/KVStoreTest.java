@@ -21,18 +21,21 @@ public class KVStoreTest extends TestCase {
 
 	private KVStore kvClient;
 	private KVServer server;
+	private KVServer base;
 
 	public void setUp() {
+		base = new KVServer(50000, 10, "LRU", 0);
+		while(base.getStatus() != "ACTIVE") base.startServer();
+		HashRing metadata = new HashRing("-134847710425560069445028245650825152028 localhost 50000 0");
+		base.handleMetadata(new KVAdminMessage("metadata","METADATA_UPDATE","",metadata.toString()));
+		
 		// Initialize a new server with port 50001.
 		server = new KVServer(50001, 10, "FIFO", 1);
-		try {
-			while(server.getStatus() != "ACTIVE") server.startServer();
-			// Fill the new server with artificial metadata so we can test SERVER_NOT_RESPONSIBLE and server switching
-			HashRing metadata = new HashRing("136415732930669195156142751695833227657 localhost 50001 1,-134847710425560069445028245650825152028 localhost 50000 0");
-			server.handleMetadata(new KVAdminMessage("metadata","METADATA_UPDATE","",metadata.toString()));
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
+		while(server.getStatus() != "ACTIVE") server.startServer();
+		// Fill the new server with artificial metadata so we can test SERVER_NOT_RESPONSIBLE and server switching
+		metadata = new HashRing("136415732930669195156142751695833227657 localhost 50001 1,-134847710425560069445028245650825152028 localhost 50000 0");
+		server.handleMetadata(new KVAdminMessage("metadata","METADATA_UPDATE","",metadata.toString()));
+
 		// We also initialize the client here
 		kvClient = new KVStore("localhost", 50001);
 		// Blocks until server is ready to connect
@@ -47,6 +50,7 @@ public class KVStoreTest extends TestCase {
 	public void tearDown() {
 		kvClient.disconnect();
 		server.closeServer();
+		//base.closeServer();
 	}
 
 	// Tests a put on the current server with the right position on the ring
@@ -140,5 +144,31 @@ public class KVStoreTest extends TestCase {
 		assertNull(ex);
 		// KVStore returns PUT_ERROR if write locked server times out
 		assertTrue("PUT_ERROR".contains(response.getStatus()));
+	}
+	
+	@Test
+	public void testWLGetServer() {
+		String key = "foo";
+		String value = "WLGet";
+		KVMessage response = null;
+		Exception ex = null;
+
+		try {
+			// Put in a value first
+			response = kvClient.put(key, value);
+			// Set write lock on the server
+			while(server.getStatus() != "WRITE_LOCKED") server.lockWrite();
+			// In KVStore it will keep retrying until 10 iterations of 500ms each, 5 seconds total
+			response = kvClient.get(key);
+			// Unlock the server for the other tests
+			while(server.getStatus() != "ACTIVE") server.unLockWrite();
+		} catch (Exception e) {
+			while(server.getStatus() != "ACTIVE") server.unLockWrite();
+			ex = e;
+		}
+
+		assertNull(ex);
+		// KVStore returns PUT_ERROR if write locked server times out
+		assertTrue("GET_SUCCESS".contains(response.getStatus()));
 	}
 }

@@ -1,10 +1,14 @@
 package testing;
 
+import java.io.IOException;
+
 import org.junit.Test;
 
 import client.KVStore;
 import app_kvClient.KVClient;
 import app_kvServer.KVServer;
+import common.HashRing;
+import common.messages.KVAdminMessage;
 import common.messages.KVMessage;
 
 
@@ -15,8 +19,14 @@ public class AdditionalTest extends TestCase {
 	private KVStore kvClient;
 	private Exception ex;
 	private KVMessage response;
+	private KVServer base;
 
 	public void setUp() {
+		base = new KVServer(50000, 10, "LRU", 0);
+		while(base.getStatus() != "ACTIVE") base.startServer();
+		HashRing metadata = new HashRing("-134847710425560069445028245650825152028 localhost 50000 0");
+		base.handleMetadata(new KVAdminMessage("metadata","METADATA_UPDATE","",metadata.toString()));
+		
 		response = null;
 		ex = null;
 		kvClient = new KVStore("localhost", 50000);
@@ -28,6 +38,7 @@ public class AdditionalTest extends TestCase {
 
 	public void tearDown() {
 		kvClient.disconnect();
+		//base.closeServer();
 	}
 
 	// Tests connecting using the command line handler
@@ -114,11 +125,14 @@ public class AdditionalTest extends TestCase {
 		assertEquals(response.getValue(), "abc");
 	}
 	
+	@Test
 	public void testPersistence() {
+		//create a new server and client and connect to it
+		KVServer server = new KVServer(50001, 10, "LFU", 0);
+		while(server.getStatus() != "ACTIVE") server.startServer();
+		KVStore client = new KVStore("localhost", 50000);
+		
 		try {
-			//create a new server and client and connect to it
-			KVServer server = new KVServer(50001, 10, "LFU", 0);
-			KVStore client = new KVStore("localhost", 50001);
 			client.connect();
 			
 			//first delete the key to make sure this test always starts from the same state
@@ -134,16 +148,17 @@ public class AdditionalTest extends TestCase {
 			
 			//start up a new server and reconnect
 			KVServer server2 = new KVServer(50001, 10, "LFU", 0);
+			while(server2.getStatus() != "ACTIVE") server2.startServer();
 			client.connect();
 			
 			//get the value. Should be the same as put.
 			response = client.get("key");
-			assertEquals(response.getStatus(), "GET_SUCCESS");
-			assertEquals(response.getValue(), "1010");
 		}
 		catch (Exception e){
 			ex = e;
 		}
+		assertEquals(response.getStatus(), "GET_SUCCESS");
+		assertEquals(response.getValue(), "1010");
 		assertNull(ex);
 	}
 	

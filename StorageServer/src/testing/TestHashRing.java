@@ -3,8 +3,12 @@ package testing;
 import org.junit.Test;
 import org.junit.Assert;
 
+import app_kvServer.KVServer;
+
 import common.HashRing;
 import common.HashRing.Server;
+import common.messages.KVAdminMessage;
+
 import java.math.BigInteger;
 
 import junit.framework.TestCase;

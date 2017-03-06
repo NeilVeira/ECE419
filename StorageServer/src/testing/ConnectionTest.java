@@ -3,7 +3,11 @@ package testing;
 import java.net.UnknownHostException;
 import java.net.ConnectException;
 
+import common.HashRing;
+import common.messages.KVAdminMessage;
+
 import app_kvClient.KVClient;
+import app_kvServer.KVServer;
 
 import client.KVStore;
 

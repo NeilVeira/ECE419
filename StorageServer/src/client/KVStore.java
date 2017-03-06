@@ -42,7 +42,7 @@ public class KVStore implements KVCommInterface {
 		try{
 		client = new Client(address, port);
 		} catch (ConnectException e) {
-			System.out.println("Connection refused!");
+			//System.out.println("Connection refused!");
 			return false;
 		}
 		logger.info("Client trying to connect...");
@@ -60,6 +60,11 @@ public class KVStore implements KVCommInterface {
 	
 	public boolean isConnected() {
 		return connected;
+	}
+	
+	// Returns the metadata, for testing and debugging
+	public String getMetadata() {
+		return metadata.toString();
 	}
 
 	@Override
@@ -215,7 +220,13 @@ public class KVStore implements KVCommInterface {
 				}
 				return sendRequest(request);
 			}
-			else {
+			else if (response.getStatus().equals("TIME_OUT")) {
+				boolean success = connectToAnyServer();
+				if (!success) {
+					return null;
+				}
+				return sendRequest(request);
+			} else {
 				break;
 			}
 			

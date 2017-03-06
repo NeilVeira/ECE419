@@ -11,17 +11,19 @@ import junit.framework.Test;
 import junit.framework.TestSuite;
 import logger.LogSetup;
 import common.HashRing;
+import java.io.File;
 
 
 public class AllTests {
 
 	static {
 		try {
-			new LogSetup("logs/testing/test.log", Level.ERROR);
-			KVServer server = new KVServer(50000, 10, "LRU", 0);
-			server.startServer();
-			HashRing metadata = new HashRing("-134847710425560069445028245650825152028 localhost 50000 0");
-			server.handleMetadata(new KVAdminMessage("metadata","METADATA_UPDATE","",metadata.toString()));
+			new LogSetup("logs/testing/test.log", Level.DEBUG);
+			// Delete all the storage files already present for the servers
+			/*for(int i = 0; i < 8; ++i) {
+				File file = new File(System.getProperty("user.dir") + "/" + "storage_" + i + ".txt");
+				file.delete();
+			}*/
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -36,6 +38,7 @@ public class AllTests {
 		clientSuite.addTestSuite(InteractionTest.class); 
 		clientSuite.addTestSuite(KVStoreTest.class); 
 		clientSuite.addTestSuite(AdditionalTest.class); 
+		//clientSuite.addTestSuite(EnronTest.class); 
 		return clientSuite;
 	}
 	

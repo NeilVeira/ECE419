@@ -49,9 +49,7 @@ public class Client {
 		} catch (Exception e) {
 			return -1;
 		}
-		
 	}
-	
 	
 	// Use client.logInfo("asdf") to log information
 	public void logInfo(String input){
@@ -75,11 +73,8 @@ public class Client {
 				if(isRunning()) {
 					System.out.println("Error:> "+ioe.getMessage());
 					logger.error("Connection lost!");
-					try {
-						tearDownConnection();
-					} catch (IOException e) {
-						logger.error("Unable to close connection!");
-					}
+					closeConnection();
+					return new MessageType("", "TIME_OUT", "", "");
 				}
 			}				
 		}
