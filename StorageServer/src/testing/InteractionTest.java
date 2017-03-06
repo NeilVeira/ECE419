@@ -52,6 +52,7 @@ public class InteractionTest extends TestCase {
 
 		assertNull(ex);
 		assertTrue("PUT_UPDATE PUT_SUCCESS".contains(response.getStatus()));
+		assertEquals(value, response.getValue());
 		//assertEquals(response.getStatus(),"PUT_SUCCESS");
 	}
 	
@@ -61,16 +62,19 @@ public class InteractionTest extends TestCase {
 		kvClient.disconnect();
 		String key = "foo";
 		String value = "disconnected";
+		KVMessage response = null;
 		Exception ex = null;
 
 		try {
-			kvClient.put(key, value);
+			response = kvClient.put(key, value);
 		} catch (Exception e) {
 			ex = e;
 			System.out.println(ex.toString());
 		}
 		
 		assertNull(ex);
+		assertTrue("PUT_UPDATE PUT_SUCCESS".contains(response.getStatus()));
+		assertEquals(value, response.getValue());
 	}
 
 	// Tests put on an already stored value, should return PUT_UPDATE
@@ -84,7 +88,8 @@ public class InteractionTest extends TestCase {
 		Exception ex = null;
 
 		try {
-			kvClient.put(key, initialValue);
+			response = kvClient.put(key, initialValue);
+			assertEquals(response.getValue(), initialValue);
 			response = kvClient.put(key, updatedValue);
 			
 		} catch (Exception e) {
@@ -115,6 +120,16 @@ public class InteractionTest extends TestCase {
 
 		assertNull(ex);
 		assertEquals(response.getStatus(), "DELETE_SUCCESS");
+		
+		// Use get to verify it is unset
+		try {
+			response = kvClient.get(key);
+		} catch (Exception e) {
+			ex = e;
+		}
+
+		assertNull(ex);
+		assertEquals(response.getStatus(), "GET_ERROR");
 	}
 	
 	// Tests the get function
