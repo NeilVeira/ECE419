@@ -149,10 +149,13 @@ public class KVStoreTest extends TestCase {
 	@Test
 	public void testWLGetServer() {
 		String key = "foo";
+		String value = "WLGet";
 		KVMessage response = null;
 		Exception ex = null;
 
 		try {
+			// Put in a value first
+			response = kvClient.put(key, value);
 			// Set write lock on the server
 			while(server.getStatus() != "WRITE_LOCKED") server.lockWrite();
 			// In KVStore it will keep retrying until 10 iterations of 500ms each, 5 seconds total

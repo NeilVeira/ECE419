@@ -23,6 +23,11 @@ public class InteractionTest extends TestCase {
 		HashRing metadata = new HashRing("-134847710425560069445028245650825152028 localhost 50000 0");
 		base.handleMetadata(new KVAdminMessage("metadata","METADATA_UPDATE","",metadata.toString()));
 		while(base.getStatus() != "ACTIVE") base.startServer();
+		try {
+			Thread.sleep(100);
+		} catch (Exception e) {
+			
+		}
 		
 		kvClient = new KVStore("localhost", 50000);
 		try {
