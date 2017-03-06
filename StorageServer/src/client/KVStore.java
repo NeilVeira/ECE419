@@ -42,7 +42,7 @@ public class KVStore implements KVCommInterface {
 		try{
 		client = new Client(address, port);
 		} catch (ConnectException e) {
-			System.out.println("Connection refused!");
+			//System.out.println("Connection refused!");
 			return false;
 		}
 		logger.info("Client trying to connect...");

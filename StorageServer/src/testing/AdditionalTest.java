@@ -19,9 +19,10 @@ public class AdditionalTest extends TestCase {
 	private KVStore kvClient;
 	private Exception ex;
 	private KVMessage response;
+	private KVServer base;
 
 	public void setUp() {
-		KVServer base = new KVServer(50000, 10, "LRU", 0);
+		base = new KVServer(50000, 10, "LRU", 0);
 		while(base.getStatus() != "ACTIVE") base.startServer();
 		HashRing metadata = new HashRing("-134847710425560069445028245650825152028 localhost 50000 0");
 		base.handleMetadata(new KVAdminMessage("metadata","METADATA_UPDATE","",metadata.toString()));
@@ -37,6 +38,7 @@ public class AdditionalTest extends TestCase {
 
 	public void tearDown() {
 		kvClient.disconnect();
+		//base.closeServer();
 	}
 
 	// Tests connecting using the command line handler
