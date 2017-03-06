@@ -106,7 +106,10 @@ public class KVStore implements KVCommInterface {
 		try {
 			this.address = responsible.ipAddress;
 			this.port = responsible.port;
-			connect();
+			boolean ok = connect();
+			if (!ok){
+				return connectToAnyServer();
+			}
 		} catch (Exception e) {
 			logger.debug("Unable to connect to responsible server "+responsible.toString());
 			return connectToAnyServer();
@@ -126,6 +129,9 @@ public class KVStore implements KVCommInterface {
 		do {
 			logger.info("KVStore: sending request "+request.getMsg());
 			try {
+				if (client == null) {
+					connectToAnyServer();
+				}
 				client.sendMessage(request);
 			}
 			catch (IOException e) {
@@ -232,8 +238,10 @@ public class KVStore implements KVCommInterface {
 			this.address = server.ipAddress;
 			this.port = server.port;
 			try {
-				connect();
-				return true;
+				boolean success = connect();
+				if (success) {
+					return true;
+				}
 			} catch(Exception ex) {
 				
 			}

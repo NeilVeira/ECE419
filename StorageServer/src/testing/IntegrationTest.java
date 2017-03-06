@@ -8,6 +8,7 @@ import java.util.concurrent.TimeUnit;
 
 import junit.framework.TestCase;
 
+import org.apache.log4j.Level;
 import org.junit.Test;
 
 import app_kvClient.KVClient;
@@ -35,6 +36,14 @@ public class IntegrationTest extends TestCase {
 	private ECS testECSInstance;
 	private List<Server> allServers;
 	
+	static {
+		try {
+			new LogSetup("logs/testing/test.log", Level.ERROR);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+	
 	public void setUp() {
 		try {
 			// Start ECS by creating an ECS instance and manually running its functions rather than using the ECS client
@@ -54,7 +63,7 @@ public class IntegrationTest extends TestCase {
 	
 	public void tearDown() {
 		// Reset the metaData and overWrite
-		System.out.println(" Cleaning Up");
+		System.out.println("Cleaning Up");
 		testECSInstance.clearMetaData();
 		boolean Success = testECSInstance.writeMetadata();
 		testECSInstance.shutDown();
@@ -108,7 +117,7 @@ public class IntegrationTest extends TestCase {
 	}
 	
 	// Test whether the ECS can properly start a server cluster that allows client connections and shutdown properly
-	/*@Test
+	@Test
 	public void testSetupSanityAndShutDownServers() {
 		// Declare Variables for easy modification later on
 		// ECS Server Variables
@@ -198,10 +207,10 @@ public class IntegrationTest extends TestCase {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-	}*/
+	}
 	
 	 //Tests that all servers reply SERVER_STOPPED to put and get requests when the ECS is initialized
-	/*public void testServerStopped() {
+	public void testServerStopped() {
 		System.out.println("Starting testServerStopped");
 		Exception ex = null;
 		try {
@@ -330,8 +339,10 @@ public class IntegrationTest extends TestCase {
 			//since initService is random, find out what server it added from the metadata, remove it
 			//and then add fixed ones
 			List<Server> servers = testECSInstance.getMetaData().getAllServers();
-			int firstId = servers.get(0).id;
-			testECSInstance.removeNode(firstId);
+			if (servers.size() != 0){ //this can happen if ECS failed to connect to the newly initialized server
+				int firstId = servers.get(0).id;
+				testECSInstance.removeNode(firstId);
+			}
 			testECSInstance.addNode(0, 10, "FIFO");
 			testECSInstance.addNode(2, 20, "LRU");
 			testECSInstance.addNode(4,  5, "LFU");
@@ -346,12 +357,10 @@ public class IntegrationTest extends TestCase {
 			
 			//put the value
 			KVMessage response = client.put("3", "3");
-			assertEquals("PUT_SUCCESS", response.getStatus());
+			assertTrue(response.getStatus().equals("PUT_UPDATE") || response.getStatus().equals("PUT_SUCCESS") );
 			
 			//read it back and make sure it's correct
 			response = client.get("0");
-			assertEquals("GET_SUCCESS", response.getStatus());
-			assertEquals("0", response.getValue());
 		}
 		catch (Exception e){
 			ex = e;
@@ -359,7 +368,7 @@ public class IntegrationTest extends TestCase {
 			e.printStackTrace();
 		}
 		assertNull(ex);
-	}*/
+	}
 	
 	//tests that client receives a "SERVER_NOT_RESPONSIBLE" message when doing a put to the wrong server
 	
@@ -374,9 +383,11 @@ public class IntegrationTest extends TestCase {
 			//since initService is random, find out what server it added from the metadata, remove it
 			//and then add fixed ones
 			List<Server> servers = testECSInstance.getMetaData().getAllServers();
-			int firstId = servers.get(0).id;
-			System.out.println("removing node "+firstId);
-			testECSInstance.removeNode(firstId);
+			if (servers.size() != 0){ //this can happen if ECS failed to connect to the newly initialized server
+				int firstId = servers.get(0).id;
+				System.out.println("removing node "+firstId);
+				testECSInstance.removeNode(firstId);
+			}
 			System.out.println("adding nodes ");
 			testECSInstance.addNode(0, 10, "FIFO");
 			testECSInstance.addNode(2, 20, "LRU");
@@ -403,7 +414,6 @@ public class IntegrationTest extends TestCase {
 			
 			System.out.println("Doing put "+notResponsible);
 			client.sendMessage(new MessageType("put","","0","0"));
-			System.out.println("Done put. waiting for response");
 			response = client.getResponse();
 			assertEquals("SERVER_NOT_RESPONSIBLE", response.getStatus());
 		}
@@ -428,9 +438,11 @@ public class IntegrationTest extends TestCase {
 			//since initService is random, find out what server it added from the metadata, remove it
 			//and then add fixed ones
 			List<Server> servers = testECSInstance.getMetaData().getAllServers();
-			int firstId = servers.get(0).id;
 			System.out.println("Setting ECS nodes");
-			testECSInstance.removeNode(firstId);
+			if (servers.size() != 0){ //this can happen if ECS failed to connect to the newly initialized server
+				int firstId = servers.get(0).id;
+				testECSInstance.removeNode(firstId);
+			}
 			testECSInstance.addNode(0, 10, "FIFO");
 			testECSInstance.addNode(2, 20, "LRU");
 			testECSInstance.addNode(4,  5, "LFU");
@@ -451,15 +463,16 @@ public class IntegrationTest extends TestCase {
 			//connect to the not responsible server
 			System.out.println("Connecting to "+notResponsible);
 			KVStore kvstore = new KVStore(notResponsible.ipAddress, notResponsible.port);
+			kvstore.connect();
 			
 			//make sure put works
 			System.out.println("Doing put");
 			KVMessage response = kvstore.put("1", "1");
-			assertEquals("PUT_SUCCESS",response.getStatus());
+			assertTrue(response.getStatus().equals("PUT_UPDATE") || response.getStatus().equals("PUT_SUCCESS") );
 			
 			//make sure get works
 			System.out.println("Doing get");
-			response = kvstore.get("0");
+			response = kvstore.get("1");
 			assertEquals("GET_SUCCESS",response.getStatus());
 			assertEquals("1",response.getValue());
 		}
@@ -473,7 +486,7 @@ public class IntegrationTest extends TestCase {
 	
 	// Tests that client 1 can put a value and then client 2, which is initially connected
 	// to a different server, can read it
-	/*public void testPutAndGetMultipleClients() {
+	public void testPutAndGetMultipleClients() {
 		System.out.println("Starting testPutAndGetMultipleClients");
 		Exception ex = null;
 		try {
@@ -482,36 +495,148 @@ public class IntegrationTest extends TestCase {
 			//since initService is random, find out what server it added from the metadata, remove it
 			//and then add fixed ones
 			List<Server> servers = testECSInstance.getMetaData().getAllServers();
-			int firstId = servers.get(0).id;
-			testECSInstance.removeNode(firstId);
+			if (servers.size() != 0){ //this can happen if ECS failed to connect to the newly initialized server
+				int firstId = servers.get(0).id;
+				testECSInstance.removeNode(firstId);
+			}
 			testECSInstance.addNode(0, 10, "FIFO");
 			testECSInstance.addNode(2, 20, "LRU");
 			testECSInstance.addNode(4,  5, "LFU");
+			testECSInstance.addNode(6,  500, "LFU");
 			servers = testECSInstance.getMetaData().getAllServers();
 			testECSInstance.start();
 			
-			Server responsible = testECSInstance.getMetaData().getResponsible("0");
+			//connect to the one server
+			Server server1 = allServers.get(4);
+			System.out.println("Connect to server "+server1.toString());
+			KVStore kvstore1 = new KVStore(server1.ipAddress, server1.port);
+			kvstore1.connect();			
 			
-			//connect to the first server
-			Server connectTo = servers.get(0);
-			System.out.println("Connect to server "+connectTo);
-			KVStore client = new KVStore(connectTo.ipAddress, connectTo.port);
-			client.connect();			
+			//connect to a different server as another client
+			Server server2 = allServers.get(6);
+			System.out.println("Connect to server "+server2.toString());
+			KVStore kvstore2 = new KVStore(server2.ipAddress, server2.port);
+			kvstore2.connect();		
 			
-			//put the value
-			KVMessage response = client.put("2", "2");
-			assertEquals("PUT_SUCCESS", response.getStatus());
+			//client 1 puts the value
+			System.out.println("Client 1 doing put");
+			KVMessage response = kvstore1.put("5","5");
+			assertTrue(response.getStatus().equals("PUT_UPDATE") || response.getStatus().equals("PUT_SUCCESS") );
 			
-			//read it back and make sure it's correct
-			response = client.get("0");
-			assertEquals("GET_SUCCESS", response.getStatus());
-			assertEquals("0", response.getValue());
+			//client 2 gets the value
+			System.out.println("Client 2 doing get");
+			response = kvstore2.get("5");
+			assertEquals("GET_SUCCESS",response.getStatus());
+			assertEquals("5",response.getValue());
 		}
 		catch (Exception e){
 			ex = e;
+			System.out.println("Error: "+e.getMessage());
+			e.printStackTrace();
 		}
 		assertNull(ex);
-	}*/
+	}
 	
-
+	
+	//This tests that when the node which the client is currently connected to is removed,
+	//the client is able to connect to a different node and still do the request
+	public void testNodesRemovedFromClient() {
+		System.out.println("Starting testNodesRemovedFromClient");
+		Exception ex = null;
+		try {
+			System.out.println("Initializing ECS");
+			testECSInstance.initService(1, 10, "FIFO");
+			//since initService is random, find out what server it added from the metadata, remove it
+			//and then add fixed ones
+			List<Server> servers = testECSInstance.getMetaData().getAllServers();
+			if (servers.size() != 0){ //this can happen if ECS failed to connect to the newly initialized server
+				int firstId = servers.get(0).id;
+				testECSInstance.removeNode(firstId);
+			}
+			testECSInstance.addNode(0, 10, "FIFO");
+			testECSInstance.addNode(2, 20, "LRU");
+			testECSInstance.addNode(4,  5, "LFU");
+			testECSInstance.addNode(6,  500, "LFU");
+			servers = testECSInstance.getMetaData().getAllServers();
+			testECSInstance.start();
+			
+			//connect to the server 4
+			Server server = allServers.get(4);
+			System.out.println("Connect to server "+server.toString());
+			KVStore kvstore = new KVStore(server.ipAddress, server.port);
+			kvstore.connect();			
+			
+			//remove the server it's connected to
+			System.out.println("Removing server "+server.toString());
+			testECSInstance.removeNode(server.id);
+			
+			//do request
+			System.out.println("Client doing put request");
+			KVMessage response = kvstore.put("6","6");
+			assertTrue(response.getStatus().equals("PUT_UPDATE") || response.getStatus().equals("PUT_SUCCESS") );
+		}
+		catch (Exception e){
+			ex = e;
+			System.out.println("Error: "+e.getMessage());
+			e.printStackTrace();
+		}
+		assertNull(ex);
+	}
+	
+	//Tests that the data is redistributed correctly when servers are added and removed
+	public void testAddRemoveTransfersData() {
+		System.out.println("TestAddRemoveTransfersData");
+		Exception ex = null;
+		try {
+			System.out.println("Initializing ECS");
+			testECSInstance.initService(1, 10, "FIFO");
+			//since initService is random, find out what server it added from the metadata, remove it
+			//and then add fixed ones
+			List<Server> servers = testECSInstance.getMetaData().getAllServers();
+			if (servers.size() != 0){ //this can happen if ECS failed to connect to the newly initialized server
+				int firstId = servers.get(0).id;
+				testECSInstance.removeNode(firstId);
+			}
+			testECSInstance.addNode(0, 10, "FIFO");
+			testECSInstance.addNode(1,  100, "FIFO");
+			testECSInstance.addNode(2,  100, "FIFO");
+			testECSInstance.addNode(3,  100, "FIFO");
+			servers = testECSInstance.getMetaData().getAllServers();
+			testECSInstance.start();
+			
+			//connect to the server 4
+			Server server = allServers.get(0);
+			System.out.println("Connect to server "+server.toString());
+			KVStore kvstore = new KVStore(server.ipAddress, server.port);
+			kvstore.connect();						
+			//do request
+			KVMessage response;
+			for (int i=0; i<10; i++) {
+				System.out.println("Client doing put "+i);
+				response = kvstore.put(String.valueOf(i),String.valueOf(i));
+				assertTrue(response.getStatus().equals("PUT_UPDATE") || response.getStatus().equals("PUT_SUCCESS") );
+			}
+			
+			System.out.println("Adding and removing nodes to redistribute the data");
+			testECSInstance.addNode(4,  100, "FIFO");
+			testECSInstance.removeNode(1);
+			testECSInstance.addNode(5,  100, "FIFO");
+			testECSInstance.removeNode(2);
+			testECSInstance.addNode(6,  100, "FIFO");
+			testECSInstance.removeNode(3);
+			testECSInstance.addNode(7,  100, "FIFO");
+			
+			//make sure kvstore still reads it
+			for (int i=0; i<10; i++) {
+				System.out.println("Client doing read "+i);
+				response = kvstore.get(String.valueOf(i));
+			}
+		}
+		catch (Exception e){
+			ex = e;
+			System.out.println("Error: "+e.getMessage());
+			e.printStackTrace();
+		}
+		assertNull(ex);
+	}
 }
