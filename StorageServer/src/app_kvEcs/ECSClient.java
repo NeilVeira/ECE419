@@ -141,8 +141,6 @@ public class ECSClient {
 			ecs.printState();
 			break;
 		}
-		//backup the metadata after every operation in case the ecs gets killed unexpectedly
-		ecs.writeMetadata();
 	}
 	
 	private void printError(String error){
