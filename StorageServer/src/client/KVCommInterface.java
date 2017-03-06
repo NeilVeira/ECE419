@@ -8,11 +8,12 @@ public interface KVCommInterface {
 
 	/**
 	 * Establishes a connection to the KV Server.
+	 * @return 
 	 * 
 	 * @throws Exception
 	 *             if connection could not be established.
 	 */
-	public void connect() throws Exception;
+	public boolean connect() throws Exception;
 
 	/**
 	 * disconnects the client from the currently connected server.

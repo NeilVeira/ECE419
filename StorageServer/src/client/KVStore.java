@@ -1,6 +1,7 @@
 package client;
 
 import java.io.IOException;
+import java.net.ConnectException;
 import java.net.UnknownHostException;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -33,9 +34,14 @@ public class KVStore implements KVCommInterface {
 	}
 	
 	@Override
-	public void connect() 
-		throws UnknownHostException, IOException{
+	public boolean connect() 
+		throws UnknownHostException, IOException, ConnectException{
+		try{
 		client = new Client(address, port);
+		} catch (ConnectException e) {
+			System.out.println("Connection refused!");
+			return false;
+		}
 		client.logInfo("Client trying to connect...");
 		client.addListener(this);
 		//client.start();
@@ -43,7 +49,9 @@ public class KVStore implements KVCommInterface {
 		KVMessage response = client.getResponse();
 		if (response != null){
 			client.logInfo("KVStore: received response "+response.getMsg());
+			return true;
 		}
+		return false;
 	}
 
 	@Override

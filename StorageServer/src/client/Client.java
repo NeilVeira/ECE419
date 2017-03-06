@@ -3,6 +3,7 @@ package client;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.ConnectException;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.HashSet;
@@ -31,7 +32,7 @@ public class Client {
 	
 	
 	public Client(String address, int port) 
-			throws UnknownHostException, IOException {
+			throws UnknownHostException, IOException, ConnectException{
 
 		clientSocket = new Socket(address, port);
 		clientSocket.setSoTimeout(1000);
