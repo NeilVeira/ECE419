@@ -76,6 +76,11 @@ public class ECS {
 	public void clearMetaData() {
 		this.metadata.ClearHashRing();
 	}
+	
+	public List<Server> getAllServers() {
+		return this.allServers;
+	}
+	
 	/**
 	 * Reads the previous configuration from the backup config file. 
 	 * If that configuration is different from the current one, deletes the metadata file
@@ -177,7 +182,7 @@ public class ECS {
 			runServer(server, cacheSize, replacementStrategy); 
 		}
 		
-		broadcast(new KVAdminMessage("metadata","METADATA_UPDATE","",metadata.toString()), 5);
+		broadcast(new KVAdminMessage("metadata","METADATA_UPDATE","",metadata.toString()), 10);
 			
 		// Generate numberOfNodes random indices from 1 to n
 		Integer[] indices = new Integer[totalNumNodes];
