@@ -173,7 +173,7 @@ public class HashRing{
 	}
 
 	/**
-	 * Encapsulates the IP address and port fields used by the HashRing class.
+	 * Encapsulates the IP address, port, and id fields used by the HashRing class.
 	 */
 	public static class Server{
 		public String ipAddress;

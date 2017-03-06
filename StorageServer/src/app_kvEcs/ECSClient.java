@@ -66,6 +66,7 @@ public class ECSClient {
 		case "stop":
 		case "shutDown":
 		case "help":
+		case "printState":
 			expectedNumArgs = 0;
 			break;
 		case "addNode":
@@ -136,6 +137,9 @@ public class ECSClient {
 				logger.info("removeNode input encountered number format exception");
 			}
 			break;
+		case "printState":
+			ecs.printState();
+			break;
 		}
 		//backup the metadata after every operation in case the ecs gets killed unexpectedly
 		ecs.writeMetadata();
@@ -167,6 +171,8 @@ public class ECSClient {
 		sb.append("\t\t\t\t changes the logLevel \n");
 		sb.append(PROMPT).append("\t\t\t\t\t ");
 		sb.append("ALL | DEBUG | INFO | WARN | ERROR | FATAL | OFF \n");
+		sb.append(PROMPT).append("printState");
+		sb.append("\t\t\t\t Prints a list of all the servers and their current status\n");
 		System.out.println(sb.toString());
 	}
 	

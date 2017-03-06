@@ -4,4 +4,6 @@ StorageServer/*.jar
 StorageServer/logs/*
 .metadata
 storage*.txt
-
+StorageServer/ecs.config
+StorageServer/ecs_metadata.txt
+StorageServer/ecs_config_backup.txt

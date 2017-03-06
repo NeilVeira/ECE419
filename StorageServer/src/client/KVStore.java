@@ -5,6 +5,7 @@ import java.net.ConnectException;
 import java.net.UnknownHostException;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import org.apache.log4j.Logger;
 
 import common.messages.KVMessage;
 import common.messages.MessageType;
@@ -19,6 +20,7 @@ public class KVStore implements KVCommInterface {
 	private int port;
 	private Client client = null;
 	private HashRing metadata;
+	private Logger logger = Logger.getRootLogger();
 	private boolean connected = false;
 	
 	/**
@@ -43,13 +45,13 @@ public class KVStore implements KVCommInterface {
 			System.out.println("Connection refused!");
 			return false;
 		}
-		client.logInfo("Client trying to connect...");
+		logger.info("Client trying to connect...");
 		client.addListener(this);
 		//client.start();
 		//wait for "connection successful" response
 		KVMessage response = client.getResponse();
 		if (response != null){
-			client.logInfo("KVStore: received response "+response.getMsg());
+			logger.info("KVStore: received response "+response.getMsg());
 			connected = true;
 			return true;
 		}
@@ -68,9 +70,6 @@ public class KVStore implements KVCommInterface {
 		}
 	}
 	
-	/*public int soTimeout() {
-		return client.soTimeout();
-	}*/
 
 	@Override
 	public KVMessage put(String key, String value) throws Exception {		
@@ -78,6 +77,7 @@ public class KVStore implements KVCommInterface {
 		if (request.error != null){
 			throw new Exception(request.error);
 		}		
+		connectToResponsible(key);
 		return sendRequest(request);
 	}
 
@@ -87,7 +87,32 @@ public class KVStore implements KVCommInterface {
 		if (request.error != null){
 			throw new Exception(request.error);
 		}
+		boolean success = connectToResponsible(key);
 		return sendRequest(request);
+	}
+	
+	/**
+	 * Check which server is responsible for the given key from the cached metadata
+	 * and try connecting to it. If unable to connect, try to connect to any server.
+	 */
+	private boolean connectToResponsible(String key) {
+		Server responsible = metadata.getResponsible(key);
+		if (responsible == null) {
+			return false;
+		}
+		logger.debug("Trying to connect to responsible server "+responsible.toString());
+		disconnect();
+		
+		try {
+			this.address = responsible.ipAddress;
+			this.port = responsible.port;
+			connect();
+		} catch (Exception e) {
+			logger.debug("Unable to connect to responsible server "+responsible.toString());
+			return connectToAnyServer();
+		}
+		
+		return true;
 	}
 	
 	/**
@@ -99,7 +124,7 @@ public class KVStore implements KVCommInterface {
 	private KVMessage sendRequest(KVMessage request) {
 		KVMessage response = null;
 		do {
-			client.logInfo("KVStore: sending request "+request.getMsg());
+			logger.info("KVStore: sending request "+request.getMsg());
 			try {
 				client.sendMessage(request);
 			}
@@ -113,7 +138,7 @@ public class KVStore implements KVCommInterface {
 			//Wait for client thread to receive message from server (Client.java function)
 			//TODO: timeout if no response is received
 			response = client.getResponse();
-			client.logInfo("KVStore: received response  "+response.getMsg());
+			logger.info("KVStore: received response  "+response.getMsg());
 			
 			if (response.getStatus().equals("SERVER_STOPPED")){
 				//The entire system is disabled for an indefinite amount of time, so there's 
@@ -123,9 +148,10 @@ public class KVStore implements KVCommInterface {
 			else if (response.getStatus().equals("SERVER_WRITE_LOCK")){
 				// If write locked then a new server is being added and data is being transferred
 				// We block until server is ready to receive
-				client.logInfo("Server is temporarily locked for writing. Waiting and retrying");
-				int timeOutCount = 10;
-				// We try 10 times, each time with 500ms delay, to reach a server with write_lock
+
+				logger.info("Server is temporarily locked for writing. Waiting and retrying");
+				int timeOutCount = 20;
+				// We try 20 times, each time with 500ms delay, to reach a server with write_lock
 				while(timeOutCount!=0) {
 					timeOutCount--;
 					try {
@@ -145,15 +171,16 @@ public class KVStore implements KVCommInterface {
 					}
 					
 					response = client.getResponse();
-					client.logInfo("KVStore: received response  "+response.getMsg());
+					logger.info("KVStore: received response  "+response.getMsg());
 					
 					if (response.getStatus().equals("SERVER_WRITE_LOCK")){
 						continue;
 					} else {
 						return sendRequest(request);
 					}
+
 				}
-				client.logError("Timed out retrying on server with write lock!");
+				logger.error("Timed out retrying on server with write lock!");
 				// Returns a PUT_ERROR to the KVClient, since there is no other suitable status code
 				return new MessageType(response.getHeader(), "PUT_ERROR", response.getKey(), response.getValue());
 			}
@@ -162,8 +189,10 @@ public class KVStore implements KVCommInterface {
 				String mdata = response.getValue(); 
 				this.metadata = new HashRing(mdata);
 				HashRing.Server responsibleServer = metadata.getResponsible(request.getKey());
-				client.logInfo("Received SERVER_NOT_RESPONSIBLE. Connecting to server "+responsibleServer.toString());
+
+				logger.info("Received SERVER_NOT_RESPONSIBLE. Connecting to server "+responsibleServer.toString());
 				//System.out.println("Received SERVER_NOT_RESPONSIBLE. Connecting to server "+responsibleServer.toString());
+
 				//disconnect from the current server and try to connect to the new one
 				disconnect();
 				this.address = responsibleServer.ipAddress;
@@ -187,7 +216,7 @@ public class KVStore implements KVCommInterface {
 		} while (true);
 		
 		if (response == null){
-			client.logInfo("KVStore: no response received");
+			logger.info("KVStore: no response received");
 		}
 		return response;
 	}
@@ -199,6 +228,7 @@ public class KVStore implements KVCommInterface {
 	private boolean connectToAnyServer() {
 		List<Server> allServers = metadata.getAllServers();
 		for (Server server : allServers) {
+			logger.debug("Trying to connect to server "+server.toString());
 			this.address = server.ipAddress;
 			this.port = server.port;
 			try {
@@ -208,7 +238,7 @@ public class KVStore implements KVCommInterface {
 				
 			}
 		}
-		client.logError("KVStore: Unable to connect to any server in the system.");
+		logger.error("KVStore: Unable to connect to any server in the system.");
 		return false;
 	}
 }
