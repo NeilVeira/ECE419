@@ -3,6 +3,10 @@ package testing;
 import org.junit.Test;
 import org.junit.Assert;
 
+import app_kvServer.KVServer;
+
+import common.HashRing;
+import common.messages.KVAdminMessage;
 import common.messages.MessageType;
 
 import junit.framework.TestCase;
@@ -10,6 +14,10 @@ import junit.framework.TestCase;
 public class TestKVMessage extends TestCase {
 	
 	public void setUp() {
+		KVServer base = new KVServer(50000, 10, "LRU", 0);
+		while(base.getStatus() != "ACTIVE") base.startServer();
+		HashRing metadata = new HashRing("-134847710425560069445028245650825152028 localhost 50000 0");
+		base.handleMetadata(new KVAdminMessage("metadata","METADATA_UPDATE","",metadata.toString()));
 	}
 
 	public void tearDown() {

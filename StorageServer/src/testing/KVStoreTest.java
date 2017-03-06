@@ -23,12 +23,16 @@ public class KVStoreTest extends TestCase {
 	private KVServer server;
 
 	public void setUp() {
+		KVServer base = new KVServer(50000, 10, "LRU", 0);
+		while(base.getStatus() != "ACTIVE") base.startServer();
+		HashRing metadata = new HashRing("-134847710425560069445028245650825152028 localhost 50000 0");
+		base.handleMetadata(new KVAdminMessage("metadata","METADATA_UPDATE","",metadata.toString()));
 		// Initialize a new server with port 50001.
 		server = new KVServer(50001, 10, "FIFO", 1);
 		try {
 			while(server.getStatus() != "ACTIVE") server.startServer();
 			// Fill the new server with artificial metadata so we can test SERVER_NOT_RESPONSIBLE and server switching
-			HashRing metadata = new HashRing("136415732930669195156142751695833227657 localhost 50001 1,-134847710425560069445028245650825152028 localhost 50000 0");
+			metadata = new HashRing("136415732930669195156142751695833227657 localhost 50001 1,-134847710425560069445028245650825152028 localhost 50000 0");
 			server.handleMetadata(new KVAdminMessage("metadata","METADATA_UPDATE","",metadata.toString()));
 		} catch (Exception e) {
 			e.printStackTrace();

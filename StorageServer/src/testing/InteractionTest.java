@@ -2,8 +2,12 @@ package testing;
 
 import org.junit.Test;
 
+import app_kvServer.KVServer;
+
 import client.KVStore;
 import junit.framework.TestCase;
+import common.HashRing;
+import common.messages.KVAdminMessage;
 import common.messages.KVMessage;
 import common.messages.KVMessage.StatusType;
 import java.util.concurrent.TimeUnit;
@@ -14,6 +18,11 @@ public class InteractionTest extends TestCase {
 	private KVStore kvClient;
 	
 	public void setUp() {
+		KVServer base = new KVServer(50000, 10, "LRU", 0);
+		while(base.getStatus() != "ACTIVE") base.startServer();
+		HashRing metadata = new HashRing("-134847710425560069445028245650825152028 localhost 50000 0");
+		base.handleMetadata(new KVAdminMessage("metadata","METADATA_UPDATE","",metadata.toString()));
+		
 		kvClient = new KVStore("localhost", 50000);
 		try {
 			kvClient.connect();
@@ -44,21 +53,22 @@ public class InteractionTest extends TestCase {
 		//assertEquals(response.getStatus(),"PUT_SUCCESS");
 	}
 	
-	// Tests put when client is disconnected, should raise exception
+	// Tests put when client is disconnected, connectResponsible should analyze the key and connect the client to the responsible server
 	@Test
 	public void testPutDisconnected() {
 		kvClient.disconnect();
 		String key = "foo";
-		String value = "bar";
+		String value = "disconnected";
 		Exception ex = null;
 
 		try {
 			kvClient.put(key, value);
 		} catch (Exception e) {
 			ex = e;
+			System.out.println(ex.toString());
 		}
-
-		assertNotNull(ex);
+		
+		assertNull(ex);
 	}
 
 	// Tests put on an already stored value, should return PUT_UPDATE

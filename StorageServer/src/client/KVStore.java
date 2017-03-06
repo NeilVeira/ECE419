@@ -61,6 +61,11 @@ public class KVStore implements KVCommInterface {
 	public boolean isConnected() {
 		return connected;
 	}
+	
+	// Returns the metadata, for testing and debugging
+	public String getMetadata() {
+		return metadata.toString();
+	}
 
 	@Override
 	public void disconnect() {
