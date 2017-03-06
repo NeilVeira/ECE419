@@ -214,7 +214,13 @@ public class KVStore implements KVCommInterface {
 				}
 				return sendRequest(request);
 			}
-			else {
+			else if (response.getStatus().equals("TIME_OUT")) {
+				boolean success = connectToAnyServer();
+				if (!success) {
+					return null;
+				}
+				return sendRequest(request);
+			} else {
 				break;
 			}
 			

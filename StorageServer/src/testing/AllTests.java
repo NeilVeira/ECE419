@@ -17,7 +17,7 @@ public class AllTests {
 
 	static {
 		try {
-			new LogSetup("logs/testing/test.log", Level.ERROR);
+			new LogSetup("logs/testing/test.log", Level.DEBUG);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -32,6 +32,7 @@ public class AllTests {
 		clientSuite.addTestSuite(InteractionTest.class); 
 		clientSuite.addTestSuite(KVStoreTest.class); 
 		clientSuite.addTestSuite(AdditionalTest.class); 
+		//clientSuite.addTestSuite(EnronTest.class); 
 		return clientSuite;
 	}
 	

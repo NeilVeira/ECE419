@@ -145,4 +145,27 @@ public class KVStoreTest extends TestCase {
 		// KVStore returns PUT_ERROR if write locked server times out
 		assertTrue("PUT_ERROR".contains(response.getStatus()));
 	}
+	
+	@Test
+	public void testWLGetServer() {
+		String key = "foo";
+		KVMessage response = null;
+		Exception ex = null;
+
+		try {
+			// Set write lock on the server
+			while(server.getStatus() != "WRITE_LOCKED") server.lockWrite();
+			// In KVStore it will keep retrying until 10 iterations of 500ms each, 5 seconds total
+			response = kvClient.get(key);
+			// Unlock the server for the other tests
+			while(server.getStatus() != "ACTIVE") server.unLockWrite();
+		} catch (Exception e) {
+			while(server.getStatus() != "ACTIVE") server.unLockWrite();
+			ex = e;
+		}
+
+		assertNull(ex);
+		// KVStore returns PUT_ERROR if write locked server times out
+		assertTrue("GET_SUCCESS".contains(response.getStatus()));
+	}
 }
