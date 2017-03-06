@@ -1,5 +1,6 @@
 package app_kvServer;
 import java.net.BindException;
+import java.net.SocketException;
 import java.net.ServerSocket;
 import java.net.Socket;
 // Remove this because already imported below
@@ -234,6 +235,9 @@ public class KVServer extends Thread {
 	}
 	public void unLockWrite() {
 		startServer();
+	}
+	public String getStatus() {
+		return this.status.toString();
 	}
 
 	// This function is used to rewrite the harddisk file with the key value pairs from the harddisk map
@@ -503,18 +507,28 @@ public class KVServer extends Thread {
 		return returnMsg;
 	}
 	
+	public int getPort() {
+		return port;
+	}
+	
 	// This function is used to handle a client put request
 	public KVMessage handlePut(KVMessage msg) {
-		if (status != ServerStatus.ACTIVE){
+		if (status == ServerStatus.STOPPED){
 			return new KVAdminMessage("get","SERVER_STOPPED",msg.getKey(),msg.getValue());
+		} else if (status == ServerStatus.WRITE_LOCKED){
+			return new KVAdminMessage("get","SERVER_WRITE_LOCK",msg.getKey(),msg.getValue());
 		}
 		
 		System.out.println("Handling Put");
 		logger.info("Handling Put");
 		String Key = msg.getKey();
 		String Value = msg.getValue();
-		//check if this server is responsible for this key
+		//check if this server is responsible for this key		
 		Server responsible = metadata.getResponsible(Key);
+		//System.out.println(Integer.toString(responsible.id));
+		//System.out.println(Integer.toString(this.id));
+		//System.out.println(Integer.toString(this.getPort()));
+		//System.out.println(this.metadata.toString());	
 		if (responsible.id != this.id){
 			return new KVAdminMessage("put","SERVER_NOT_RESPONSIBLE",msg.getKey(),metadata.toString());
 		}
@@ -890,6 +904,9 @@ public class KVServer extends Thread {
 					logger.info("Connected to " 
 							+ client.getInetAddress().getHostName() 
 							+  " on port " + client.getPort());
+					
+				} catch (SocketException e) {
+					logger.info("Socket closed!", e);
 				} catch (IOException e) {
 					logger.error("Error! " +
 							"Unable to establish connection. \n", e);

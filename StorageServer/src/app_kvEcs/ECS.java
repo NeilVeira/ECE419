@@ -69,6 +69,13 @@ public class ECS {
 		}
 	}
 	
+	public HashRing getMetaData() {
+		return this.metadata;
+	}
+	
+	public void clearMetaData() {
+		this.metadata.ClearHashRing();
+	}
 	/**
 	 * Reads the previous configuration from the backup config file. 
 	 * If that configuration is different from the current one, deletes the metadata file
@@ -502,7 +509,7 @@ public class ECS {
 		
 		// Launch the server
 		String jarPath = new File(System.getProperty("user.dir"), "ms2-server.jar").toString();
-		String launchCmd = "java -jar "+jarPath+" "+server.port+" "+cacheSize+" "+replacementStrategy+" "+server.id+" &"; 
+		String launchCmd = "java -jar "+jarPath+" "+server.port+" "+cacheSize+" "+replacementStrategy+" "+server.id; 
 		String sshCmd = "ssh -n "+server.ipAddress+" nohup "+launchCmd;
 		
 		// Use ssh to launch servers
@@ -527,7 +534,7 @@ public class ECS {
 		}
 		allProcesses.set(id, null);
 		
-		String killCmd = "ssh -n "+"localhost"+" nohup fuser -k " + server.port + "/tcp";
+		String killCmd = "ssh -n "+ server.ipAddress +" nohup fuser -k " + server.port + "/tcp";
 		try {
 			Process killing_p = Runtime.getRuntime().exec(killCmd);
 			//killing_p.destroy();
@@ -552,14 +559,16 @@ public class ECS {
 	/**
 	 * Write metadata to metadata file.
 	 */
-	public void writeMetadata() {
+	public boolean writeMetadata() {
 		try {
 			PrintWriter writer = new PrintWriter(metadataFile, "UTF-8");
 			writer.println(metadata.toString());
 			writer.close();
+			return true;
 		}
 		catch (Exception e) {
 			logger.warn("Could not write metadata to file");
+			return false;
 		}
 	}
 	

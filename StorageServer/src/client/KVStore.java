@@ -1,6 +1,7 @@
 package client;
 
 import java.io.IOException;
+import java.net.ConnectException;
 import java.net.UnknownHostException;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -20,6 +21,7 @@ public class KVStore implements KVCommInterface {
 	private Client client = null;
 	private HashRing metadata;
 	private Logger logger = Logger.getRootLogger();
+	private boolean connected = false;
 	
 	/**
 	 * Initialize KVStore with address and port of KVServer
@@ -35,9 +37,14 @@ public class KVStore implements KVCommInterface {
 	}
 	
 	@Override
-	public void connect() 
-		throws UnknownHostException, IOException{
+	public boolean connect() 
+		throws UnknownHostException, IOException, ConnectException{
+		try{
 		client = new Client(address, port);
+		} catch (ConnectException e) {
+			System.out.println("Connection refused!");
+			return false;
+		}
 		logger.info("Client trying to connect...");
 		client.addListener(this);
 		//client.start();
@@ -45,7 +52,14 @@ public class KVStore implements KVCommInterface {
 		KVMessage response = client.getResponse();
 		if (response != null){
 			logger.info("KVStore: received response "+response.getMsg());
+			connected = true;
+			return true;
 		}
+		return false;
+	}
+	
+	public boolean isConnected() {
+		return connected;
 	}
 
 	@Override
@@ -134,20 +148,51 @@ public class KVStore implements KVCommInterface {
 			else if (response.getStatus().equals("SERVER_WRITE_LOCK")){
 				// If write locked then a new server is being added and data is being transferred
 				// We block until server is ready to receive
+
 				logger.info("Server is temporarily locked for writing. Waiting and retrying");
-				try {
-					TimeUnit.SECONDS.sleep(2);
-				} catch (InterruptedException e){
-					; //doesn't really matter
+				int timeOutCount = 20;
+				// We try 20 times, each time with 500ms delay, to reach a server with write_lock
+				while(timeOutCount!=0) {
+					timeOutCount--;
+					try {
+						Thread.sleep(500);
+					} catch (InterruptedException e){
+						; //doesn't really matter
+					}
+					
+					try {
+						client.sendMessage(request);
+					}
+					catch (IOException e) {
+						boolean success = connectToAnyServer();
+						if (!success) {
+							return null;
+						}
+					}
+					
+					response = client.getResponse();
+					logger.info("KVStore: received response  "+response.getMsg());
+					
+					if (response.getStatus().equals("SERVER_WRITE_LOCK")){
+						continue;
+					} else {
+						return sendRequest(request);
+					}
+
 				}
+				logger.error("Timed out retrying on server with write lock!");
+				// Returns a PUT_ERROR to the KVClient, since there is no other suitable status code
+				return new MessageType(response.getHeader(), "PUT_ERROR", response.getKey(), response.getValue());
 			}
-			else if (response.getStatus().equals("SERVER_NOT_RESPONSIBLE")){
+			else if (response.getStatus().equals("SERVER_NOT_RESPONSIBLE")) {
 				// get update metadata and determine responsible server
 				String mdata = response.getValue(); 
 				this.metadata = new HashRing(mdata);
 				HashRing.Server responsibleServer = metadata.getResponsible(request.getKey());
+
 				logger.info("Received SERVER_NOT_RESPONSIBLE. Connecting to server "+responsibleServer.toString());
-				
+				//System.out.println("Received SERVER_NOT_RESPONSIBLE. Connecting to server "+responsibleServer.toString());
+
 				//disconnect from the current server and try to connect to the new one
 				disconnect();
 				this.address = responsibleServer.ipAddress;
@@ -162,6 +207,7 @@ public class KVStore implements KVCommInterface {
 						return null;
 					}
 				}
+				return sendRequest(request);
 			}
 			else {
 				break;
