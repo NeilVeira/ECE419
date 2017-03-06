@@ -28,7 +28,7 @@ public class TestHashRing extends TestCase {
 		md.addServer(new Server("localhost",50000));
 		md.addServer(new Server("127.0.0.01",50001));
 		md.addServer(new Server("localhost",50000)); 
-		assertEquals(md.toString(), "-134847710425560069445028245650825152028 localhost 50000,-2960810945850692900445322256017604746 127.0.0.01 50001");
+		assertEquals(md.toString(), "-134847710425560069445028245650825152028 localhost 50000 0,-2960810945850692900445322256017604746 127.0.0.01 50001 0");
 	}
 	
 	public void testRemoveServerPresent() {
@@ -40,7 +40,7 @@ public class TestHashRing extends TestCase {
 	public void testRemoveServerNotPresent() {
 		md.addServer(new Server("localhost",50000));
 		md.removeServer(new Server("localhost",50001)); 
-		assertEquals(md.toString(), "-134847710425560069445028245650825152028 localhost 50000");
+		assertEquals(md.toString(), "-134847710425560069445028245650825152028 localhost 50000 0");
 	}
 	
 	public void testGetResponsible() {
@@ -65,7 +65,7 @@ public class TestHashRing extends TestCase {
 	}
 	
 	public void testConstructFromString() {
-		String data = "-134847710425560069445028245650825152028 localhost 50000,-93864682652215908080847256054918673801 localhost 50002,36187173043867385737752624992350489329 127.0.0.1 1234,136415732930669195156142751695833227657 localhost 50001";
+		String data = "-134847710425560069445028245650825152028 localhost 50000 0,-93864682652215908080847256054918673801 localhost 50002 0,36187173043867385737752624992350489329 127.0.0.1 1234 0,136415732930669195156142751695833227657 localhost 50001 0";
 		HashRing md2 = new HashRing(data);
 		assertEquals(md2.toString(), data);
 		HashRing.Server responsible = md2.getResponsible("17");
