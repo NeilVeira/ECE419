@@ -63,6 +63,13 @@ public class ECS {
 		}
 	}
 	
+	public HashRing getMetaData() {
+		return this.metadata;
+	}
+	
+	public void clearMetaData() {
+		this.metadata.ClearHashRing();
+	}
 	/**
 	 * Reads and parses the ecs config file, launches the servers, and initializes
 	 * the zookeeper object. 
@@ -382,7 +389,7 @@ public class ECS {
 		
 		// Launch the server
 		String jarPath = new File(System.getProperty("user.dir"), "ms2-server.jar").toString();
-		String launchCmd = "java -jar "+jarPath+" "+server.port+" "+cacheSize+" "+replacementStrategy+" "+server.id+" &"; 
+		String launchCmd = "java -jar "+jarPath+" "+server.port+" "+cacheSize+" "+replacementStrategy+" "+server.id; 
 		String sshCmd = "ssh -n "+server.ipAddress+" nohup "+launchCmd;
 		System.out.println(sshCmd);
 		
@@ -408,7 +415,7 @@ public class ECS {
 		}
 		allProcesses.set(id, null);
 		
-		String killCmd = "ssh -n "+"localhost"+" nohup fuser -k " + server.port + "/tcp";
+		String killCmd = "ssh -n "+ server.ipAddress +" nohup fuser -k " + server.port + "/tcp";
 		System.out.println("Running command "+killCmd);			
 		try {
 			Process killing_p = Runtime.getRuntime().exec(killCmd);
@@ -434,14 +441,16 @@ public class ECS {
 	/**
 	 * Write metadata to metadata file.
 	 */
-	public void writeMetadata() {
+	public boolean writeMetadata() {
 		try {
 			PrintWriter writer = new PrintWriter(metadataFile, "UTF-8");
 			writer.println(metadata.toString());
 			writer.close();
+			return true;
 		}
 		catch (Exception e) {
 			logger.warn("Could not write metadata to file");
+			return false;
 		}
 	}
 }

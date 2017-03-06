@@ -25,6 +25,11 @@ public class HashRing{
 		}
 	}
 	
+	public void ClearHashRing() {
+		this.hasher.reset();
+		this.serverMap.clear();
+	}
+	
 	/**
 	 * Construct a HashRing object from a string of data (created 
 	 * from HashRing.toString()).
