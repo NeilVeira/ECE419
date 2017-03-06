@@ -76,10 +76,9 @@ public class KVClient {
 				try{
 					serverAddress = msg.getKey();
 					serverPort = Integer.parseInt(msg.getValue());
-					if (kvstore != null) {
-						kvstore.disconnect();
+					if (kvstore == null){
+						kvstore = new KVStore(serverAddress, serverPort);
 					}
-					kvstore = new KVStore(serverAddress, serverPort);
 					kvstore.connect();
 					System.out.println("Connection successful!");
 				} catch(NumberFormatException nfe) {
@@ -102,7 +101,6 @@ public class KVClient {
 			case "disconnect":
 				if (kvstore != null){
 					kvstore.disconnect();
-					kvstore = null;
 				}
 				else{
 					printError("Not connected!");
@@ -150,6 +148,7 @@ public class KVClient {
 					}
 					catch (Exception e){
 						printError("Client: put exception");
+						e.printStackTrace();
 					}
 				}
 				else{
@@ -183,6 +182,7 @@ public class KVClient {
 					}
 					catch (Exception e){
 						printError("Client: get exception");
+						e.printStackTrace();
 					}
 				}
 				else{
