@@ -178,11 +178,12 @@ public class ECS {
 		//must be started. Then transfer all their data to the newly initialized nodes
 		//with a series of add and remove operations. 
 		List<Server> previousServers = metadata.getAllServers();
-		for (Server server : previousServers) {
-			runServer(server, cacheSize, replacementStrategy); 
+		if (previousServers.size() > 0) {
+			for (Server server : previousServers) {
+				runServer(server, cacheSize, replacementStrategy); 
+			}			
+			broadcast(new KVAdminMessage("metadata","METADATA_UPDATE","",metadata.toString()), 10);
 		}
-		
-		broadcast(new KVAdminMessage("metadata","METADATA_UPDATE","",metadata.toString()), 10);
 			
 		// Generate numberOfNodes random indices from 1 to n
 		Integer[] indices = new Integer[totalNumNodes];
@@ -195,20 +196,26 @@ public class ECS {
 		//run the first numberOfNodes indices
 		for (int i=0; i<numberOfNodes; i++){
 			int idx = indices[i];
-			//check if this server is in previousServers (already running)
-			//Do O(N^2) search because there's no way the number of servers will be so large that it matters.
-			boolean found = false;
-			for (Server server : previousServers) {
-				if (server.id == idx){
-					found = true;
-					break;
+			if (previousServers.size() > 0){
+				//check if this server is in previousServers (already running)
+				//Do O(N^2) search because there's no way the number of servers will be so large that it matters.
+				boolean found = false;
+				for (Server server : previousServers) {
+					if (server.id == idx){
+						found = true;
+						break;
+					}
+				}
+				if (!found){
+					addNode(idx, cacheSize, replacementStrategy);
+					//Server server = allServers.get(idx);
+					//runServer(server, cacheSize, replacementStrategy);
+					//connectString += server.ipAddress+":"+String.valueOf(server.port)+",";
 				}
 			}
-			if (!found){
-				addNode(idx, cacheSize, replacementStrategy);
-				//Server server = allServers.get(idx);
-				//runServer(server, cacheSize, replacementStrategy);
-				//connectString += server.ipAddress+":"+String.valueOf(server.port)+",";
+			else{
+				//no previous servers. Forget about restoring state with addNode and just run it.
+				runServer(allServers.get(idx), cacheSize, replacementStrategy);
 			}
 		}
 		
@@ -227,17 +234,9 @@ public class ECS {
 			}
 		}
 		
-		/*if (connectString.length() > 0){
-			//strip off trailing comma
-			connectString = connectString.substring(0,connectString.length()-1);
-		}
-		logger.debug("Zookeeper connect string: "+connectString);*/
-		
-		//TODO: initialize zookeeper with connectString
-		
 		//connect to each server and send them the metadata
 		KVMessage message = new KVAdminMessage("metadata","METADATA_UPDATE","",metadata.toString());
-		broadcast(message, 2);
+		broadcast(message, 10);
 		writeMetadata();
 	}
 	
@@ -250,7 +249,7 @@ public class ECS {
 		//TODO: This is not intended to be the final way of doing this. We should use a zookeeper
 		//znode; this is just to get the functionality so we can move on for now.
 		this.status = KVServer.ServerStatus.ACTIVE; 
-		broadcast(new KVAdminMessage("start","","",""), 1);
+		broadcast(new KVAdminMessage("start","","",""), 3);
 	}
 	
 	/**
@@ -261,7 +260,7 @@ public class ECS {
 		//TODO: This is not intended to be the final way of doing this. We should use a zookeeper
 		//znode; this is just to get the functionality so we can move on for now.
 		this.status = KVServer.ServerStatus.STOPPED;
-		broadcast(new KVAdminMessage("stop","","",""), 1);	
+		broadcast(new KVAdminMessage("stop","","",""), 3);	
 	}
 	
 	/**
@@ -318,6 +317,9 @@ public class ECS {
 		}
 		
 		logger.info("Adding new server "+newServer.toString());
+		/*Scanner reader = new Scanner(System.in);
+		System.out.println("Paused. Enter a number: ");		
+		int n = reader.nextInt();*/
 		
 		runServer(newServer, cacheSize, replacementStrategy);
 		
@@ -340,11 +342,13 @@ public class ECS {
 		}
 		if (!success) {
 			logger.error("Unable to connect to server "+newServer.toString()+" after "+numTries+" tries. Aborting addNode.");
+			metadata.removeServer(newServer); //this shouldn't be necessary, but there might be a bug... just in case.
 			return false;
 		}
 		
 		//tell the successor server to transfer the data to the new server
 		Server successor = metadata.getSuccessor(newServer);
+		logger.debug("Sending addNode message to successor "+successor.toString());
 		try {
 			KVMessage response = sendSingleMessage(successor, new KVAdminMessage("addNode","",newServer.toString(),""));
 			if (!response.getStatus().equals("SUCCESS")){
@@ -354,7 +358,7 @@ public class ECS {
 		}
 		catch (Exception e) {
 			logger.error("Unable to send moveData message to server "+successor.toString()+
-					"Error: "+e.getMessage());
+					". Error: "+e.getMessage());
 			return false;
 		}
 		
@@ -372,6 +376,10 @@ public class ECS {
 				return false;
 			}
 		}
+		
+		/*reader = new Scanner(System.in);
+		System.out.println("Done addNode. Enter a number: ");		
+		n = reader.nextInt();*/
 		
 		writeMetadata();
 		return true;

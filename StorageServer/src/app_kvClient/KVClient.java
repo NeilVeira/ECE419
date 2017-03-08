@@ -285,7 +285,7 @@ public class KVClient {
      */
     public static void main(String[] args) {
     	try {
-			new LogSetup("logs/client.log", Level.DEBUG); //TODO: Change to WARN later
+			new LogSetup("logs/client.log", Level.DEBUG); 
 			KVClient app = new KVClient();
 			app.run();
 		} catch (IOException e) {

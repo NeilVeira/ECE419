@@ -42,7 +42,7 @@ public class KVStore implements KVCommInterface {
 		try{
 		client = new Client(address, port);
 		} catch (ConnectException e) {
-			//System.out.println("Connection refused!");
+			System.out.println("Connection refused!");
 			return false;
 		}
 		logger.info("Client trying to connect...");
@@ -60,11 +60,6 @@ public class KVStore implements KVCommInterface {
 	
 	public boolean isConnected() {
 		return connected;
-	}
-	
-	// Returns the metadata, for testing and debugging
-	public String getMetadata() {
-		return metadata.toString();
 	}
 
 	@Override
@@ -131,6 +126,8 @@ public class KVStore implements KVCommInterface {
 	 */
 	private KVMessage sendRequest(KVMessage request) {
 		KVMessage response = null;
+		int writeLockCount = 20; //maximum number of times to retry if we get a SERVER_WRITE_LOCK response
+		
 		do {
 			logger.info("KVStore: sending request "+request.getMsg());
 			try {
@@ -161,39 +158,12 @@ public class KVStore implements KVCommInterface {
 				// We block until server is ready to receive
 
 				logger.info("Server is temporarily locked for writing. Waiting and retrying");
-				int timeOutCount = 20;
-				// We try 20 times, each time with 500ms delay, to reach a server with write_lock
-				while(timeOutCount!=0) {
-					timeOutCount--;
-					try {
-						Thread.sleep(500);
-					} catch (InterruptedException e){
-						; //doesn't really matter
-					}
-					
-					try {
-						client.sendMessage(request);
-					}
-					catch (IOException e) {
-						boolean success = connectToAnyServer();
-						if (!success) {
-							return null;
-						}
-					}
-					
-					response = client.getResponse();
-					logger.info("KVStore: received response  "+response.getMsg());
-					
-					if (response.getStatus().equals("SERVER_WRITE_LOCK")){
-						continue;
-					} else {
-						return sendRequest(request);
-					}
-
-				}
-				logger.error("Timed out retrying on server with write lock!");
-				// Returns a PUT_ERROR to the KVClient, since there is no other suitable status code
-				return new MessageType(response.getHeader(), "PUT_ERROR", response.getKey(), response.getValue());
+				// We try maximum of 20 times, each time with 500ms delay, to reach a server with write_lock
+				writeLockCount--;
+				try {
+					Thread.sleep(500);
+				} catch (InterruptedException e){}
+				
 			}
 			else if (response.getStatus().equals("SERVER_NOT_RESPONSIBLE")) {
 				// get update metadata and determine responsible server
@@ -220,20 +190,19 @@ public class KVStore implements KVCommInterface {
 				}
 				return sendRequest(request);
 			}
-			else if (response.getStatus().equals("TIME_OUT")) {
-				boolean success = connectToAnyServer();
-				if (!success) {
-					return null;
-				}
-				return sendRequest(request);
-			} else {
+			else {
 				break;
 			}
 			
-		} while (true);
+		} while (writeLockCount > 0);
 		
 		if (response == null){
 			logger.info("KVStore: no response received");
+		}				
+		else if (response.getStatus().equals("SERVER_WRITE_LOCK")){
+			logger.error("Timed out retrying on server with write lock!");
+			// Returns a PUT_ERROR to the KVClient, since there is no other suitable status code
+			return new MessageType(response.getHeader(), "PUT_ERROR", response.getKey(), response.getValue());
 		}
 		return response;
 	}

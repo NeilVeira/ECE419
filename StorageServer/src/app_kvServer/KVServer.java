@@ -214,6 +214,9 @@ public class KVServer extends Thread {
     
 		//Initialize the lock
 		this.m_myLock = new Object();
+		
+		//load data from hard disk file
+		repopulateHardDiskMap();
 
 		// Start the server object
 		System.out.println("Starting Server");
@@ -686,12 +689,13 @@ public class KVServer extends Thread {
 			Client client = new Client(server.ipAddress, server.port);
 			KVMessage response = client.getResponse();
 			
-			//for every (key,value) pair, check whether the response
+			//for every (key,value) pair, check whether the responsible server is the given server
 			ArrayList<String> movedKeys = new ArrayList<String>();
-			for (Map.Entry<String,String> entry : m_cacheValueMap.entrySet()){
+			for (Map.Entry<String,String> entry : m_hardDiskValueMap.entrySet()){
 				String key = entry.getKey();
 				String value = entry.getValue();
 				Server responsible = metadata.getResponsible(key);
+				logger.debug("key = "+key+", responsible = "+responsible);
 				
 				if (responsible != null && responsible.id == server.id){
 					movedKeys.add(key);
@@ -997,7 +1001,7 @@ public class KVServer extends Thread {
 				System.exit(0);
 			}
 			
-			new LogSetup("logs/server_"+idStr+".log", Level.ALL);
+			new LogSetup("logs/server_"+idStr+".log", Level.DEBUG);
 			
 			//validity check arguments
 			if (!strategy.equals("FIFO") && !strategy.equals("LRU") && !strategy.equals("LFU")) {

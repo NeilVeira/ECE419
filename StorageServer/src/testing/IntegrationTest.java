@@ -2,9 +2,11 @@ package testing;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.*;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.*;
 
 import junit.framework.TestCase;
 
@@ -38,7 +40,7 @@ public class IntegrationTest extends TestCase {
 	
 	static {
 		try {
-			new LogSetup("logs/testing/test.log", Level.ERROR);
+			new LogSetup("logs/testing/test.log", Level.WARN);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -49,6 +51,8 @@ public class IntegrationTest extends TestCase {
 			// Start ECS by creating an ECS instance and manually running its functions rather than using the ECS client
 			testECSInstance = new app_kvEcs.ECS("ecstest.config");
 			allServers = testECSInstance.getAllServers();
+			testECSInstance.clearMetaData();
+			testECSInstance.writeMetadata();
 		} catch (FileNotFoundException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -84,7 +88,13 @@ public class IntegrationTest extends TestCase {
 		for (Server server : allServers) {
 			boolean ok = serverShutDown(server,10);
 			if (!ok){
-				System.out.println("WARNING: Server "+server+" does not appear to be shutting down");
+				System.out.println("ECS shutdown did not kill server "+server.toString()+". Forcing kill again.");
+				//try forcing shutdown again
+				killServer(server);
+				ok = serverShutDown(server,10);
+				if (!ok) {
+					System.out.println("WARNING: Server "+server.toString()+" does not appear to be shutting down");
+				}
 			}
 		}
 	}
@@ -113,6 +123,18 @@ public class IntegrationTest extends TestCase {
 			return true;
 		} catch (IOException e){
 			return false;
+		}
+	}
+	
+	/**
+	 * Run the ssh command to kill a server
+	 */
+	public void killServer(Server server) {
+		String killCmd = "ssh -n "+ server.ipAddress +" nohup fuser -k " + server.port + "/tcp";
+		try {
+			Runtime.getRuntime().exec(killCmd);
+		} catch (IOException e) {
+			System.out.println(e.getMessage()); 
 		}
 	}
 	
@@ -251,6 +273,7 @@ public class IntegrationTest extends TestCase {
 				System.out.println("Connecting to server "+server.toString());
 				KVStore client = new KVStore(server.ipAddress, server.port);
 				//make sure it is not stopped
+				System.out.println("Doing put");
 				KVMessage response = client.put("0", "0");
 				assertTrue(response.getStatus().equals("PUT_UPDATE") || response.getStatus().equals("PUT_SUCCESS") );
 			}
@@ -360,7 +383,9 @@ public class IntegrationTest extends TestCase {
 			assertTrue(response.getStatus().equals("PUT_UPDATE") || response.getStatus().equals("PUT_SUCCESS") );
 			
 			//read it back and make sure it's correct
-			response = client.get("0");
+			response = client.get("3");
+			assertEquals("GET_SUCCESS",response.getStatus());
+			assertEquals("3",response.getValue());
 		}
 		catch (Exception e){
 			ex = e;
@@ -553,6 +578,7 @@ public class IntegrationTest extends TestCase {
 				int firstId = servers.get(0).id;
 				testECSInstance.removeNode(firstId);
 			}
+			System.out.println("Doing add nodes");
 			testECSInstance.addNode(0, 10, "FIFO");
 			testECSInstance.addNode(2, 20, "LRU");
 			testECSInstance.addNode(4,  5, "LFU");
@@ -584,8 +610,8 @@ public class IntegrationTest extends TestCase {
 	}
 	
 	//Tests that the data is redistributed correctly when servers are added and removed
-	public void testAddRemoveTransfersData() {
-		System.out.println("TestAddRemoveTransfersData");
+	public void testAddAndRemoveTransfersData() {
+		System.out.println("Starting TestAddAndRemoveTransfersData");
 		Exception ex = null;
 		try {
 			System.out.println("Initializing ECS");
@@ -597,6 +623,7 @@ public class IntegrationTest extends TestCase {
 				int firstId = servers.get(0).id;
 				testECSInstance.removeNode(firstId);
 			}
+			System.out.println("Adding nodes 0,1,2,3");
 			testECSInstance.addNode(0, 10, "FIFO");
 			testECSInstance.addNode(1,  100, "FIFO");
 			testECSInstance.addNode(2,  100, "FIFO");
@@ -604,8 +631,8 @@ public class IntegrationTest extends TestCase {
 			servers = testECSInstance.getMetaData().getAllServers();
 			testECSInstance.start();
 			
-			//connect to the server 4
-			Server server = allServers.get(0);
+			//connect to the first server
+			Server server = servers.get(0);
 			System.out.println("Connect to server "+server.toString());
 			KVStore kvstore = new KVStore(server.ipAddress, server.port);
 			kvstore.connect();						
@@ -619,17 +646,101 @@ public class IntegrationTest extends TestCase {
 			
 			System.out.println("Adding and removing nodes to redistribute the data");
 			testECSInstance.addNode(4,  100, "FIFO");
-			testECSInstance.removeNode(1);
+			if (servers.size() >= 2)
+				testECSInstance.removeNode(servers.get(1).id);
 			testECSInstance.addNode(5,  100, "FIFO");
-			testECSInstance.removeNode(2);
+			if (servers.size() >= 3)
+				testECSInstance.removeNode(servers.get(2).id);
 			testECSInstance.addNode(6,  100, "FIFO");
-			testECSInstance.removeNode(3);
+			if (servers.size() >= 4)
+				testECSInstance.removeNode(servers.get(3).id);
 			testECSInstance.addNode(7,  100, "FIFO");
+			
+			testECSInstance.start();
 			
 			//make sure kvstore still reads it
 			for (int i=0; i<10; i++) {
 				System.out.println("Client doing read "+i);
 				response = kvstore.get(String.valueOf(i));
+				assertEquals("GET_SUCCESS",response.getStatus());
+				assertEquals(String.valueOf(i),response.getValue());
+			}
+		}
+		catch (Exception e){
+			ex = e;
+			System.out.println("Error: "+e.getMessage());
+			e.printStackTrace();
+		}
+		assertNull(ex);
+	}
+	
+	//tests that when ECS is shutdown and then restarted with a different set of servers,
+	//all data is maintained
+	public void testECSPersistency() {
+		System.out.println("Starting testECSPersistency");
+		Exception ex = null;
+		try {
+			System.out.println("Initializing ECS");
+			testECSInstance.initService(4, 10, "FIFO");
+			List<Server> servers = testECSInstance.getMetaData().getAllServers();
+			testECSInstance.start();
+			
+			//try to connect to one of the servers
+			Server s = servers.get(0);
+			System.out.println("Connect to server "+s.toString());
+			KVStore kvstore = new KVStore(s.ipAddress, s.port);
+			kvstore.connect();	
+			
+			//do some puts
+			KVMessage response;
+			for (int i=10; i<20; i++) {
+				System.out.println("Client doing put "+i);
+				response = kvstore.put(String.valueOf(i),String.valueOf(i));
+				assertTrue(response.getStatus().equals("PUT_UPDATE") || response.getStatus().equals("PUT_SUCCESS") );
+			}
+			
+			/*Scanner reader = new Scanner(System.in);
+			System.out.println("Paused. Enter a number: ");		
+			int n = reader.nextInt(); */	
+			
+			//shutdown ECS
+			System.out.println("Shutting down ECS");
+			testECSInstance.shutDown();
+			//make sure all servers are shutdown before proceeding
+			for (Server server : allServers) {
+				boolean ok = serverShutDown(server,10);
+				if (!ok){
+					System.out.println("ECS shutdown did not kill server "+server.toString());
+					//try forcing shutdown again
+					killServer(server);
+					ok = serverShutDown(server,10);
+					if (!ok) {
+						System.out.println("WARNING: Server "+server.toString()+" does not appear to be shutting down");
+					}
+				}
+			}
+			
+			//restart the ECS. The set of servers online will very likely be different this time
+			System.out.println("Initializing new ECS");
+			testECSInstance = new app_kvEcs.ECS("ecstest.config");
+			testECSInstance.initService(4, 20, "LFU");
+			servers = testECSInstance.getMetaData().getAllServers();
+			testECSInstance.start();
+			TimeUnit.SECONDS.sleep(2);
+			
+			//try to connect to one of the servers
+			s = servers.get(0);
+			System.out.println("Connect to server "+s.toString());
+			kvstore = new KVStore(s.ipAddress, s.port);
+			kvstore.connect();	
+			
+			//do gets and make sure kvstore still reads it
+			System.out.println("Doing gets");
+			for (int i=10; i<20; i++) {
+				System.out.println("Client doing read "+i);
+				response = kvstore.get(String.valueOf(i));
+				assertEquals("GET_SUCCESS",response.getStatus());
+				assertEquals(String.valueOf(i),response.getValue());
 			}
 		}
 		catch (Exception e){

@@ -18,7 +18,7 @@ public class AllTests {
 
 	static {
 		try {
-			new LogSetup("logs/testing/test.log", Level.DEBUG);
+			new LogSetup("logs/testing/test.log", Level.ERROR);
 			// Delete all the storage files already present for the servers
 			/*for(int i = 0; i < 8; ++i) {
 				File file = new File(System.getProperty("user.dir") + "/" + "storage_" + i + ".txt");
