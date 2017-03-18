@@ -159,7 +159,7 @@ public class ECSClient {
 		sb.append("\t\t\t\t Start the service and all initialized nodes\n");
 		sb.append(PROMPT).append("stop");
 		sb.append("\t\t\t\t\t Stops the service. Remains running but servers no longer accept client requests.\n");
-		sb.append(PROMPT).append("shutdown");
+		sb.append(PROMPT).append("shutDown");
 		sb.append("\t\t\t\t Kills all servers and exits\n");
 		sb.append(PROMPT).append("addNode <cacheSize> <replacementStrategy");
 		sb.append("\t Launch a random node from the initial config file and add it to the service\n");
