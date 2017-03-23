@@ -3,17 +3,15 @@ package testing;
 import org.junit.Test;
 import org.junit.Assert;
 
+import app_kvServer.KVServer;
+
+import common.HashRing;
+import common.messages.KVAdminMessage;
 import common.messages.MessageType;
 
 import junit.framework.TestCase;
 
 public class TestKVMessage extends TestCase {
-	
-	public void setUp() {
-	}
-
-	public void tearDown() {
-	}
 	
 	public void testConstructSimple(){
 		MessageType message = new MessageType("get"," ","key","value");
@@ -70,5 +68,14 @@ public class TestKVMessage extends TestCase {
 		assertEquals(" ",message.getStatus());
 		assertEquals("key",message.getKey());
 		assertEquals("\"a\"\"bc\"", message.getValue());
+	}
+	
+	public void testEmptyFields(){
+		String msg = "\"get\" \"\" \"key\" \"\"";
+		MessageType message = new MessageType(msg.getBytes());
+		assertEquals(message.getHeader(), "get");
+		assertEquals(message.getStatus(), "");
+		assertEquals(message.getKey(), "key");
+		assertEquals(message.getValue(), "");
 	}
 }

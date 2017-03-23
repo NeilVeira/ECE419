@@ -3,7 +3,11 @@ package testing;
 import java.net.UnknownHostException;
 import java.net.ConnectException;
 
+import common.HashRing;
+import common.messages.KVAdminMessage;
+
 import app_kvClient.KVClient;
+import app_kvServer.KVServer;
 
 import client.KVStore;
 
@@ -27,12 +31,13 @@ public class ConnectionTest extends TestCase {
 
 	// Tests for multiple connections to different ports
 	public void testConnectionMultiple() {
-		for (int i = 50001; i < 51000; i++) {
+		KVStore[] kvstores = new KVStore[10];
+		for (int i=0; i<10; i++) {
 			Exception ex = null;
 			
-			KVStore kvClient = new KVStore("localhost", i);
+			kvstores[i]= new KVStore("localhost", 50000);
 			try {
-				kvClient.connect();
+				kvstores[i].connect();
 			} catch (Exception e) {
 				ex = e;
 			}	
@@ -42,7 +47,11 @@ public class ConnectionTest extends TestCase {
 			} else {
 				assertNull(ex);
 			}
-			
+		}
+		
+		//disconnect all clients
+		for (int i=0; i<10; i++){
+			kvstores[i].disconnect();
 		}
 	}
 	

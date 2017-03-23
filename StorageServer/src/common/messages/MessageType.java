@@ -1,30 +1,39 @@
-/***
-Implementation of KVMessage interface which is used to store messages between
-the client and server. 
-How to use this class:
-	- Create a message using MessageType(header,status,key,value)
-	- Make sure that error = null
-	- convert to byte array using getBytes()
-	Converting from a byte array:
-	- MessageType(bytes)
-	- Make sure that error = null
-	- Use getHeader(), getStatus, getKey(), etc.
-***/
 package common.messages;
 
 import java.io.Serializable;
 import java.util.*;
 
-
+/**
+ * Implementation of KVMessage interface which is used to store messages between
+ * any client and server. These messages are used to between the kvclient and kvserver
+ * as well as for admin messages between the ECS and the kvservers.  
+ * How to use this class:
+ * 		- Create a message using MessageType(header,status,key,value)
+ * 		- Make sure that error = null
+ * 		- convert to byte array using getBytes()
+ * Converting from a byte array:
+ * 		- MessageType(bytes)
+ * 		- Make sure that error = null
+ * 		- Use getHeader(), getStatus, getKey(), etc. *
+ * Supported message types:
+ * 		- get: tells kvserver to do a get operation
+ * 		- put: tells kvserver to do a put operation
+ * 		- metadata: tells kvserver to update its metadata with the metadata contained in the message
+ *  	- connect: connect to server
+ *  	- disconnect: disconnect from server
+ *  	- logLevel: for changing the kvClient log verbosity
+ *  	- quit: for exiting the kvClient
+ *  	- help: print help
+ */
 public class MessageType implements KVMessage {
 	public String error;
 	private byte[] msgBytes;
 	private static final char LINE_FEED = 0x0A;
 	private static final char RETURN = 0x0D;
-	private String key;
-	private String value;
-	private String header;
-	private String status;
+	protected String key;
+	protected String value;
+	protected String header;
+	protected String status;
 	
 	/**
 	 * Replace all single quotes in the string with double quotes
@@ -55,8 +64,7 @@ public class MessageType implements KVMessage {
 	
 	/**
 	 * Construct a MessageType with the 4 required fields. All fields should be 
-	 * given with single quotes. 
-	 * DO NOT USE EMPTY STRINGS! Use " " instead.
+	 * given with single quotes. Empty strings are acceptable now. 
 	 */
 	public MessageType(String header, String status, String key, String value)
 	{
@@ -73,10 +81,10 @@ public class MessageType implements KVMessage {
 	public MessageType(byte[] bytes) {
 		this.msgBytes = bytes;
 		String str = new String(this.msgBytes);
-		this.header = " ";
-		this.status = " ";
-		this.key = " ";
-		this.value = " ";
+		this.header = "";
+		this.status = "";
+		this.key = "";
+		this.value = "";
 		parse(str.trim());
 	}	
 
@@ -161,7 +169,6 @@ public class MessageType implements KVMessage {
 	 * The given string MUST have the following format:
 	 * "header" "status" "key" "value"
 	 * where each of those fields can have quotes, but doubled. 
-	 * Fields cannot be empty - for empty fields use a single space (" ").
 	 */
 	public void parse(String msg){
 		msg = msg.trim();
@@ -213,6 +220,9 @@ public class MessageType implements KVMessage {
 	{
 		switch (header) {
 		case "connect": 
+			if (!status.equals("CONNECT_SUCCESS") && (key.trim().equals("") || value.trim().equals(""))){
+				return "Key and value must not be empty for message "+header;
+			}
 		case "put":
 			//use IP address and port as key & value
 			if (key.trim().equals("") || value.trim().equals("")){
@@ -235,6 +245,11 @@ public class MessageType implements KVMessage {
 		case "quit":
 			if (!key.trim().equals("") || !value.trim().equals("")){
 				return "Key and value must be empty for message "+header;
+			}
+			break;
+		case "metadata":
+			if (value.trim().equals("") && !status.equals("SUCCESS")) {
+				return "Value must not be empty for message "+header;
 			}
 			break;
 		default:

@@ -1,5 +1,6 @@
 package app_kvServer;
 import java.net.BindException;
+import java.net.SocketException;
 import java.net.ServerSocket;
 import java.net.Socket;
 // Remove this because already imported below
@@ -24,6 +25,7 @@ import java.net.Socket;
  */
 import java.util.*;
 import java.lang.*;
+import java.math.BigInteger;
 import java.io.*;
 
 import logger.LogSetup;
@@ -31,13 +33,23 @@ import logger.LogSetup;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
-import common.messages.MessageType;
-
+import common.HashRing;
+import common.HashRing.Server;
+import common.messages.*;
 import app_kvServer.ClientConnection;
+import client.Client;
+
 /**
  * Represents a simple Echo Server implementation.
  */
 public class KVServer extends Thread {
+	public enum ServerStatus {
+		ACTIVE, 		/* Processes client requests */
+		STOPPED,		/* Does not process client requests. Note that it's still "running" in that it still listens on the socket. */
+		WRITE_LOCKED	/* Only processes get requests */
+	}
+	ServerStatus status;
+	
 	// I will leave some var names as name instead of m_name since they were given in the skeleton code and I don't want to break stuff
 	private static Logger logger = Logger.getRootLogger();
 	private int port;
@@ -60,6 +72,8 @@ public class KVServer extends Thread {
 	private PrintWriter m_hardDiskFileWriter;
 	// This Reader is responsible for Reading the harddisk file
 	private BufferedReader m_hardDiskFileReader;
+	// This is the lock object for ensuring multiple clientconnections don't access hard disk entries at the same time 
+	private Object m_myLock;
 
 	// Create three maps for cache and one map for harddisk file
 	// This map stores the cache key pairs with key, value
@@ -76,52 +90,40 @@ public class KVServer extends Thread {
 
 	private ServerSocket serverSocket;
 	private boolean running;
+	
+	private HashRing metadata;
+	private int id;
 
 	/**
-	 * Constructs a (Echo-) Server object which listens to connection attempts 
-	 * at the given port.
+	 * Constructs a KVServer object which listens to connection attempts 
+	 * at the given port. This constructor does all the initialization and starts 
+	 * the server running.
 	 * 
 	 * @param port a port number which the Server is listening to in order to 
-	 * establish a socket connection to a client. The port number should 
-	 * reside in the range of dynamic ports, i.e 49152 - 65535.
-	 */
-	/**
-	 * Start KV Server at given port
-	 * @param port given port for storage server to operate
+	 * 		establish a socket connection to a client. The port number should 
+	 * 		reside in the range of dynamic ports, i.e 49152 - 65535.
 	 * @param cacheSize specifies how many key-value pairs the server is allowed 
-	 *           to keep in-memory
+ *           to keep in-memory
 	 * @param strategy specifies the cache replacement strategy in case the cache 
-	 *           is full and there is a GET- or PUT-request on a key that is 
-	 *           currently not contained in the cache. Options are "FIFO", "LRU", 
-	 *           and "LFU".
+ *           is full and there is a GET- or PUT-request on a key that is 
+ *           currently not contained in the cache. Options are "FIFO", "LRU", 
+ *           and "LFU".
+	 * @param id identifier for this server. It will use a different hard disk file name
+ * 			 based on this integer.            		
 	 */
-	public KVServer(int port, int cacheSize, String strategy) {
-
+	public KVServer(int port, int cacheSize, String strategy, int id) {
 		// Initialize the private variables of the server object
 		System.out.println("Initializing Server Variables");
 		logger.info("Initializing Server Variables");
 		this.port = port;
-		this.m_cacheSize = cacheSize;
-		this.m_strategy = strategy;
-		this.m_currentCacheEntries = 0;
-		this.m_currentHardDiskEntries = 0;
-
-		// Initialize the maps for the server object
-		System.out.println("Initializing Server Maps");
-		logger.info("Initializing Server Maps");
-		this.m_cacheValueMap = new HashMap<String, String>();
-		this.m_cacheFIFOList = new LinkedList<String>();
-		this.m_cacheLRUList = new LinkedList<String>();
-		this.m_cacheLFUMap = new HashMap<String, Integer>();
-		this.m_hardDiskValueMap = new HashMap<String, String>();
-
+		this.id = id;
+		
 		// Initialize harddisk file information
+		this.m_hardDiskFileName = "storage_" + id + ".txt";
 		System.out.println("Initializing Hard Disk File Variables");
 		logger.info("Initializing Hard Disk File Variables");
 		// Get where the program is running from (where the project is)
 		this.m_hardDiskFilePath = System.getProperty("user.dir");
-		// HardCode file name to be storage.txt
-		this.m_hardDiskFileName = "storage.txt";
 		// Output harddisk file location and name for debugging
 		System.out.println("HardDiskFile Name is : " + m_hardDiskFileName + " HardDiskFile Path is : " + m_hardDiskFilePath);
 		logger.info("HardDiskFile Name is : " + m_hardDiskFileName + " HardDiskFile Path is : " + m_hardDiskFilePath);
@@ -144,16 +146,106 @@ public class KVServer extends Thread {
 		m_hardDiskFileWriter = null;
 		// Initialize the file reader to null, assign when we read
 		m_hardDiskFileReader = null;
+		
+		//For now always create the server in the stopped state initially. May change this later.
+		this.status = ServerStatus.STOPPED;
+		initKVServer("", cacheSize, strategy);
+	}
+	
+	/**
+	 * Construct a KVServer with only a port and id. This is used for constructing a KVServer
+	 * without initializing the cache attributes and without starting it. The server will be
+	 * in the STOPPED state which is unable to service client requests. 
+	 */
+	public KVServer(int port, int id) {
+		this.port = port;
+		this.id = id;
+		this.m_hardDiskFileName = "storage_" + id + ".txt";
+		// Initialize harddisk file information
+		System.out.println("Initializing Hard Disk File Variables");
+		logger.info("Initializing Hard Disk File Variables");
+		// Get where the program is running from (where the project is)
+		this.m_hardDiskFilePath = System.getProperty("user.dir");
+		// Output harddisk file location and name for debugging
+		System.out.println("HardDiskFile Name is : " + m_hardDiskFileName + " HardDiskFile Path is : " + m_hardDiskFilePath);
+		logger.info("HardDiskFile Name is : " + m_hardDiskFileName + " HardDiskFile Path is : " + m_hardDiskFilePath);
+		// Initialize the harddisk File Instance
+		m_hardDiskFileInstance = new File(m_hardDiskFilePath + "/" + m_hardDiskFileName);
+		// Initialize a new harddisk file for writing or see if it already exists
+		try {
+			m_hardDiskFileExists = m_hardDiskFileInstance.createNewFile();
+		} catch (IOException e) {
+			System.out.println("Error when trying to initialize file instance");
+			e.printStackTrace();
+		}
+		if (m_hardDiskFileExists) {
+			System.out.println("Hard disk File already exists");
+		} else {
+			System.out.println("Created New Hard disk File");
+		}
+		// Initialize the file writer to null, assign when we write
+		// m_hardDiskFileWriter = new PrintWriter(m_hardDiskFileInstance);
+		m_hardDiskFileWriter = null;
+		// Initialize the file reader to null, assign when we read
+		m_hardDiskFileReader = null;
+		
+		this.status = ServerStatus.STOPPED;
+	}
+	
+	/**
+	 * Initialize most of the internal KVServer data objects. 
+	 */
+	public void initKVServer(String metadata, int cacheSize, String replacementStrategy) {
+		this.m_cacheSize = cacheSize;
+		this.m_strategy = replacementStrategy;
+		this.metadata = new HashRing(metadata);
+		
+		this.m_currentCacheEntries = 0;
+		this.m_currentHardDiskEntries = 0;
+
+		// Initialize the maps for the server object
+		System.out.println("Initializing Server Maps");
+		logger.info("Initializing Server Maps");
+		this.m_cacheValueMap = new HashMap<String, String>();
+		this.m_cacheFIFOList = new LinkedList<String>();
+		this.m_cacheLRUList = new LinkedList<String>();
+		this.m_cacheLFUMap = new HashMap<String, Integer>();
+		this.m_hardDiskValueMap = new HashMap<String, String>();
+    
+		//Initialize the lock
+		this.m_myLock = new Object();
+		
+		//load data from hard disk file
+		repopulateHardDiskMap();
 
 		// Start the server object
 		System.out.println("Starting Server");
 		logger.info("Starting Server");
 		this.start();
 	}
+	
+	/**
+	 * Functions control the server's status.
+	 */
+	public void stopServer() {
+		this.status = ServerStatus.STOPPED;
+	}
+	public void startServer() {
+		this.status = ServerStatus.ACTIVE;
+	}
+	public void lockWrite() {
+		this.status = ServerStatus.WRITE_LOCKED;
+	}
+	public void unLockWrite() {
+		startServer();
+	}
+	public String getStatus() {
+		return this.status.toString();
+	}
 
 	// This function is used to rewrite the harddisk file with the key value pairs from the harddisk map
 	// Returns boolean, true for success, false for failure
-	public boolean overwriteHardDiskFile() {
+	private boolean overwriteHardDiskFile() {
 		try {
 			System.out.println("Starting to overwrite Hard disk File from Hard Disc Map");
 			logger.info("Starting to overwrite Hard disk File from Hard Disc Map");
@@ -181,7 +273,7 @@ public class KVServer extends Thread {
 	}
 	// This function is used to repopulate the harddisk map with the key value pairs from the harddisk file
 	// Returns boolean, true for success, false for failure
-	public boolean repopulateHardDiskMap() {
+	private boolean repopulateHardDiskMap() {
 		try {
 			System.out.println("Starting to repopulate Hard disk Map from Hard Disc File");
 			logger.info("Starting to repopulate Hard disk Map from Hard Disc File");
@@ -226,11 +318,11 @@ public class KVServer extends Thread {
 		}
 	}
 	// This function is the entry point for handling a client message, at this point the message is valid, first called in ClientConnection
-	public common.messages.KVMessage handleClientMessage(common.messages.KVMessage msg) {
-		String Header = msg.getHeader();
-		common.messages.KVMessage returnMsg;
+	public KVMessage handleClientMessage(KVMessage msg) {
+		String header = msg.getHeader();
+		KVMessage returnMsg;
 		// Decide on the appropriate handler based on what the client message was through the use of a switch statement
-		switch (Header) {
+		switch (header) {
 		case "connect": 
 			returnMsg = handleConnect(msg);
 			break;
@@ -239,6 +331,9 @@ public class KVServer extends Thread {
 			break;
 		case "put":
 			returnMsg = handlePut(msg);
+			break;
+		case "admin_put":
+			returnMsg = handleAdminPut(msg);
 			break;
 		case "get":
 			returnMsg = handleGet(msg);
@@ -249,61 +344,123 @@ public class KVServer extends Thread {
 		case "help":
 			returnMsg = handleHelp(msg);
 			break;
-		case "quit":
-			returnMsg = handleQuit(msg);
+		case "shutdown":
+			returnMsg = handleShutdown(msg);
+			break;
+		case "init":
+			returnMsg = handleInit(msg);
+			break;
+		case "start":
+			returnMsg = handleStart(msg);
+			break;
+		case "stop":
+			returnMsg = handleStop(msg);
+			break;
+		case "metadata":
+			returnMsg = handleMetadata(msg);
+			break;
+		case "addNode":
+			returnMsg = handleAddNode(msg);
+			break;
+		case "removeNode":
+			returnMsg = handleRemoveNode(msg);
 			break;
 		default:
-			return returnMsg = new common.messages.MessageType(" ", " ", " ", " ");
+			return returnMsg = new KVAdminMessage("", "", "", "");
 		}
 		return returnMsg;
 	}
+	
+	public KVMessage handleInit(KVMessage msg) {
+		//We may not actually need this message. The ECS can construct a server with the 
+		//cache size and replacement strategy specified, and just send a metadata message to 
+		//initialize the metadata. This way the metadata update message essentially replaces 
+		//the init message in terms of functionality.
+		return msg;
+	}
+	
+	public KVMessage handleStart(KVMessage msg) {
+		startServer();
+		return new KVAdminMessage("start","SUCCESS","","");
+	}
+	
+	public KVMessage handleStop(KVMessage msg) {
+		stopServer();
+		return new KVAdminMessage("stop","SUCCESS","","");
+	}
+	
+	/**
+	 * Handle a metadata update message received from the ecs.
+	 * Metadata is stored in the value field. 
+	 * This function is used when all necessary data transfers are already
+	 * complete, so we just need to update the internal metadata variable.
+	 */
+	public KVMessage handleMetadata(KVMessage msg) {
+		this.metadata = new HashRing(msg.getValue());
+		return new KVAdminMessage("metadata","SUCCESS","","");
+	}
+	
 	// This function is used to handle a client connect request
-	public common.messages.KVMessage handleConnect(common.messages.KVMessage msg) {
+	public KVMessage handleConnect(KVMessage msg) {
 		System.out.println("Handling Connect, echo back nothing to do");
 		logger.info("Handling Connect, echo back nothing to do");
-		common.messages.KVMessage returnMsg = msg;
+		KVMessage returnMsg = msg;
 		return returnMsg;
 	}
 	// This function is used to handle a client disconnect request
-	public common.messages.KVMessage handleDisconnect(common.messages.KVMessage msg) {
+	public KVMessage handleDisconnect(KVMessage msg) {
 		System.out.println("Handling Disconnect, echo back nothing to do");
 		logger.info("Handling Disconnect, echo back nothing to do");
-		common.messages.KVMessage returnMsg = msg;
+		KVMessage returnMsg = msg;
 		return returnMsg;
 	}
 	// This function is used to handle a client log level change request
-	public common.messages.KVMessage handleLogLevel(common.messages.KVMessage msg) {
+	public KVMessage handleLogLevel(KVMessage msg) {
 		System.out.println("Handling Log Level");
 		logger.info("Handling Log Level");
 		String Key = msg.getKey();
 		String Value = msg.getValue();
 		// Set the new log level
 		logger.setLevel(Level.toLevel(Value));
-		common.messages.KVMessage returnMsg = new common.messages.MessageType("logLevel", "success", " ", " ");
+		KVMessage returnMsg = new KVAdminMessage("logLevel", "SUCCESS", " ", " ");
 		return returnMsg;
 	}
 	// This function is used to handle a client help message
-	public common.messages.KVMessage handleHelp(common.messages.KVMessage msg) {
+	public KVMessage handleHelp(KVMessage msg) {
 		System.out.println("Handling Help, echo back nothing to do");
 		logger.info("Handling Help, echo back nothing to do");
-		common.messages.KVMessage returnMsg = msg; ;
+		KVMessage returnMsg = msg; ;
 		return returnMsg;
 	}
-	// This function is used to handle a client quit message
-	public common.messages.KVMessage handleQuit(common.messages.KVMessage msg) {
-		System.out.println("Handling Quit");
-		logger.info("Handling Quit");
-		common.messages.KVMessage returnMsg = new common.messages.MessageType("quit", "success", " ", " ");
-		// Should be handled in ClientConnection to terminate that socket only
+	
+	// This function is used to handle a quit message
+	// These are processed even in the stopped state because they come from the ECS.
+	public KVMessage handleShutdown(KVMessage msg) {
+		System.out.println("Handling Shutdown");
+		logger.info("Handling Shutdown");
+		closeServer();
+		KVMessage returnMsg = new KVAdminMessage("shutdown", "SUCCESS", " ", " ");
 		return returnMsg;
 	}
+	
 	// This function is used to handle a client get request
-	public common.messages.KVMessage handleGet(common.messages.KVMessage msg) {
+	public KVMessage handleGet(KVMessage msg) {
+		if (status == ServerStatus.STOPPED){
+			return new KVAdminMessage("get","SERVER_STOPPED",msg.getKey(),msg.getValue());
+		}		
+		
 		System.out.println("Handling Get");
 		logger.info("Handling Get");
 		String Key = msg.getKey();
 		String Value = msg.getValue();
-		common.messages.KVMessage returnMsg = null;
+		
+		//check if this server is responsible for this key
+		Server responsible = metadata.getResponsible(Key);
+		if (responsible == null || responsible.id != this.id){
+			return new KVAdminMessage("get","SERVER_NOT_RESPONSIBLE",msg.getKey(),metadata.toString());
+		}
+		
+		KVMessage returnMsg = null;
 		boolean success = false;
 		// First check whether the Key Value pair get wants is in the cache
 		boolean keyExists = this.m_cacheValueMap.containsKey(Key);
@@ -314,11 +471,11 @@ public class KVServer extends Thread {
 			success = this.updateCacheHit(Key, Value);
 			if (!success) {
 				// If for some reason updating the pair in cache failed then return failure message
-				returnMsg = new common.messages.MessageType("get", "GET_ERROR", Key, Value);
+				returnMsg = new KVAdminMessage("get", "GET_ERROR", Key, Value);
 				return returnMsg;
 			} else {
 				// Set success message and end of this get operation
-				returnMsg = new common.messages.MessageType("get", "GET_SUCCESS", Key, Value);
+				returnMsg = new KVAdminMessage("get", "GET_SUCCESS", Key, Value);
 			}
 		} else {
 			// Cache Miss
@@ -326,7 +483,7 @@ public class KVServer extends Thread {
 			success = this.repopulateHardDiskMap();
 			if (!success) {
 				// If for some reason the load failed then return failure message
-				returnMsg = new common.messages.MessageType("get", "GET_ERROR", Key, Value);
+				returnMsg = new KVAdminMessage("get", "GET_ERROR", Key, Value);
 				return returnMsg;
 			}
 			// Need to get the Key Value pair from hard disk map
@@ -334,7 +491,7 @@ public class KVServer extends Thread {
 			keyExists = this.m_hardDiskValueMap.containsKey(Key);
 			if (!keyExists) {
 				// If the pair does not exist in the hard disk file either
-				returnMsg = new common.messages.MessageType("get", "GET_ERROR", Key, Value);
+				returnMsg = new KVAdminMessage("get", "GET_ERROR", Key, Value);
 				return returnMsg;
 			}
 			// Get the Value from hard disk map
@@ -343,27 +500,67 @@ public class KVServer extends Thread {
 			success = this.insertIntoCache(Key, Value);
 			if (!success) {
 				// If for some reason the writing to cache failed then return failure message
-				returnMsg = new common.messages.MessageType("get", "GET_ERROR", Key, Value);
+				returnMsg = new KVAdminMessage("get", "GET_ERROR", Key, Value);
 				return returnMsg;
 			} else {
 				// Set success message and end of this put-add operation
-				returnMsg = new common.messages.MessageType("get", "GET_SUCCESS", Key, Value);
+				returnMsg = new KVAdminMessage("get", "GET_SUCCESS", Key, Value);
 			}
 		}
 		return returnMsg;
 	}
+	
+	public int getPort() {
+		return port;
+	}
+	
 	// This function is used to handle a client put request
-	public common.messages.KVMessage handlePut(common.messages.KVMessage msg) {
+	public KVMessage handlePut(KVMessage msg) {
+		if (status == ServerStatus.STOPPED){
+			return new KVAdminMessage("get","SERVER_STOPPED",msg.getKey(),msg.getValue());
+		} else if (status == ServerStatus.WRITE_LOCKED){
+			return new KVAdminMessage("get","SERVER_WRITE_LOCK",msg.getKey(),msg.getValue());
+		}
+		
 		System.out.println("Handling Put");
 		logger.info("Handling Put");
 		String Key = msg.getKey();
 		String Value = msg.getValue();
-		common.messages.KVMessage returnMsg = null;
+		//check if this server is responsible for this key		
+		Server responsible = metadata.getResponsible(Key);
+		//System.out.println(Integer.toString(responsible.id));
+		//System.out.println(Integer.toString(this.id));
+		//System.out.println(Integer.toString(this.getPort()));
+		//System.out.println(this.metadata.toString());	
+		if (responsible.id != this.id){
+			return new KVAdminMessage("put","SERVER_NOT_RESPONSIBLE",msg.getKey(),metadata.toString());
+		}
+		return doPut(Key,Value);
+	}
+	
+	/**
+	 * This function is used to handle an admin put request from another server.
+	 * It is essentially the same as handlePut except it skips the status and 
+	 * responsibility checking (servers should be able to put to each other at any time).
+	 */
+	public KVMessage handleAdminPut(KVMessage msg) {		
+		System.out.println("Handling Admin Put");
+		logger.info("Handling Admin Put");
+		String Key = msg.getKey();
+		String Value = msg.getValue();
+		return doPut(Key,Value);
+	}
+	
+	/**
+	 * Do the actual put operation on (Key, Value) pair
+	 */
+	private KVMessage doPut(String Key, String Value) {
+		KVMessage returnMsg = null;
 		// first load the hard disk file into our map
 		boolean success = this.repopulateHardDiskMap();
 		if (!success) {
 			// If for some reason the load failed then return failure message
-			returnMsg = new common.messages.MessageType("put", "PUT_ERROR", Key, Value);
+			returnMsg = new KVAdminMessage("put", "PUT_ERROR", Key, Value);
 			return returnMsg;
 		}
 		
@@ -375,18 +572,18 @@ public class KVServer extends Thread {
 			success = this.overwriteHardDiskFile();
 			if (!success) {
 				// If for some reason the rewrite failed then return failure message
-				returnMsg = new common.messages.MessageType("put", "DELETE_ERROR", Key, Value);
+				returnMsg = new KVAdminMessage("put", "DELETE_ERROR", Key, Value);
 				return returnMsg;
 			}
 			// Need to Delete the Key/Value pair if it is in the cache as well
 			success = this.deleteFromCache(Key, Value);
 			if (!success) {
 				// If for some reason the deleting from the cache failed then return failure message
-				returnMsg = new common.messages.MessageType("put", "DELETE_ERROR", Key, Value);
+				returnMsg = new KVAdminMessage("put", "DELETE_ERROR", Key, Value);
 				return returnMsg;
 			} else {
 				// Set success message and end of this put-add operation
-				returnMsg = new common.messages.MessageType("put", "DELETE_SUCCESS", Key, Value);
+				returnMsg = new KVAdminMessage("put", "DELETE_SUCCESS", Key, Value);
 			}
 		}
 		else if (!this.m_hardDiskValueMap.containsKey(Key)) {
@@ -396,18 +593,18 @@ public class KVServer extends Thread {
 			success = this.overwriteHardDiskFile();
 			if (!success) {
 				// If for some reason the rewrite failed then return failure message
-				returnMsg = new common.messages.MessageType("put", "PUT_ERROR", Key, Value);
+				returnMsg = new KVAdminMessage("put", "PUT_ERROR", Key, Value);
 				return returnMsg;
 			}
 			// Now try to put the Key/Value pair into the Cache
 			success = this.insertIntoCache(Key, Value);
 			if (!success) {
 				// If for some reason the writing to cache failed then return failure message
-				returnMsg = new common.messages.MessageType("put", "PUT_ERROR", Key, Value);
+				returnMsg = new KVAdminMessage("put", "PUT_ERROR", Key, Value);
 				return returnMsg;
 			} else {
 				// Set success message and end of this put-add operation
-				returnMsg = new common.messages.MessageType("put", "PUT_SUCCESS", Key, Value);
+				returnMsg = new KVAdminMessage("put", "PUT_SUCCESS", Key, Value);
 			}
 		} 
 		else {
@@ -417,24 +614,114 @@ public class KVServer extends Thread {
 			success = this.overwriteHardDiskFile();
 			if (!success) {
 				// If for some reason the rewrite failed then return failure message
-				returnMsg = new common.messages.MessageType("put", "PUT_ERROR", Key, Value);
+				returnMsg = new KVAdminMessage("put", "PUT_ERROR", Key, Value);
 				return returnMsg;
 			}
 			// Need to get cache to use the new Key/Value pair if it is in the cache as well
 			success = this.insertIntoCache(Key, Value);
 			if (!success) {
 				// If for some reason the writing to cache failed then return failure message
-				returnMsg = new common.messages.MessageType("put", "PUT_ERROR", Key, Value);
+				returnMsg = new KVAdminMessage("put", "PUT_ERROR", Key, Value);
 				return returnMsg;
 			} else {
 				// Set success message and end of this put-add operation
-				returnMsg = new common.messages.MessageType("put", "PUT_UPDATE", Key, Value);
+				returnMsg = new KVAdminMessage("put", "PUT_UPDATE", Key, Value);
 			}
 		}
 		return returnMsg;
 	}
+	
+	/**
+	 * Handle the message of adding the server stored in the key field
+	 * This server is responsible for transferring data to it. 
+	 */
+	public KVMessage handleAddNode(KVMessage msg) {
+		ServerStatus prevStatus = this.status;
+		this.status = ServerStatus.WRITE_LOCKED;
+		//Note: there's no need to write lock the new server because it should be in the 
+		//stopped state so no client can write to it anyway. 
+		
+		Server server = new Server(msg.getKey());
+		metadata.addServer(server);
+		
+		boolean success = transferData(server);		
+		this.status = prevStatus;
+		if (success){
+			return new KVAdminMessage("addNode","SUCCESS",msg.getKey(),msg.getValue());
+		}
+		else{
+			return new KVAdminMessage("addNode","FAILED",msg.getKey(),msg.getValue());
+		}
+	}
+	
+	/**
+	 * Remove this server from the system and transfer all of its
+	 * data to the server contained in the key. 
+	 */
+	public KVMessage handleRemoveNode(KVMessage msg) {
+		ServerStatus prevStatus = this.status;
+		this.status = ServerStatus.WRITE_LOCKED;
+		//Note: there's no need to write lock the successor server that we're transferring to
+		//because it currently thinks it's not responsible for this part of the data (metadata update
+		//comes after all transferring is complete).
+		Server successor = new Server(msg.getKey());
+		Server thisServer = new Server(msg.getValue());
+		metadata.removeServer(thisServer);
+		
+		boolean success = transferData(successor);
+		this.status = prevStatus;
+		if (success){
+			return new KVAdminMessage("removeNode","SUCCESS",msg.getKey(),msg.getValue());
+		}
+		else{
+			return new KVAdminMessage("removeNode","FAILED",msg.getKey(),msg.getValue());
+		}
+	}
+	
+	/**
+	 * Locks this server and transfers data to another server.
+	 * Note that the metadata must be updated before calling this function
+	 */
+	private boolean transferData(Server server) {
+		logger.info("Transferring data to server "+server.toString());
+		try {
+			//connect to server as a client
+			Client client = new Client(server.ipAddress, server.port);
+			KVMessage response = client.getResponse();
+			
+			//for every (key,value) pair, check whether the responsible server is the given server
+			ArrayList<String> movedKeys = new ArrayList<String>();
+			for (Map.Entry<String,String> entry : m_hardDiskValueMap.entrySet()){
+				String key = entry.getKey();
+				String value = entry.getValue();
+				Server responsible = metadata.getResponsible(key);
+				logger.debug("key = "+key+", responsible = "+responsible);
+				
+				if (responsible != null && responsible.id == server.id){
+					movedKeys.add(key);
+					logger.debug("Transferring "+key);
+					//send a special put message which overrides status and responsibility checking
+					KVMessage request = new KVAdminMessage("admin_put","",key,value);
+					client.sendMessage(request);
+					response = client.getResponse();
+					logger.debug("Response status: "+response.getStatus());
+				}
+			}
+			
+			//delete all the moved keys from this server
+			logger.debug("Deleting all transferred keys from this server");
+			for (String key : movedKeys) {
+				doPut(key, "null");
+			}
+			
+		} catch (Exception e){
+			return false;
+		}
+		return true;
+	}
+	
 	// This function is used to update the Cache Key Value Pair in case it was used
-	public boolean updateCacheHit(String key, String value) {
+	private boolean updateCacheHit(String key, String value) {
 		// When we call this function we know Cache has the key value pair
 		System.out.println("Got Hit from Cache, Pair was Key: " + key + " Value: " + value);
 		logger.info("Got Hit from Cache, Pair was Key: " + key + " Value: " + value);
@@ -449,25 +736,28 @@ public class KVServer extends Thread {
 		return true;
 	}
 	// This function is used to delete key value pair from the cache
-	public boolean deleteFromCache(String key, String value) {
-		// When we call this function we don't know if Cache has the Key Value Pair we want to delete
-		System.out.println("Deleting from Cache Key: " + key + " Value: " + value);
-		logger.info("Deleting from Cache Key: " + key + " Value: " + value);
-		// remove the pair to all the other maps and lists we need
-		// remove value in cache value map
-		this.m_cacheValueMap.remove(key);
-		// remove value in cache LFU map
-		this.m_cacheLFUMap.remove(key);
-		// remove key in FIFO linked list
-		this.m_cacheFIFOList.removeFirstOccurrence(key);
-		// remove key in  LRU linked list
-		this.m_cacheLRUList.removeFirstOccurrence(key);
-		// decrease size of cache pairs by 1
-		this.m_currentCacheEntries = this.m_currentCacheEntries - 1;
-		return true;
+	private boolean deleteFromCache(String key, String value) {
+		// Insert Scoped Lock here
+		synchronized(m_myLock) {
+			// When we call this function we don't know if Cache has the Key Value Pair we want to delete
+			System.out.println("Deleting from Cache Key: " + key + " Value: " + value);
+			logger.info("Deleting from Cache Key: " + key + " Value: " + value);
+			// remove the pair to all the other maps and lists we need
+			// remove value in cache value map
+			this.m_cacheValueMap.remove(key);
+			// remove value in cache LFU map
+			this.m_cacheLFUMap.remove(key);
+			// remove key in FIFO linked list
+			this.m_cacheFIFOList.removeFirstOccurrence(key);
+			// remove key in  LRU linked list
+			this.m_cacheLRUList.removeFirstOccurrence(key);
+			// decrease size of cache pairs by 1
+			this.m_currentCacheEntries = this.m_currentCacheEntries - 1;
+			return true;
+		}
 	}
 	// This function is used to add a new key value pair into the cache
-	public void addToCache(String key, String value) {
+	private void addToCache(String key, String value) {
 		// add the pair to all the other maps and lists we need
 		// add value in cache value map
 		this.m_cacheValueMap.put(key, value);
@@ -481,50 +771,53 @@ public class KVServer extends Thread {
 		this.m_currentCacheEntries = this.m_currentCacheEntries + 1;
 	}
 	// This function is used to put key value pair into the cache
-	public boolean insertIntoCache(String key, String value) {
-		// When we call this function we don't know if Cache is already Full or if that key value pair already exists in it
-		System.out.println("Inserting into Cache Key: " + key + " Value: " + value);
-		logger.info("Inserting into Cache Key: " + key + " Value: " + value);
-		// Check whether this is an update(already exist in cache) if so then we won't have to evict anything 
-		boolean isUpdate =this.m_cacheValueMap.containsKey(key);
-		if (isUpdate) {
-			// update value in cache value map
-			this.m_cacheValueMap.put(key, value);
-			// update as if we got a hit
-			boolean updateSuccess = this.updateCacheHit(key, value);
-			return updateSuccess;
-		}
-		// Not an update but adding new entry, Check whether the cache is full 
-		boolean cacheFull = this.m_currentCacheEntries > this.m_cacheSize;
-		if (cacheFull) {
-			boolean evictSuccess = false;
-			// do a switch statement from strategy and evict first according to one of them and then add to the cache
-			switch (this.m_strategy) {
-			case "FIFO": 
-				evictSuccess = evictFIFO();
-				break;
-			case "LRU":
-				evictSuccess = evictLRU();
-				break;
-			case "LFU":
-				evictSuccess = evictLFU();
-				break;
-			default:
-				evictSuccess = false;
+	private boolean insertIntoCache(String key, String value) {
+		// Insert Scoped Lock here
+		synchronized(m_myLock) {
+			// When we call this function we don't know if Cache is already Full or if that key value pair already exists in it
+			System.out.println("Inserting into Cache Key: " + key + " Value: " + value);
+			logger.info("Inserting into Cache Key: " + key + " Value: " + value);
+			// Check whether this is an update(already exist in cache) if so then we won't have to evict anything 
+			boolean isUpdate =this.m_cacheValueMap.containsKey(key);
+			if (isUpdate) {
+				// update value in cache value map
+				this.m_cacheValueMap.put(key, value);
+				// update as if we got a hit
+				boolean updateSuccess = this.updateCacheHit(key, value);
+				return updateSuccess;
 			}
-			if (!evictSuccess) {
-				return false;
+			// Not an update but adding new entry, Check whether the cache is full 
+			boolean cacheFull = this.m_currentCacheEntries > this.m_cacheSize;
+			if (cacheFull) {
+				boolean evictSuccess = false;
+				// do a switch statement from strategy and evict first according to one of them and then add to the cache
+				switch (this.m_strategy) {
+				case "FIFO": 
+					evictSuccess = evictFIFO();
+					break;
+				case "LRU":
+					evictSuccess = evictLRU();
+					break;
+				case "LFU":
+					evictSuccess = evictLFU();
+					break;
+				default:
+					evictSuccess = false;
+				}
+				if (!evictSuccess) {
+					return false;
+				}
+				this.addToCache(key,value);
+				return true;
+			} else {
+				// add the pair
+				this.addToCache(key, value);
 			}
-			this.addToCache(key,value);
 			return true;
-		} else {
-			// add the pair
-			this.addToCache(key, value);
 		}
-		return true;
 	}
 	// This function is used to evict a key value pair according to FIFO
-	public boolean evictFIFO() {
+	private boolean evictFIFO() {
 		// When we call this function we know Cache is already Full
 		// Find the key of the element we want to evict
 		String key = this.m_cacheFIFOList.getFirst();
@@ -544,7 +837,7 @@ public class KVServer extends Thread {
 		return true;
 	}
 	// This function is used to evict a key value pair according to LRU
-	public boolean evictLRU() {
+	private boolean evictLRU() {
 		// When we call this function we know Cache is already Full
 		// Find the key of the element we want to evict
 		// Iterate through all pairs of LFU map
@@ -565,7 +858,7 @@ public class KVServer extends Thread {
 		return true;
 	}
 	// This function is used to evict a key value pair according to LFU
-	public boolean evictLFU() {
+	private boolean evictLFU() {
 		// When we call this function we know Cache is already Full
 		// Find the key of the element we want to evict
 		String key = null;
@@ -594,13 +887,14 @@ public class KVServer extends Thread {
 		this.m_currentCacheEntries = this.m_currentCacheEntries - 1;
 		return true;
 	}
+	
 	/**
 	 * Initializes and starts the server. 
 	 * Loops until the the server should be closed.
 	 */
 	public void run() {
 
-		running = initializeServer();
+		running = initializeSocket();
 
 		if(serverSocket != null) {
 			while(isRunning()){
@@ -614,6 +908,9 @@ public class KVServer extends Thread {
 					logger.info("Connected to " 
 							+ client.getInetAddress().getHostName() 
 							+  " on port " + client.getPort());
+					
+				} catch (SocketException e) {
+					logger.info("Socket closed!", e);
 				} catch (IOException e) {
 					logger.error("Error! " +
 							"Unable to establish connection. \n", e);
@@ -630,7 +927,8 @@ public class KVServer extends Thread {
 	/**
 	 * Stops the server insofar that it won't listen at the given port any more.
 	 */
-	public void stopServer(){
+	public void closeServer(){
+		logger.info("Shutting down server");
 		running = false;
 		try {
 			serverSocket.close();
@@ -640,8 +938,11 @@ public class KVServer extends Thread {
 		}
 	}
 
-	private boolean initializeServer() {
-		logger.info("Initialize server ...");
+	/**
+	 * Creates the socket and starts listening on it.
+	 */
+	private boolean initializeSocket() {
+		logger.info("Initialize socket ...");
 		try {
 			serverSocket = new ServerSocket(port);
 			logger.info("Server listening on port: " 
@@ -656,38 +957,76 @@ public class KVServer extends Thread {
 			return false;
 		}
 	}
+	
+	private static void printUsage() {
+		System.out.println("Valid usages:");
+		System.out.println("\t<port> <id>");
+		System.out.println("\t<port> <cache size> <replacement strategy>");
+		System.out.println("\t<port> <cache size> <replacement strategy> <id>");
+	}
 
 	/**
 	 * Main entry point for the echo server application. 
-	 * @param args contains the port number at args[0].
+	 * Valid ways to initialize with arguments:
+	 * 		<port> <id>
+	 * 		<port> <cache size> <replacement strategy>
+	 * 		<port> <cache size> <replacement strategy> <id>
 	 */
 	public static void main(String[] args) {
 		try {
-			new LogSetup("logs/server.log", Level.ALL);
-			// change the amount of commandline arguments to be parsed into 3
-			// first one is port, second is cache size, third one is strategy
-			if(args.length != 3) {
-				System.out.println("Error! Invalid number of arguments!");
-				System.out.println("Usage: Server <int port> <int cacheSize> <string strategy: FIFO, LRU or LFU>!");
-			} else {
-				int port = Integer.parseInt(args[0]);
-				int cacheSize = Integer.parseInt(args[1]);
-				String strategy = args[2];
-				// Handle invalid input for server strategy argument
-				if (!strategy.equals("FIFO") && !strategy.equals("LRU") && !strategy.equals("LFU")) {
-					System.out.println("Error! strategy argument invalid!");
-					System.out.println("Usage: Server <int port> <int cacheSize> <string strategy: FIFO, LRU or LFU>! Please try again");
-					System.exit(0);
-				}
-				new KVServer(port, cacheSize, strategy);
+			String portStr="50000", strategy="FIFO", cacheSizeStr="1", idStr="0";
+			
+			//determine what each argument represents based on the number of arguments.
+			if (args.length == 2){
+				//interpret 2 arguments as port and id
+				portStr = args[0];
+				idStr = args[1];
 			}
+			else if (args.length == 3){
+				//interpret 3 arguments as port, cache size, and replacement strategy
+				portStr = args[0];
+				cacheSizeStr = args[1];
+				strategy = args[2];
+			}
+			else if (args.length == 4){
+				//interpret 3 arguments as port, cache size, replacement strategy, and id
+				portStr = args[0];
+				cacheSizeStr = args[1];
+				strategy = args[2];
+				idStr = args[3];
+			}
+			else{
+				System.out.println("Error! Invalid number of arguments!");
+				KVServer.printUsage();
+				System.exit(0);
+			}
+			
+			new LogSetup("logs/server_"+idStr+".log", Level.DEBUG);
+			
+			//validity check arguments
+			if (!strategy.equals("FIFO") && !strategy.equals("LRU") && !strategy.equals("LFU")) {
+				System.out.println("Error! strategy argument invalid! Must be one of FIFO, LRU, LFU");
+				System.exit(0);
+			}
+			int port = Integer.parseInt(portStr);
+			int cacheSize = Integer.parseInt(cacheSizeStr);
+			int id = Integer.parseInt(idStr);
+			
+			if (args.length == 2){
+				new KVServer(port, id);
+			}
+			else{
+				new KVServer(port, cacheSize, strategy, id);
+			}
+			
 		} catch (IOException e) {
 			System.out.println("Error! Unable to initialize logger!");
 			e.printStackTrace();
 			System.exit(1);
 		} catch (NumberFormatException nfe) {
-			System.out.println("Error! Invalid argument <port>! Not a number!");
-			System.out.println("Usage: Server <port>!");
+			System.out.println("Error! Arugments port, cache size, and id must be integers");
+			KVServer.printUsage();
+			nfe.printStackTrace();
 			System.exit(1);
 		}
 	}

@@ -3,6 +3,7 @@ package client;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.ConnectException;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.HashSet;
@@ -31,10 +32,10 @@ public class Client {
 	
 	
 	public Client(String address, int port) 
-			throws UnknownHostException, IOException {
+			throws UnknownHostException, IOException, ConnectException{
 
 		clientSocket = new Socket(address, port);
-		clientSocket.setSoTimeout(1000);
+		clientSocket.setSoTimeout(2000);
 		listeners = new HashSet<KVCommInterface>();
 		setRunning(true);
 		logger.info("Connection established");
@@ -42,6 +43,13 @@ public class Client {
 		input = clientSocket.getInputStream();
 	}
 	
+	public int soTimeout() {
+		try {
+			return clientSocket.getSoTimeout();
+		} catch (Exception e) {
+			return -1;
+		}
+	}
 	
 	// Use client.logInfo("asdf") to log information
 	public void logInfo(String input){
@@ -65,11 +73,8 @@ public class Client {
 				if(isRunning()) {
 					System.out.println("Error:> "+ioe.getMessage());
 					logger.error("Connection lost!");
-					try {
-						tearDownConnection();
-					} catch (IOException e) {
-						logger.error("Unable to close connection!");
-					}
+					closeConnection();
+					return new MessageType("", "TIME_OUT", "", "");
 				}
 			}				
 		}
@@ -78,7 +83,6 @@ public class Client {
 	
 	public synchronized void closeConnection() {
 		logger.info("try to close connection ...");
-		
 		try {
 			tearDownConnection();
 		} catch (IOException ioe) {
@@ -119,7 +123,7 @@ public class Client {
 		byte[] msgBytes = msg.getMsgBytes();
 		output.write(msgBytes, 0, msgBytes.length);
 		output.flush();
-		logger.info("Send message:\t '" + msg.getMsg() + "'");
+		logger.debug("Send message:\t '" + msg.getMsg() + "'");
     }
 	
 	
@@ -178,12 +182,12 @@ public class Client {
 		msgBytes = tmp;
 		
 		/* build final String */
-		MessageType msg = new MessageType(msgBytes); //reply from server should include status
+		KVMessage msg = new MessageType(msgBytes); //reply from server should include status
 		if (msg.error != null){
 			logger.error("Received invalid message from server: "+msg.originalMsg);
 			logger.error(msg.error);
 		}
-		logger.info("Receive message:\t '" + msg.getMsg() + "'");
+		logger.debug("Receive message:\t '" + msg.getMsg() + "'");
 		return msg;
     }
  	
