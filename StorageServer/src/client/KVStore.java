@@ -77,13 +77,18 @@ public class KVStore implements KVCommInterface {
 		if (request.error != null){
 			throw new Exception(request.error);
 		}		
-		if(!updateReplicas(key, value)) {
-			logger.error("KVStore: could not update replica servers!");
-		}
+		
 		if(!connectToResponsible(key)) {
 			return null;
 		}
-		return sendRequest(request);
+		
+		KVMessage output = sendRequest(request);
+		
+		if(!updateReplicas(key, value)) {
+			logger.error("KVStore: could not update replica servers!");
+		}
+		
+		return output;
 	}
 	
 	/**
