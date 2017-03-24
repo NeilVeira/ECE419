@@ -239,5 +239,35 @@ public class HashRing{
 		return false;
 	}
 	
+	/**
+	 * Same function except overloaded using address and port
+	 */
+	public boolean canGet(String address, int port, String key){
+		BigInteger keyHash = objectHash(key);
+		for(int i = 0; i < 3; i++) {
+			// Go "up" three times to check if server can be responsible for get
+			/**
+			 * Using higherEntry(keyHash) here since we compare both key-to-server
+			 * as well as server-to-server. Assuming that key hash does not ever
+			 * equal server hash.
+			 */
+			Map.Entry<BigInteger,Server> entry = serverMap.higherEntry(keyHash);
+			
+			if (entry == null){
+				//key is past the last server - wrap around to first
+				entry = serverMap.firstEntry();
+				if (entry == null){
+					//serverMap is empty
+					return false;
+				}
+			}
+			
+			if(entry.getValue().ipAddress.equals(address) && entry.getValue().port == port) return true;
+			
+			keyHash = entry.getKey();
+		}
+		return false;
+	}
+	
 }
 

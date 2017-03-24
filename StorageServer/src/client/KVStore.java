@@ -89,7 +89,7 @@ public class KVStore implements KVCommInterface {
 		if (request.error != null){
 			throw new Exception(request.error);
 		}
-		if(!connectToResponsible(key)) {
+		if(!connectToResponsibleGet(key)) {
 			return null;
 		}
 		return sendRequest(request);
@@ -98,6 +98,8 @@ public class KVStore implements KVCommInterface {
 	/**
 	 * Check which server is responsible for the given key from the cached metadata
 	 * and try connecting to it. If unable to connect, try to connect to any server.
+	 * 
+	 * If we are already the responsible server, simply return true
 	 */
 	private boolean connectToResponsible(String key) {
 		Server responsible = metadata.getResponsible(key);
@@ -107,6 +109,39 @@ public class KVStore implements KVCommInterface {
 		
 		// Check if we are ALREADY connected to the right server, then we can return true and do nothing
 		if(this.address.equals(responsible.ipAddress) && this.port == responsible.port) {
+			return true;
+		}
+		
+		logger.debug("Trying to connect to responsible server "+responsible.toString());
+		disconnect();
+		
+		try {
+			this.address = responsible.ipAddress;
+			this.port = responsible.port;
+			boolean ok = connect();
+			if (!ok){
+				return connectToAnyServer();
+			}
+		} catch (Exception e) {
+			logger.debug("Unable to connect to responsible server "+responsible.toString());
+			return connectToAnyServer();
+		}
+		
+		return true;
+	}
+	
+	/**
+	 * Same as previous function, except this is for GET
+	 * here we can check if the currently connected server can operate get on the data
+	 */
+	private boolean connectToResponsibleGet(String key) {
+		Server responsible = metadata.getResponsible(key);
+		if (responsible == null) {
+			return false;
+		}
+		
+		// Check if we can use GET on the current server
+		if(metadata.canGet(address, port, key)) {
 			return true;
 		}
 		
