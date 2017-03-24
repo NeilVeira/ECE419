@@ -457,6 +457,8 @@ public class KVServer extends Thread {
 		//check if this server is responsible for this key
 		Server responsible = metadata.getResponsible(Key);
 		if (responsible == null || responsible.id != this.id){
+			if(metadata.canGet(this.id, Key)) System.out.println("I CAN ACTUALLY HANDLE GET HERE");
+			else System.out.println("I CAN NOT HANDLE GET HERE");
 			return new KVAdminMessage("get","SERVER_NOT_RESPONSIBLE",msg.getKey(),metadata.toString());
 		}
 		

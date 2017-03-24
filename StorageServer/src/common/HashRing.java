@@ -204,5 +204,40 @@ public class HashRing{
 			return this.ipAddress+" "+this.port+" "+this.id;
 		}
 	}
+	
+	
+	
+	// For milestone 3
+	/**
+	 * Given key and server, returns if the server can perform get operations
+	 * on key. Returns false if ring is empty
+	 */
+	public boolean canGet(int serverid, String key){
+		BigInteger keyHash = objectHash(key);
+		for(int i = 0; i < 3; i++) {
+			// Go "up" three times to check if server can be responsible for get
+			/**
+			 * Using higherEntry(keyHash) here since we compare both key-to-server
+			 * as well as server-to-server. Assuming that key hash does not ever
+			 * equal server hash.
+			 */
+			Map.Entry<BigInteger,Server> entry = serverMap.higherEntry(keyHash);
+			
+			if (entry == null){
+				//key is past the last server - wrap around to first
+				entry = serverMap.firstEntry();
+				if (entry == null){
+					//serverMap is empty
+					return false;
+				}
+			}
+			
+			if(entry.getValue().id == serverid) return true;
+			
+			keyHash = entry.getKey();
+		}
+		return false;
+	}
+	
 }
 
