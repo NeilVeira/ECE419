@@ -73,19 +73,91 @@ public class KVStore implements KVCommInterface {
 
 	@Override
 	public KVMessage put(String key, String value) throws Exception {		
-		MessageType request = new MessageType("put","",key,value);
+		MessageType request = new MessageType("put","PUT",key,value);
 		if (request.error != null){
 			throw new Exception(request.error);
 		}		
+		if(!updateReplicas(key, value)) {
+			logger.error("KVStore: could not update replica servers!");
+		}
 		if(!connectToResponsible(key)) {
 			return null;
 		}
 		return sendRequest(request);
 	}
+	
+	/**
+	 * This method will send update messages to the replicas ONLY
+	 * in a case of PUT. The main responsible server will be updated
+	 * separately. Returns true on success
+	 */
+	private boolean updateReplicas(String key, String value) {
+		// Function in HashRing that pulls out the two servers we need to connect to
+		HashRing.Replicas replicas = metadata.getReplicas(key);
+		
+		// Construct the message
+		MessageType request = new MessageType("put", "PUT_REPLICA", key, value);
+		
+		Server replica = replicas.first;
+		
+		logger.debug("Trying to connect to replica server "+replica.toString());
+		disconnect();
+		
+		try {
+			this.address = replica.ipAddress;
+			this.port = replica.port;
+			boolean ok = connect();
+			if (!ok){
+				connectToAnyServer();
+				return false;
+			}
+			// Send the request here, and analyze on the spot
+			KVMessage response = sendRequest(request);
+			if(!"PUT_UPDATE PUT_SUCCESS".contains(response.getStatus())) {
+				logger.debug("Replica server update failed!");
+				return false;
+			} else {
+				logger.debug("Replica server update success!");
+			}
+		} catch (Exception e) {
+			logger.debug("Unable to connect to replica server "+replica.toString());
+			connectToAnyServer();
+			return false;
+		}
+		
+		replica = replicas.second;
+		
+		logger.debug("Trying to connect to replica server "+replica.toString());
+		disconnect();
+		
+		try {
+			this.address = replica.ipAddress;
+			this.port = replica.port;
+			boolean ok = connect();
+			if (!ok){
+				connectToAnyServer();
+				return false;
+			}
+			// Send the request here, and analyze on the spot
+			KVMessage response = sendRequest(request);
+			if(!"PUT_UPDATE PUT_SUCCESS".contains(response.getStatus())) {
+				logger.debug("Replica server update failed!");
+				return false;
+			} else {
+				logger.debug("Replica server update success!");
+			}
+		} catch (Exception e) {
+			logger.debug("Unable to connect to replica server "+replica.toString());
+			connectToAnyServer();
+			return false;
+		}
+		
+		return true;
+	}
 
 	@Override
 	public KVMessage get(String key) throws Exception {
-		MessageType request = new MessageType("get","",key,"");
+		MessageType request = new MessageType("get","GET",key,"");
 		if (request.error != null){
 			throw new Exception(request.error);
 		}

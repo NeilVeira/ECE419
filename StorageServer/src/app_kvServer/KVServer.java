@@ -456,9 +456,7 @@ public class KVServer extends Thread {
 		
 		//check if this server is responsible for this key
 		Server responsible = metadata.getResponsible(Key);
-		if (responsible == null || responsible.id != this.id){ // change condition to !metadata.canGet(this.id, Key)
-			if(metadata.canGet(this.id, Key)) logger.debug(">>> I should be handling get here <<<");
-			else logger.debug("I CAN NOT HANDLE GET HERE");
+		if (!metadata.canGet(this.id, Key)){
 			return new KVAdminMessage("get","SERVER_NOT_RESPONSIBLE",msg.getKey(),metadata.toString());
 		}
 		
@@ -535,7 +533,12 @@ public class KVServer extends Thread {
 		//System.out.println(Integer.toString(this.getPort()));
 		//System.out.println(this.metadata.toString());	
 		if (responsible.id != this.id){
-			return new KVAdminMessage("put","SERVER_NOT_RESPONSIBLE",msg.getKey(),metadata.toString());
+			if(msg.getStatus().equals("PUT_REPLICA")) {
+				logger.debug("Received replica update message from KVStore, updating values.");
+				return doPut(Key,Value);
+			} else {
+				return new KVAdminMessage("put","SERVER_NOT_RESPONSIBLE",msg.getKey(),metadata.toString());
+			}
 		}
 		return doPut(Key,Value);
 	}

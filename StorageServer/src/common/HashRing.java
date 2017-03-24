@@ -269,5 +269,56 @@ public class HashRing{
 		return false;
 	}
 	
+	/**
+	 * Two replicas, used like a pair<a,b>
+	 */
+	public static class Replicas{
+		public Server first;
+		public Server second;
+		
+		public Replicas() {		}
+		
+		public Replicas(Server first, Server second){
+			this.first = first;
+			this.second = second;
+		}
+	}
+	
+	/**
+	 * Get the REPLICA SERVERS for a key only. The main responsible server is not returned.
+	 */
+	public Replicas getReplicas(String key) {
+		BigInteger keyHash = objectHash(key);
+		Replicas output;
+		// First we get the responsible server, then we go up
+		Map.Entry<BigInteger,Server> entry = serverMap.ceilingEntry(keyHash);
+		if (entry == null){
+			//key is past the last server - wrap around to first
+			entry = serverMap.firstEntry();
+			if (entry == null){
+				//serverMap is empty
+				return null;
+			}
+		}
+		// Set the hash to the hash of the responsible server
+		keyHash = entry.getKey();
+		entry = serverMap.higherEntry(keyHash);
+		if (entry == null){
+			//key is past the last server - wrap around to first
+			entry = serverMap.firstEntry();
+			// serverMap cannot be empty here
+		}
+		// Now entry contains the first higher server
+		keyHash = entry.getKey();
+		Map.Entry<BigInteger,Server> entry2 = serverMap.higherEntry(keyHash);
+		if (entry2 == null){
+			//key is past the last server - wrap around to first
+			entry2 = serverMap.firstEntry();
+			// serverMap cannot be empty here
+		}
+		// Now entry2 contains the second higher server
+		
+		return new Replicas(entry.getValue(), entry2.getValue());
+	}
 }
 
