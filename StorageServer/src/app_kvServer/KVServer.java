@@ -533,12 +533,11 @@ public class KVServer extends Thread {
 		//System.out.println(Integer.toString(this.getPort()));
 		//System.out.println(this.metadata.toString());	
 		if (responsible.id != this.id){
-			if(msg.getStatus().equals("PUT_REPLICA")) {
-				logger.debug("Received replica update message from KVStore, updating values.");
-				return doPut(Key,Value);
-			} else {
-				return new KVAdminMessage("put","SERVER_NOT_RESPONSIBLE",msg.getKey(),metadata.toString());
-			}
+			return new KVAdminMessage("put","SERVER_NOT_RESPONSIBLE",msg.getKey(),metadata.toString());
+		}
+		if(!updateReplicas(msg)) {
+			System.out.println("Responsible server: failed to update replicas!");
+			logger.error("Responsible server: failed to update replicas!");
 		}
 		return doPut(Key,Value);
 	}
@@ -549,8 +548,13 @@ public class KVServer extends Thread {
 	 * responsibility checking (servers should be able to put to each other at any time).
 	 */
 	public KVMessage handleAdminPut(KVMessage msg) {		
-		System.out.println("Handling Admin Put");
-		logger.info("Handling Admin Put");
+		if(msg.getStatus().equals("PUT_REPLICA")) {
+			System.out.println("Received replica update message, updating values.");
+			logger.info("Received replica update message, updating values.");
+		} else {
+			System.out.println("Handling Admin Put");
+			logger.info("Handling Admin Put");
+		}
 		String Key = msg.getKey();
 		String Value = msg.getValue();
 		return doPut(Key,Value);
@@ -722,6 +726,70 @@ public class KVServer extends Thread {
 		} catch (Exception e){
 			return false;
 		}
+		return true;
+	}
+	
+	/**
+	 * This method will send update messages to the replicas. Returns true on success
+	 */
+	private boolean updateReplicas(KVMessage msg) {
+		String key = msg.getKey();
+		String value = msg.getValue();
+		
+		// Function in HashRing that pulls out the two servers we need to connect to
+		HashRing.Replicas replicas = metadata.getReplicas(key);
+		
+		// Construct the message
+		KVMessage request = new KVAdminMessage("admin_put", "PUT_REPLICA", key, value);
+		
+		Server replica = replicas.first;
+		
+		logger.debug("Trying to connect to replica server "+replica.toString());
+		
+		try {
+			Client client = new Client(replica.ipAddress, replica.port);
+			KVMessage response = client.getResponse();
+			if(!response.getStatus().equals("CONNECT_SUCCESS")) {
+				logger.debug("Failed connecting to replica server!");
+				return false;
+			}
+			client.sendMessage(request);
+			response = client.getResponse();
+			if(!"PUT_UPDATE PUT_SUCCESS".contains(response.getStatus())) {
+				logger.debug("Replica server update failed!");
+				return false;
+			} else {
+				logger.debug("Replica server update success!");
+			}
+		} catch (Exception e) {
+			logger.debug("Unable to connect to replica server "+replica.toString());
+			return false;
+		}
+		
+		replica = replicas.second;
+		
+		logger.debug("Trying to connect to replica server "+replica.toString());
+
+		try {
+			Client client = new Client(replica.ipAddress, replica.port);
+			KVMessage response = client.getResponse();
+			if(!response.getStatus().equals("CONNECT_SUCCESS")) {
+				logger.debug("Failed connecting to replica server!");
+				return false;
+			}
+			client.sendMessage(request);
+			response = client.getResponse();
+			if(!"PUT_UPDATE PUT_SUCCESS".contains(response.getStatus())) {
+				logger.debug("Replica server update failed!");
+				return false;
+			} else {
+				logger.debug("Replica server update success!");
+			}
+		} catch (Exception e) {
+			logger.debug("Unable to connect to replica server "+replica.toString());
+			return false;
+		}
+		
 		return true;
 	}
 	
