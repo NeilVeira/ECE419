@@ -50,7 +50,7 @@ public class KVStore implements KVCommInterface {
 		//client.start();
 		//wait for "connection successful" response
 		KVMessage response = client.getResponse();
-		if (response != null){
+		if (response.getStatus().equals("CONNECT_SUCCESS")){
 			logger.info("KVStore: received response "+response.getMsg());
 			connected = true;
 			return true;
@@ -77,7 +77,9 @@ public class KVStore implements KVCommInterface {
 		if (request.error != null){
 			throw new Exception(request.error);
 		}		
-		connectToResponsible(key);
+		if(!connectToResponsible(key)) {
+			return null;
+		}
 		return sendRequest(request);
 	}
 
@@ -87,7 +89,9 @@ public class KVStore implements KVCommInterface {
 		if (request.error != null){
 			throw new Exception(request.error);
 		}
-		boolean success = connectToResponsible(key);
+		if(!connectToResponsible(key)) {
+			return null;
+		}
 		return sendRequest(request);
 	}
 	
@@ -100,6 +104,12 @@ public class KVStore implements KVCommInterface {
 		if (responsible == null) {
 			return false;
 		}
+		
+		// Check if we are ALREADY connected to the right server, then we can return true and do nothing
+		if(this.address.equals(responsible.ipAddress) && this.port == responsible.port) {
+			return true;
+		}
+		
 		logger.debug("Trying to connect to responsible server "+responsible.toString());
 		disconnect();
 		
@@ -176,10 +186,21 @@ public class KVStore implements KVCommInterface {
 
 				//disconnect from the current server and try to connect to the new one
 				disconnect();
+				connected = false;
 				this.address = responsibleServer.ipAddress;
 				this.port = responsibleServer.port;
 				try {
-					connect();
+					// We try to connect 5 times, making sure that we get a connection success message and not just random junk
+					int retry = 5;
+					while(!connect()) {
+						if(retry == 0) return null;
+						logger.info("Connection failed, retrying... (" + String.valueOf(retry) + " tries left");
+						retry -= 1;
+						try {
+							Thread.sleep(500);
+						} catch (InterruptedException ie){}
+					}
+					connected = true;
 				} 
 				catch(Exception e) {
 					//try to connect to any other server in the metadata
@@ -187,6 +208,7 @@ public class KVStore implements KVCommInterface {
 					if (!success) {
 						return null;
 					}
+					connected = true;
 				}
 				return sendRequest(request);
 			}

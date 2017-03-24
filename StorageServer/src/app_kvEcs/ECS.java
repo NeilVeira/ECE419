@@ -236,7 +236,7 @@ public class ECS {
 		
 		//connect to each server and send them the metadata
 		KVMessage message = new KVAdminMessage("metadata","METADATA_UPDATE","",metadata.toString());
-		broadcast(message, 10);
+		broadcast(message, 12);
 		writeMetadata();
 	}
 	
@@ -334,7 +334,7 @@ public class ECS {
 				success = true;
 			}
 			catch (IOException e) {
-				logger.debug("Unable to connect to server "+newServer.toString()+". Waiting 1 second and trying again.");
+				logger.debug("addNode: Unable to connect to server "+newServer.toString()+". Waiting 1 second and trying again.");
 				try {
 					TimeUnit.SECONDS.sleep(1); 		
 				} catch (InterruptedException ex){}
@@ -464,7 +464,7 @@ public class ECS {
 				if (!success) {
 					triesRemaining--;
 					if (triesRemaining > 0){
-						logger.debug("Unable to connect to server "+server.toString()+". Waiting 1 second and trying again.");
+						logger.debug("getActiveServers: Unable to connect to server "+server.toString()+". Waiting 1 second and trying again.");
 						try {
 							TimeUnit.SECONDS.sleep(1); 		
 						} catch (InterruptedException e){}

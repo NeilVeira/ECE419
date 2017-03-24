@@ -149,27 +149,26 @@ public class ECSClient {
 	
 	private void printHelp() {
 		StringBuilder sb = new StringBuilder();
-		sb.append(PROMPT).append("ECS CLIENT HELP (Usage):\n");
-		sb.append(PROMPT);
+		sb.append("\nECS CLIENT HELP (Usage):\n");
 		sb.append("::::::::::::::::::::::::::::::::");
 		sb.append("::::::::::::::::::::::::::::::::\n");
-		sb.append(PROMPT).append("initService <numberOfNodes> <cacheSize> <replacementStrategy>");
+		sb.append("initService <numberOfNodes> <cacheSize> <replacementStrategy>");
 		sb.append("\t Launch numberOfNodes random nodes from the initial config file\n");
-		sb.append(PROMPT).append("start");
-		sb.append("\t\t\t\t Start the service and all initialized nodes\n");
-		sb.append(PROMPT).append("stop");
+		sb.append("start");
+		sb.append("\t\t\t\t\t Start the service and all initialized nodes\n");
+		sb.append("stop");
 		sb.append("\t\t\t\t\t Stops the service. Remains running but servers no longer accept client requests.\n");
-		sb.append(PROMPT).append("shutDown");
+		sb.append("shutDown");
 		sb.append("\t\t\t\t Kills all servers and exits\n");
-		sb.append(PROMPT).append("addNode <cacheSize> <replacementStrategy");
+		sb.append("addNode <cacheSize> <replacementStrategy");
 		sb.append("\t Launch a random node from the initial config file and add it to the service\n");
-		sb.append(PROMPT).append("removeNode <index>");
+		sb.append("removeNode <index>");
 		sb.append("\t\t\t Remove the index-th running server from the service.\n");
-		sb.append(PROMPT).append("logLevel");
+		sb.append("logLevel");
 		sb.append("\t\t\t\t changes the logLevel \n");
-		sb.append(PROMPT).append("\t\t\t\t\t ");
+		sb.append("\t\t\t\t\t ");
 		sb.append("ALL | DEBUG | INFO | WARN | ERROR | FATAL | OFF \n");
-		sb.append(PROMPT).append("printState");
+		sb.append("printState");
 		sb.append("\t\t\t\t Prints a list of all the servers and their current status\n");
 		System.out.println(sb.toString());
 	}
