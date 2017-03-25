@@ -651,7 +651,8 @@ public class KVServer extends Thread {
 		//stopped state so no client can write to it anyway. 
 		
 		Server server = new Server(msg.getKey());
-		metadata.addServer(server);
+		// Don't change metadata here, we broadcast from ECS
+		//metadata.addServer(server);
 		
 		boolean success = transferData(server);		
 		this.status = prevStatus;
@@ -674,8 +675,8 @@ public class KVServer extends Thread {
 		//because it currently thinks it's not responsible for this part of the data (metadata update
 		//comes after all transferring is complete).
 		Server successor = new Server(msg.getKey());
-		Server thisServer = new Server(msg.getValue());
-		metadata.removeServer(thisServer);
+		// Don't change metadata here, we broadcast from ECS
+		//metadata.removeServer(thisServer);
 		
 		boolean success = transferData(successor);
 		this.status = prevStatus;
@@ -704,9 +705,10 @@ public class KVServer extends Thread {
 				String key = entry.getKey();
 				String value = entry.getValue();
 				Server responsible = metadata.getResponsible(key);
+				boolean secondary_responsible = metadata.canGet(server.id, key);
 				logger.debug("key = "+key+", responsible = "+responsible);
 				
-				if (responsible != null && responsible.id == server.id){
+				if (secondary_responsible){
 					movedKeys.add(key);
 					logger.debug("Transferring "+key);
 					//send a special put message which overrides status and responsibility checking
@@ -718,12 +720,16 @@ public class KVServer extends Thread {
 			}
 			
 			//delete all the moved keys from this server
+			/*
 			logger.debug("Deleting all transferred keys from this server");
 			for (String key : movedKeys) {
 				doPut(key, "null");
 			}
+			*/
+			// We don't actually need to delete here, for the sake of speed and replica stuff
 			
 		} catch (Exception e){
+			logger.error("Error transferring data: " + e.toString());
 			return false;
 		}
 		return true;

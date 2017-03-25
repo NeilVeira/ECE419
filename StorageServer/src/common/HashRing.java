@@ -132,6 +132,23 @@ public class HashRing{
 	}
 	
 	/**
+	 * Returns the server which comes before the given one in the ring.
+	 * If the given server is not in the ring, returns whichever servers comes
+	 * before its hypothetical position if it were in the ring. 
+	 */
+	public Server getPredecessor(Server server) {
+		BigInteger hash = serverHash(server);
+		Map.Entry<BigInteger,Server> entry = serverMap.lowerEntry(hash);
+		if (entry == null){
+			entry = serverMap.lastEntry();
+			if (entry == null) {
+				return null;
+			}
+		}
+		return entry.getValue();
+	}
+	
+	/**
 	 * Return true if the given server is contained in the hash ring
 	 */
 	public boolean contains(Server server) {
