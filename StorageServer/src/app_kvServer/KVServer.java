@@ -692,6 +692,11 @@ public class KVServer extends Thread {
 	 * Note that the metadata must be updated before calling this function
 	 */
 	private boolean transferData(Server server) {
+		if (server.id == this.id){
+			//this can happen if there is only 1 server in the metadata. 
+			return true;
+		}
+		
 		logger.info("Transferring data to server "+server.toString());
 		try {
 			//connect to server as a client

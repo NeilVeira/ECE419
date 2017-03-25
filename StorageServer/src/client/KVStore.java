@@ -58,6 +58,18 @@ public class KVStore implements KVCommInterface {
 		return false;
 	}
 	
+	/**
+	 * function added for convenience (used in testing)
+	 * Connect to the server with the given address
+	 */
+	public boolean connect(String address, int port) 
+		throws UnknownHostException, IOException, ConnectException{
+		disconnect();
+		this.address = address;
+		this.port = port;
+		return connect();
+	}
+	
 	public boolean isConnected() {
 		return connected;
 	}
@@ -105,7 +117,7 @@ public class KVStore implements KVCommInterface {
 	 * Check which server is responsible for the given key from the cached metadata
 	 * and try connecting to it. If unable to connect, try to connect to any server.
 	 * 
-	 * If we are already the responsible server, simply return true
+	 * If we are already connected to the responsible server, simply return true
 	 */
 	private boolean connectToResponsible(String key) {
 		Server responsible = metadata.getResponsible(key);
@@ -177,7 +189,7 @@ public class KVStore implements KVCommInterface {
 	 */
 	private KVMessage sendRequest(KVMessage request) {
 		KVMessage response = null;
-		int writeLockCount = 20; //maximum number of times to retry if we get a SERVER_WRITE_LOCK response
+		int attemptCount = 20; //maximum number of times to retry if we get a SERVER_WRITE_LOCK response
 		
 		do {
 			logger.info("KVStore: sending request "+request.getMsg());
@@ -209,8 +221,6 @@ public class KVStore implements KVCommInterface {
 				// We block until server is ready to receive
 
 				logger.info("Server is temporarily locked for writing. Waiting and retrying");
-				// We try maximum of 20 times, each time with 500ms delay, to reach a server with write_lock
-				writeLockCount--;
 				try {
 					Thread.sleep(500);
 				} catch (InterruptedException e){}
@@ -251,13 +261,12 @@ public class KVStore implements KVCommInterface {
 					}
 					connected = true;
 				}
-				return sendRequest(request);
 			}
 			else {
 				break;
 			}
 			
-		} while (writeLockCount > 0);
+		} while (attemptCount-- > 0);
 		
 		if (response == null){
 			logger.info("KVStore: no response received");
