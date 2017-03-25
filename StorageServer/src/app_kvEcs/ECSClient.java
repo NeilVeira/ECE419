@@ -96,6 +96,7 @@ public class ECSClient {
 				int numberOfNodes = Integer.parseInt(tokens[1]);
 				int cacheSize = Integer.parseInt(tokens[2]);
 				ecs.initService(numberOfNodes, cacheSize, tokens[3]);
+				failureDetector.start(); //failure detector shouldn't be running until after initService
 			}
 			catch (NumberFormatException e){
 				printError("numberOfNodes and cacheSize must be integers");

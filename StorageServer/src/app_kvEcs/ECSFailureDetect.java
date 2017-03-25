@@ -33,7 +33,6 @@ public class ECSFailureDetect extends Thread {
 	public ECSFailureDetect(String configFile) throws FileNotFoundException, IOException, Exception {
 		this.m_ecs = new ECS(configFile);
 		this.m_running = true;
-		this.start();
 	}
 
 	/**
@@ -59,6 +58,7 @@ public class ECSFailureDetect extends Thread {
 	}
 	
 	public void detectFailures() {
+		System.out.println("Checking for server failures");
 		HashRing metadata = m_ecs.getMetaData();
 		List<Server> activeServers = metadata.getAllServers();
 		
@@ -73,6 +73,7 @@ public class ECSFailureDetect extends Thread {
 					Client client = new Client(server.ipAddress, server.port);
 					//wait for "connection successful" response
 					KVMessage response = client.getResponse();
+					client.closeConnection();
 					if (response != null) {
 						success = true;
 						break;
@@ -85,12 +86,13 @@ public class ECSFailureDetect extends Thread {
 			}
 
 			if (!success) {
+				System.out.println("Server "+server+" appears to have crashed");
 				//This server seems to have failed. Handle it by calling ecs.removeNode
 				//Note that ecs.removeNode does not need the server to be alive to operate. It
 				//just moves around the data to account for the loss. 
-				m_ecs.removeNode(server.id);
+				m_ecs.removeNode(server.id);	
 				//replace the dead server
-				m_ecs.addRandomNode(m_ecs.cacheSize, m_ecs.replacementStrategy);
+				m_ecs.addRandomNode(ECS.cacheSize, ECS.replacementStrategy);
 				//Note: removeNode and addNode will update everyone's metadata
 			}
 		}

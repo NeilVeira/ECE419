@@ -26,13 +26,13 @@ public class KVAdminMessage extends MessageType {
 	public String validityCheck()
 	{
 		switch (header) {
-		case "connect": 
+				case "connect": 
 			if (!status.equals("CONNECT_SUCCESS") && (key.trim().equals("") || value.trim().equals(""))){
 				return "Key and value must not be empty for message "+header;
 			}
+		//message must have key and value
 		case "put":
 		case "admin_put":
-		case "removeNode":
 			//use IP address and port as key & value
 			if (key.trim().equals("") || value.trim().equals("")){
 				return "Key and value must not be empty for message "+header;
@@ -46,6 +46,7 @@ public class KVAdminMessage extends MessageType {
 			break;
 		case "get":
 		case "addNode":
+		case "removeNode":
 			if (key.trim().equals("")){
 				return "Key must not be empty for message "+header;
 			}

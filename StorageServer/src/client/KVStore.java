@@ -41,7 +41,7 @@ public class KVStore implements KVCommInterface {
 		throws UnknownHostException, IOException, ConnectException{
 		
 		int triesRemaining = 5;
-		while (triesRemaining > 0){
+		while (triesRemaining-- > 0){
 			//try connecting to this server 
 			try {
 				logger.info("Client trying to connect to " + String.valueOf(port));
@@ -55,7 +55,6 @@ public class KVStore implements KVCommInterface {
 					return true;
 				}
 				else{
-					triesRemaining--;
 					if (triesRemaining > 0){
 						logger.debug("Client: Unable to connect to server "+String.valueOf(port)+". Waiting 1 second and trying again.");
 						try {
@@ -65,7 +64,7 @@ public class KVStore implements KVCommInterface {
 				}
 			}
 			catch (Exception e){
-				logger.debug(e.getMessage());
+				logger.debug(e.getMessage());			
 			}
 		}
 		return false;

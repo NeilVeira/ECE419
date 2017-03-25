@@ -21,8 +21,8 @@ public class InteractionTest extends TestCase {
 	private List<KVServer> servers;
 	
 	public void setUp() {
-		servers = AllTests.createAndStartServers(1, 50000);		
-		kvClient = new KVStore("localhost", 50000);
+		servers = AllTests.createAndStartServers(1, 53630);		
+		kvClient = new KVStore("localhost", 53630);
 		try {
 			kvClient.connect();
 		} catch (Exception e) {

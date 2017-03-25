@@ -28,8 +28,10 @@ public class ECS {
 	private String metadataFile;
 	private String backupConfigFile;
 	private File m_lockFile;
-	public String replacementStrategy;
-	public int cacheSize;
+	//These variables are used by the failure detector when it starts a new server to recover
+	//from failure. It must know what strategy and cache size the ECSClient is using
+	public static String replacementStrategy;
+	public static int cacheSize;
 	/**
 	 * Creates a new ECS instance with the servers in the given config file. 
 	 */
@@ -197,19 +199,10 @@ public class ECS {
 		}
 
 		logger.info("Initializing service");
-		this.cacheSize = cacheSize;
-		this.replacementStrategy = replacementStrategy;
+		ECS.cacheSize = cacheSize;
+		ECS.replacementStrategy = replacementStrategy;
 
-		//try to read the old metadata from the file
-		try {
-			BufferedReader FileReader = new BufferedReader(new FileReader(metadataFile));
-			String data = FileReader.readLine();
-			metadata = new HashRing(data);
-		} 
-		catch (Exception e){
-			metadata = new HashRing();
-			logger.warn("Could not load previous metadata from file");
-		}
+		readMetadata();
 
 		//For proper persistency all the servers that were running when the ecs was last online
 		//must be started. Then transfer all their data to the newly initialized nodes
@@ -325,6 +318,7 @@ public class ECS {
 			}
 		}
 		if (availableNodes.size() == 0){
+			logger.debug("metadata: "+metadata.toString());
 			logger.warn("There are no available nodes to add");
 			return false;
 		}
@@ -376,52 +370,37 @@ public class ECS {
 
 		// broadcast metadata update
 		metadata.addServer(newServer);
+		writeMetadata();
 		broadcast(new KVAdminMessage("metadata","","",metadata.toString()), 5);
 
-		// Tell the successor server to transfer the data to the new server
+		// Tell the successor server to transfer the data to the new server.
+		// In case we are unable to do so (eg the successor has also crashed), try to have the next
+		// successors and predecessors send the data, who collectively have a full copy of the data due 
+		// to the replication scheme. 
+		
+		//First try to have the successors send the data. If it fails, try the next
+		//successor for up to 3 times. 
 		Server successor = metadata.getSuccessor(newServer);
-		logger.debug("Sending addNode message to successor " + successor.toString());
-		try {
-			KVMessage response = sendSingleMessage(successor, new KVAdminMessage("addNode","",newServer.toString(),""));
-			if (!response.getStatus().equals("SUCCESS")){
-				logger.error("Successor: Unable to transfer data "+newServer.toString());
-				return false;
+		int firstSuccess = 0;
+		for (; firstSuccess < 3; firstSuccess++) {
+			if (successor == null || sendAddNode(successor, newServer)) {
+				break;
 			}
+			//try again with next successor
+			successor = metadata.getSuccessor(successor);
 		}
-		catch (Exception e) {
-			logger.error("Successor: Unable to send moveData message to server " + successor.toString()+
-					". Error: "+e.getMessage());
-			return false;
-		}
-
-		// Next we also need to get the data from the two servers we are replicating
-		Server pred = metadata.getPredecessor(newServer);
-		logger.debug("Sending addNode message to predecessor "+ pred.toString());
-		try {
-			KVMessage response = sendSingleMessage(pred, new KVAdminMessage("addNode","",newServer.toString(),""));
-			if (!response.getStatus().equals("SUCCESS")){
-				logger.error("Predecessor: Unable to transfer data "+newServer.toString());
-				return false;
+		
+		//Now try have the predecessor send the data. The logic here is that the first successful server
+		//is how far down the chain of predecessors we need to go to get all the data.
+		//eg if first successor was successful then we don't need to send from any predecessors, if second
+		//server was successful then we need to send from first predecessor, etc.
+		Server predecessor = metadata.getPredecessor(newServer);
+		for (; firstSuccess>1; firstSuccess--) {
+			if (predecessor == null || sendAddNode(predecessor, newServer)) {
+				break;
 			}
-		}
-		catch (Exception e) {
-			logger.error("Predecessor: Unable to send moveData message to server " + pred.toString()+
-					". Error: "+e.getMessage());
-			return false;
-		}
-		pred = metadata.getPredecessor(pred);
-		logger.debug("Sending addNode message to predecessor 2 "+ pred.toString());
-		try {
-			KVMessage response = sendSingleMessage(pred, new KVAdminMessage("addNode","",newServer.toString(),""));
-			if (!response.getStatus().equals("SUCCESS")){
-				logger.error("Predecessor 2: Unable to transfer data "+newServer.toString());
-				return false;
-			}
-		}
-		catch (Exception e) {
-			logger.error("Predecessor 2: Unable to send moveData message to server " + pred.toString()+
-					". Error: "+e.getMessage());
-			return false;
+			//try again with next predecessor
+			predecessor = metadata.getPredecessor(predecessor);
 		}
 
 		//start the new node
@@ -436,6 +415,27 @@ public class ECS {
 		}
 
 		writeMetadata();
+		return true;
+	}
+	
+	/***
+	 * Helper function which sends an addNode message to server sender telling it to 
+	 * send data to server newServer.
+	 */
+	private boolean sendAddNode(Server sender, Server newServer) {
+		logger.info("Sending addNode message to successor " + sender.toString());
+		try {
+			KVMessage response = sendSingleMessage(sender, new KVAdminMessage("addNode","",newServer.toString(),""));
+			if (!response.getStatus().equals("SUCCESS")) {
+				logger.info("Successor: Unable to transfer data to "+newServer.toString());
+				return false;
+			}
+		}
+		catch (Exception e) {
+			logger.info("Successor: Unable to send moveData message to server " + sender.toString()+
+					". Error: "+e.getMessage());
+			return false;
+		}
 		return true;
 	}
 
@@ -460,46 +460,65 @@ public class ECS {
 
 		//update metadata
 		metadata.removeServer(server);
-		broadcast(new KVAdminMessage("metadata","","",metadata.toString()), 5);
+		writeMetadata();
 		// Broadcast metadata first. getSuccessor/getPredecessor works with servers that
 		// are not in the hash ring by the way
-
-		// When we remove a node, the SUCCESSOR of this node is now responsible for data of the DOUBLE PREDECESSOR
-		// of this node. Since we can grab that data from just the FIRST PREDECESSOR, that is enough
+		broadcast(new KVAdminMessage("metadata","","",metadata.toString()), 5);
 		
-		// Also up to this node's TRIPLE SUCCESSOR, they all are now responsible for some new data
-		Server successor = metadata.getSuccessor(server);
-		Server successor2 = metadata.getSuccessor(successor);
-		Server successor3 = metadata.getSuccessor(successor);
+		//More robust best effort implementation in case predecessors and/or successors have failed, we try to send 
+		//the data from the closest active predecessor to the closest active successor. 
+		// No point looking beyond 3 nodes - if they have all crashed then the data is lost. 	
+		
 		Server pred = metadata.getPredecessor(server);
-		try {
-			KVMessage response = sendSingleMessage(pred, new KVAdminMessage("removeNode","",successor.toString(),""));
-			if (!response.getStatus().equals("SUCCESS")){
-				logger.error("removeNode1: Unable to transfer data from "+ pred.toString());
+		boolean success = false;
+		
+		for (int i=0; i<3; i++) {
+			logger.info("removeNode: Trying to transfer data starting from predecessor "+pred.toString());
+			// When we remove a node, the SUCCESSOR of this node is now responsible for data of the DOUBLE PREDECESSOR
+			// of this node. Since we can grab that data from just the FIRST PREDECESSOR, that is enough
+			// Also up to this node's TRIPLE SUCCESSOR, they all are now responsible for some new data
+			Server successor = metadata.getSuccessor(server);
+			if (successor == null) {
 				return false;
 			}
+			Server successor2 = metadata.getSuccessor(successor);
+			Server successor3 = metadata.getSuccessor(successor2);
 			
-			response = sendSingleMessage(successor, new KVAdminMessage("removeNode","",successor2.toString(),""));
-			if (!response.getStatus().equals("SUCCESS")){
-				logger.error("removeNode2: Unable to transfer data from "+ successor.toString());
-				return false;
+			try {
+				KVMessage response = sendSingleMessage(pred, new KVAdminMessage("removeNode","",successor.toString(),""));
+				if (!response.getStatus().equals("SUCCESS")){
+					logger.info("removeNode1: Unable to transfer data from "+ pred.toString());
+					//return false;
+					//rather than giving up and returning false, try to transfer the data from the predecessor to next successor
+					successor = pred;
+				}
+				
+				response = sendSingleMessage(successor, new KVAdminMessage("removeNode","",successor2.toString(),""));
+				if (!response.getStatus().equals("SUCCESS")){
+					logger.info("removeNode2: Unable to transfer data from "+ successor.toString());
+					//return false;
+					//rather than giving up and returning false, try to transfer the data from the predecessor to next successor
+					successor2 = successor;
+				}
+				
+				response = sendSingleMessage(successor2, new KVAdminMessage("removeNode","",successor3.toString(),""));
+				if (!response.getStatus().equals("SUCCESS")){
+					logger.info("removeNode3: Unable to transfer data from "+ successor2.toString());
+					//return false;
+				}
+				success = true; //sort of
+				break;
 			}
-			
-			response = sendSingleMessage(successor2, new KVAdminMessage("removeNode","",successor3.toString(),""));
-			if (!response.getStatus().equals("SUCCESS")){
-				logger.error("removeNode3: Unable to transfer data from "+ successor2.toString());
-				return false;
+			catch (Exception e) {
+				logger.info("removeNode: Unable to connect to predecessor "+pred.toString());
+				//Try again with the next predecssor
+				pred = metadata.getPredecessor(pred);
 			}
-		}
-		catch (Exception e) {
-			logger.error("Unable to remove node "+server.toString()+
-					"Error: "+e.getMessage());
-			return false;
 		}
 
 		killServer(index);
 		writeMetadata();
-		return true;
+		return success;
 	}
 
 	/**
@@ -552,7 +571,7 @@ public class ECS {
 
 			//connected successfully or tried unsuccessfully numTries times
 			if (!success) {
-				metadata.removeServer(server);
+				//metadata.removeServer(server);
 				logger.error("Unable to connect to server "+server.toString()+" after "+numTries+" attempts.");
 			}
 			else {
@@ -590,7 +609,7 @@ public class ECS {
 		}
 	}
 
-	private void runServer(Server server, int cacheSize, String replacementStrategy) {
+	public void runServer(Server server, int cacheSize, String replacementStrategy) {
 		logger.info("Launching server "+server.toString());
 
 		// Launch the server
@@ -635,7 +654,7 @@ public class ECS {
 		int triesRemaining = 5;
 		boolean success;
 		Client client;
-		while (triesRemaining > 0){
+		while (triesRemaining-- > 0){
 			//try connecting to this server 
 			success = false;
 			try {
@@ -644,7 +663,7 @@ public class ECS {
 				//wait for "connection successful" response
 				KVMessage response = client.getResponse();
 				if (response != null){
-					logger.debug("SSM: Connection successful to server "+server.toString());
+					logger.info("SSM: Connection successful to server "+server.toString());
 					//send message
 					client.sendMessage(message);
 					//logger.debug("BEFORE: " + message.toString());
@@ -653,7 +672,6 @@ public class ECS {
 					return response;
 				}
 				else{
-					triesRemaining--;
 					if (triesRemaining > 0){
 						logger.debug("SSM: Unable to connect to server "+server.toString()+". Waiting 1 second and trying again.");
 						try {
