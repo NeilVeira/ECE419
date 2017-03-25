@@ -8,12 +8,11 @@ import org.junit.Test;
 import client.KVStore;
 import app_kvClient.KVClient;
 import app_kvServer.KVServer;
-import common.HashRing;
-import common.messages.KVAdminMessage;
-import common.messages.KVMessage;
+import common.*;
+import common.messages.*;
+import common.HashRing.*;
 import java.util.concurrent.TimeUnit;
-
-
+import java.util.*;
 import junit.framework.TestCase;
 import logger.LogSetup;
 
@@ -22,19 +21,12 @@ public class KVStoreTest extends TestCase {
 	private KVStore kvClient;
 	private KVServer server;
 	private KVServer base;
+	private List<KVServer> servers;
 
-	public void setUp() {
-		base = new KVServer(50000, 10, "LRU", 0);
-		while(base.getStatus() != "ACTIVE") base.startServer();
-		HashRing metadata = new HashRing("-134847710425560069445028245650825152028 localhost 50000 0");
-		base.handleMetadata(new KVAdminMessage("metadata","METADATA_UPDATE","",metadata.toString()));
-		
-		// Initialize a new server with port 50001.
-		server = new KVServer(50001, 10, "FIFO", 1);
-		while(server.getStatus() != "ACTIVE") server.startServer();
-		// Fill the new server with artificial metadata so we can test SERVER_NOT_RESPONSIBLE and server switching
-		metadata = new HashRing("136415732930669195156142751695833227657 localhost 50001 1,-134847710425560069445028245650825152028 localhost 50000 0");
-		server.handleMetadata(new KVAdminMessage("metadata","METADATA_UPDATE","",metadata.toString()));
+	public void setUp() {		
+		servers = AllTests.createAndStartServers(2);
+		base = servers.get(0);
+		server = servers.get(1);
 
 		// We also initialize the client here
 		kvClient = new KVStore("localhost", 50001);
@@ -49,8 +41,8 @@ public class KVStoreTest extends TestCase {
 	
 	public void tearDown() {
 		kvClient.disconnect();
-		server.closeServer();
-		//base.closeServer();
+		AllTests.closeServers(servers);
+		AllTests.deleteLocalStorageFiles();		
 	}
 
 	// Tests a put on the current server with the right position on the ring
@@ -69,6 +61,7 @@ public class KVStoreTest extends TestCase {
 		}
 
 		assertNull(ex);
+		System.out.println(response.getStatus());
 		assertTrue("PUT_UPDATE PUT_SUCCESS".contains(response.getStatus()));
 	}
 
