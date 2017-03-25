@@ -132,6 +132,23 @@ public class HashRing{
 	}
 	
 	/**
+	 * Returns the server which comes before the given one in the ring.
+	 * If the given server is not in the ring, returns whichever servers comes
+	 * before its hypothetical position if it were in the ring. 
+	 */
+	public Server getPredecessor(Server server) {
+		BigInteger hash = serverHash(server);
+		Map.Entry<BigInteger,Server> entry = serverMap.lowerEntry(hash);
+		if (entry == null){
+			entry = serverMap.lastEntry();
+			if (entry == null) {
+				return null;
+			}
+		}
+		return entry.getValue();
+	}
+	
+	/**
 	 * Return true if the given server is contained in the hash ring
 	 */
 	public boolean contains(Server server) {
@@ -203,6 +220,122 @@ public class HashRing{
 		public String toString(){
 			return this.ipAddress+" "+this.port+" "+this.id;
 		}
+	}
+	
+	
+	
+	// For milestone 3
+	/**
+	 * Given key and server, returns if the server can perform get operations
+	 * on key. Returns false if ring is empty
+	 */
+	public boolean canGet(int serverid, String key){
+		BigInteger keyHash = objectHash(key);
+		for(int i = 0; i < 3; i++) {
+			// Go "up" three times to check if server can be responsible for get
+			/**
+			 * Using higherEntry(keyHash) here since we compare both key-to-server
+			 * as well as server-to-server. Assuming that key hash does not ever
+			 * equal server hash.
+			 */
+			Map.Entry<BigInteger,Server> entry = serverMap.higherEntry(keyHash);
+			
+			if (entry == null){
+				//key is past the last server - wrap around to first
+				entry = serverMap.firstEntry();
+				if (entry == null){
+					//serverMap is empty
+					return false;
+				}
+			}
+			
+			if(entry.getValue().id == serverid) return true;
+			
+			keyHash = entry.getKey();
+		}
+		return false;
+	}
+	
+	/**
+	 * Same function except overloaded using address and port
+	 */
+	public boolean canGet(String address, int port, String key){
+		BigInteger keyHash = objectHash(key);
+		for(int i = 0; i < 3; i++) {
+			// Go "up" three times to check if server can be responsible for get
+			/**
+			 * Using higherEntry(keyHash) here since we compare both key-to-server
+			 * as well as server-to-server. Assuming that key hash does not ever
+			 * equal server hash.
+			 */
+			Map.Entry<BigInteger,Server> entry = serverMap.higherEntry(keyHash);
+			
+			if (entry == null){
+				//key is past the last server - wrap around to first
+				entry = serverMap.firstEntry();
+				if (entry == null){
+					//serverMap is empty
+					return false;
+				}
+			}
+			
+			if(entry.getValue().ipAddress.equals(address) && entry.getValue().port == port) return true;
+			
+			keyHash = entry.getKey();
+		}
+		return false;
+	}
+	
+	/**
+	 * Two replicas, used like a pair<a,b>
+	 */
+	public static class Replicas{
+		public Server first;
+		public Server second;
+		
+		public Replicas() {		}
+		
+		public Replicas(Server first, Server second){
+			this.first = first;
+			this.second = second;
+		}
+	}
+	
+	/**
+	 * Get the REPLICA SERVERS for a key only. The main responsible server is not returned.
+	 */
+	public Replicas getReplicas(String key) {
+		BigInteger keyHash = objectHash(key);
+		Replicas output;
+		// First we get the responsible server, then we go up
+		Map.Entry<BigInteger,Server> entry = serverMap.ceilingEntry(keyHash);
+		if (entry == null){
+			//key is past the last server - wrap around to first
+			entry = serverMap.firstEntry();
+			if (entry == null){
+				//serverMap is empty
+				return null;
+			}
+		}
+		// Set the hash to the hash of the responsible server
+		keyHash = entry.getKey();
+		entry = serverMap.higherEntry(keyHash);
+		if (entry == null){
+			//key is past the last server - wrap around to first
+			entry = serverMap.firstEntry();
+			// serverMap cannot be empty here
+		}
+		// Now entry contains the first higher server
+		keyHash = entry.getKey();
+		Map.Entry<BigInteger,Server> entry2 = serverMap.higherEntry(keyHash);
+		if (entry2 == null){
+			//key is past the last server - wrap around to first
+			entry2 = serverMap.firstEntry();
+			// serverMap cannot be empty here
+		}
+		// Now entry2 contains the second higher server
+		
+		return new Replicas(entry.getValue(), entry2.getValue());
 	}
 }
 

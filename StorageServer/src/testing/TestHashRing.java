@@ -81,4 +81,28 @@ public class TestHashRing extends TestCase {
 		HashRing metadata = new HashRing("");
 		assertEquals(metadata.toString(),"");
 	}
+	
+	//Tests that canGet returns true for the 3 servers immediately after the key 
+	//(including wrap-around) and false for the others
+	public void testCanGet() {
+		md.addServer(new Server("localhost",50000));
+		md.addServer(new Server("localhost",50001));
+		md.addServer(new Server("localhost",50002));
+		md.addServer(new Server("localhost",50003));
+		md.addServer(new Server("localhost",50004));
+		md.addServer(new Server("localhost",50005));
+		md.addServer(new Server("localhost",50006));
+		md.addServer(new Server("localhost",50007));
+		System.out.println(md.toString());
+		String key = "123";
+		System.out.println(md.objectHash(key));
+		assertTrue(md.canGet("localhost", 50007,  key));
+		assertTrue(md.canGet("localhost", 50001,  key));
+		assertTrue(md.canGet("localhost", 50005,  key));
+		assertFalse(md.canGet("localhost", 50000,  key));
+		assertFalse(md.canGet("localhost", 50002,  key));
+		assertFalse(md.canGet("localhost", 50003,  key));
+		assertFalse(md.canGet("localhost", 50004,  key));
+		assertFalse(md.canGet("localhost", 50006,  key));
+	}
 }

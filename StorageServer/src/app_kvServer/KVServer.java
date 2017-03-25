@@ -456,7 +456,7 @@ public class KVServer extends Thread {
 		
 		//check if this server is responsible for this key
 		Server responsible = metadata.getResponsible(Key);
-		if (responsible == null || responsible.id != this.id){
+		if (!metadata.canGet(this.id, Key)){
 			return new KVAdminMessage("get","SERVER_NOT_RESPONSIBLE",msg.getKey(),metadata.toString());
 		}
 		
@@ -535,6 +535,10 @@ public class KVServer extends Thread {
 		if (responsible.id != this.id){
 			return new KVAdminMessage("put","SERVER_NOT_RESPONSIBLE",msg.getKey(),metadata.toString());
 		}
+		if(!updateReplicas(msg)) {
+			System.out.println("Responsible server: failed to update replicas!");
+			logger.error("Responsible server: failed to update replicas!");
+		}
 		return doPut(Key,Value);
 	}
 	
@@ -544,8 +548,13 @@ public class KVServer extends Thread {
 	 * responsibility checking (servers should be able to put to each other at any time).
 	 */
 	public KVMessage handleAdminPut(KVMessage msg) {		
-		System.out.println("Handling Admin Put");
-		logger.info("Handling Admin Put");
+		if(msg.getStatus().equals("PUT_REPLICA")) {
+			System.out.println("Received replica update message, updating values.");
+			logger.info("Received replica update message, updating values.");
+		} else {
+			System.out.println("Handling Admin Put");
+			logger.info("Handling Admin Put");
+		}
 		String Key = msg.getKey();
 		String Value = msg.getValue();
 		return doPut(Key,Value);
@@ -642,7 +651,8 @@ public class KVServer extends Thread {
 		//stopped state so no client can write to it anyway. 
 		
 		Server server = new Server(msg.getKey());
-		metadata.addServer(server);
+		// Don't change metadata here, we broadcast from ECS
+		//metadata.addServer(server);
 		
 		boolean success = transferData(server);		
 		this.status = prevStatus;
@@ -665,8 +675,8 @@ public class KVServer extends Thread {
 		//because it currently thinks it's not responsible for this part of the data (metadata update
 		//comes after all transferring is complete).
 		Server successor = new Server(msg.getKey());
-		Server thisServer = new Server(msg.getValue());
-		metadata.removeServer(thisServer);
+		// Don't change metadata here, we broadcast from ECS
+		//metadata.removeServer(thisServer);
 		
 		boolean success = transferData(successor);
 		this.status = prevStatus;
@@ -683,6 +693,11 @@ public class KVServer extends Thread {
 	 * Note that the metadata must be updated before calling this function
 	 */
 	private boolean transferData(Server server) {
+		if (server.id == this.id){
+			//this can happen if there is only 1 server in the metadata. 
+			return true;
+		}
+		
 		logger.info("Transferring data to server "+server.toString());
 		try {
 			//connect to server as a client
@@ -695,9 +710,10 @@ public class KVServer extends Thread {
 				String key = entry.getKey();
 				String value = entry.getValue();
 				Server responsible = metadata.getResponsible(key);
+				boolean secondary_responsible = metadata.canGet(server.id, key);
 				logger.debug("key = "+key+", responsible = "+responsible);
 				
-				if (responsible != null && responsible.id == server.id){
+				if (secondary_responsible){
 					movedKeys.add(key);
 					logger.debug("Transferring "+key);
 					//send a special put message which overrides status and responsibility checking
@@ -709,14 +725,82 @@ public class KVServer extends Thread {
 			}
 			
 			//delete all the moved keys from this server
+			/*
 			logger.debug("Deleting all transferred keys from this server");
 			for (String key : movedKeys) {
 				doPut(key, "null");
 			}
+			*/
+			// We don't actually need to delete here, for the sake of speed and replica stuff
 			
 		} catch (Exception e){
+			logger.error("Error transferring data: " + e.toString());
 			return false;
 		}
+		return true;
+	}
+	
+	/**
+	 * This method will send update messages to the replicas. Returns true on success
+	 */
+	private boolean updateReplicas(KVMessage msg) {
+		String key = msg.getKey();
+		String value = msg.getValue();
+		
+		// Function in HashRing that pulls out the two servers we need to connect to
+		HashRing.Replicas replicas = metadata.getReplicas(key);
+		
+		// Construct the message
+		KVMessage request = new KVAdminMessage("admin_put", "PUT_REPLICA", key, value);
+		
+		Server replica = replicas.first;
+		
+		logger.debug("Trying to connect to replica server "+replica.toString());
+		
+		try {
+			Client client = new Client(replica.ipAddress, replica.port);
+			KVMessage response = client.getResponse();
+			if(!response.getStatus().equals("CONNECT_SUCCESS")) {
+				logger.debug("Failed connecting to replica server!");
+				return false;
+			}
+			client.sendMessage(request);
+			response = client.getResponse();
+			if(!"PUT_UPDATE PUT_SUCCESS".contains(response.getStatus())) {
+				logger.debug("Replica server update failed!");
+				return false;
+			} else {
+				logger.debug("Replica server update success!");
+			}
+		} catch (Exception e) {
+			logger.debug("Unable to connect to replica server "+replica.toString());
+			return false;
+		}
+		
+		replica = replicas.second;
+		
+		logger.debug("Trying to connect to replica server "+replica.toString());
+
+		try {
+			Client client = new Client(replica.ipAddress, replica.port);
+			KVMessage response = client.getResponse();
+			if(!response.getStatus().equals("CONNECT_SUCCESS")) {
+				logger.debug("Failed connecting to replica server!");
+				return false;
+			}
+			client.sendMessage(request);
+			response = client.getResponse();
+			if(!"PUT_UPDATE PUT_SUCCESS".contains(response.getStatus())) {
+				logger.debug("Replica server update failed!");
+				return false;
+			} else {
+				logger.debug("Replica server update success!");
+			}
+		} catch (Exception e) {
+			logger.debug("Unable to connect to replica server "+replica.toString());
+			return false;
+		}
+		
 		return true;
 	}
 	

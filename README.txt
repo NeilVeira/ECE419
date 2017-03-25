@@ -23,3 +23,18 @@ saves local changes to a stash and remove them, returns local branch to last com
 
 git stash apply 
 applies the last stashed changes onto current branch
+
+
+
+Using SSH:
+
+ssh-keygen
+Generates the ssh key
+
+ssh-copy-id name@localhost
+Use your account for ssh
+
+ssh-add
+Add current to key
+
+If you get ambiguous output redirect, try deleting .ssh folder in your home folder, then do these commands. Make sure "ssh localhost" works without a password.
