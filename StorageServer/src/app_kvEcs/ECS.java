@@ -438,22 +438,30 @@ public class ECS {
 		// Broadcast metadata first. getSuccessor/getPredecessor works with servers that
 		// are not in the hash ring by the way
 
-		// When we remove a node, the SUCCESSOR is first responsible for data of this node,
-		// then the SUCCESSOR of this node is now responsible for data of the DOUBLE PREDECESSOR
-		// of this node
+		// When we remove a node, the SUCCESSOR of this node is now responsible for data of the DOUBLE PREDECESSOR
+		// of this node. Since we can grab that data from just the FIRST PREDECESSOR, that is enough
+		
+		// Also up to this node's TRIPLE SUCCESSOR, they all are now responsible for some new data
 		Server successor = metadata.getSuccessor(server);
+		Server successor2 = metadata.getSuccessor(successor);
+		Server successor3 = metadata.getSuccessor(successor);
 		Server pred = metadata.getPredecessor(server);
-		Server pred2 = metadata.getPredecessor(pred);
 		try {
-			KVMessage response = sendSingleMessage(server, new KVAdminMessage("removeNode","",successor.toString(),""));
+			KVMessage response = sendSingleMessage(pred, new KVAdminMessage("removeNode","",successor.toString(),""));
 			if (!response.getStatus().equals("SUCCESS")){
-				logger.error("removeNode1: Unable to transfer data from "+ server.toString());
+				logger.error("removeNode1: Unable to transfer data from "+ pred.toString());
 				return false;
 			}
 			
-			response = sendSingleMessage(pred2, new KVAdminMessage("removeNode","",successor.toString(),""));
+			response = sendSingleMessage(successor, new KVAdminMessage("removeNode","",successor2.toString(),""));
 			if (!response.getStatus().equals("SUCCESS")){
-				logger.error("removeNode2: Unable to transfer data from "+ pred2.toString());
+				logger.error("removeNode2: Unable to transfer data from "+ successor.toString());
+				return false;
+			}
+			
+			response = sendSingleMessage(successor2, new KVAdminMessage("removeNode","",successor3.toString(),""));
+			if (!response.getStatus().equals("SUCCESS")){
+				logger.error("removeNode3: Unable to transfer data from "+ successor2.toString());
 				return false;
 			}
 		}

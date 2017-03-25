@@ -31,9 +31,9 @@ public class KVStore implements KVCommInterface {
 	public KVStore(String address, int port) {
 		this.address = address;
 		this.port = port;
-		metadata = new HashRing();
+		this.metadata = new HashRing();
 		//add the given server to the metadata. This will be KVStore's first try when doing a request.
-		metadata.addServer(new Server(address,port));
+		this.metadata.addServer(new Server(address,port));
 	}
 	
 	@Override
@@ -121,7 +121,7 @@ public class KVStore implements KVCommInterface {
 	 * If we are already the responsible server, simply return true
 	 */
 	private boolean connectToResponsible(String key) {
-		Server responsible = metadata.getResponsible(key);
+		Server responsible = this.metadata.getResponsible(key);
 		if (responsible == null) {
 			return false;
 		}
@@ -154,14 +154,15 @@ public class KVStore implements KVCommInterface {
 	 * here we can check if the currently connected server can operate get on the data
 	 */
 	private boolean connectToResponsibleGet(String key) {
-		Server responsible = metadata.getResponsible(key);
+		Server responsible = this.metadata.getResponsible(key);
 		if (responsible == null) {
 			return false;
 		}
 		
 		// Check if we can use GET on the current server
-		if(metadata.canGet(address, port, key)) {
-			if(this.address.equals(responsible.ipAddress) && this.port == responsible.port) {
+		if(this.metadata.canGet(address, port, key)) {
+			//logger.debug(this.metadata.toString());
+			if(!this.address.equals(responsible.ipAddress) || this.port != responsible.port) {
 				logger.debug("Not primarily responsible, but can handle get.");
 			}
 			return true;
@@ -291,7 +292,7 @@ public class KVStore implements KVCommInterface {
 	 * Returns true if successful.
 	 */
 	private boolean connectToAnyServer() {
-		List<Server> allServers = metadata.getAllServers();
+		List<Server> allServers = this.metadata.getAllServers();
 		for (Server server : allServers) {
 			logger.debug("Trying to connect to server "+server.toString());
 			this.address = server.ipAddress;
