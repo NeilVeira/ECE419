@@ -39,21 +39,34 @@ public class KVStore implements KVCommInterface {
 	@Override
 	public boolean connect() 
 		throws UnknownHostException, IOException, ConnectException{
-		try{
-		client = new Client(address, port);
-		} catch (ConnectException e) {
-			System.out.println("Connection refused!");
-			return false;
-		}
-		logger.info("Client trying to connect...");
-		client.addListener(this);
-		//client.start();
-		//wait for "connection successful" response
-		KVMessage response = client.getResponse();
-		if (response.getStatus().equals("CONNECT_SUCCESS")){
-			logger.info("KVStore: received response "+response.getMsg());
-			connected = true;
-			return true;
+		
+		int triesRemaining = 5;
+		while (triesRemaining > 0){
+			//try connecting to this server 
+			try {
+				logger.info("Client trying to connect to " + String.valueOf(port));
+				client = new Client(address, port);
+				client.addListener(this);
+				//wait for "connection successful" response
+				KVMessage response = client.getResponse();
+				if (response.getStatus().equals("CONNECT_SUCCESS")){
+					logger.debug("Client: Connection successful to server "+String.valueOf(port));
+					connected = true;
+					return true;
+				}
+				else{
+					triesRemaining--;
+					if (triesRemaining > 0){
+						logger.debug("Client: Unable to connect to server "+String.valueOf(port)+". Waiting 1 second and trying again.");
+						try {
+							TimeUnit.SECONDS.sleep(1); 		
+						} catch (InterruptedException e){}
+					}
+				}
+			}
+			catch (Exception e){
+				logger.debug(e.getMessage());
+			}
 		}
 		return false;
 	}
@@ -148,6 +161,9 @@ public class KVStore implements KVCommInterface {
 		
 		// Check if we can use GET on the current server
 		if(metadata.canGet(address, port, key)) {
+			if(this.address.equals(responsible.ipAddress) && this.port == responsible.port) {
+				logger.debug("Not primarily responsible, but can handle get.");
+			}
 			return true;
 		}
 		

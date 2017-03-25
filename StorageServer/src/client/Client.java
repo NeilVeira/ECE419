@@ -36,7 +36,7 @@ public class Client {
 
 		clientSocket = new Socket(address, port);
 		// For now set timeout to be large so transfers can go through
-		clientSocket.setSoTimeout(20000);
+		clientSocket.setSoTimeout(30000);
 		listeners = new HashSet<KVCommInterface>();
 		setRunning(true);
 		logger.info("Connection established");
