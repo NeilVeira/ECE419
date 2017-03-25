@@ -19,7 +19,6 @@ import app_kvServer.KVServer.ServerStatus;
 public class ECS {
 	private static Logger logger = Logger.getRootLogger();
 	private File configFile;
-	private ZooKeeper zookeeper;
 	private HashRing metadata;
 	private List<Server> allServers; //array of all servers in the system. This never changes.
 	private List<Process> allProcesses; //array of all processes in the system, one for each server (can be null if server is not running).
@@ -29,6 +28,8 @@ public class ECS {
 	private String metadataFile;
 	private String backupConfigFile;
 	private File m_lockFile;
+	public String replacementStrategy;
+	public int cacheSize;
 	/**
 	 * Creates a new ECS instance with the servers in the given config file. 
 	 */
@@ -69,23 +70,39 @@ public class ECS {
 			allProcesses.add(null);
 		}
 	}
+
+	public void LockMetadata() {
+		// Block read if metadata is locked
+		int tries = 0;
+		while(this.m_lockFile.isFile() && tries++ < 100){
+			try {
+				TimeUnit.SECONDS.sleep(1); 		
+			} catch (InterruptedException e){}
+		}
+		if (tries >= 100) {
+			logger.warn("Failed to acquire metadata lock");
+		}
+		else {
+			// LockMetadata the File by creating the lock file
+			//Ideally these functions should be atomic, but it's unlikely for a race condition
+			//to occur since there are only 2 ecs threads trying to access it
+			CreateLockFile();
+		}
+	}
+	
+	public void UnlockMetadata() {
+		this.m_lockFile.delete();
+	}
   
-	public void CreateLockFile() {
+	private void CreateLockFile() {
 		try {
 			this.m_lockFile.createNewFile();
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
-			e.printStackTrace();
+			//e.printStackTrace();
 		}
 	}
 	
-	public boolean CheckIfLockFileExist() {
-		return this.m_lockFile.isFile();
-	}
-	
-	public void RemoveLockFile() {
-		this.m_lockFile.delete();
-	}
 	public HashRing getMetaData() {
 		readMetadata();
 		return this.metadata;
@@ -180,7 +197,8 @@ public class ECS {
 		}
 
 		logger.info("Initializing service");
-		//String connectString = ""; //comma-separated list of "IP address:port" pairs for zookeeper
+		this.cacheSize = cacheSize;
+		this.replacementStrategy = replacementStrategy;
 
 		//try to read the old metadata from the file
 		try {
@@ -227,9 +245,6 @@ public class ECS {
 				}
 				if (!found){
 					addNode(idx, cacheSize, replacementStrategy);
-					//Server server = allServers.get(idx);
-					//runServer(server, cacheSize, replacementStrategy);
-					//connectString += server.ipAddress+":"+String.valueOf(server.port)+",";
 				}
 			}
 			else{
@@ -265,8 +280,7 @@ public class ECS {
 	public void start() {
 		logger.info("Starting");
 		//Send a start command to all active servers.
-		//TODO: This is not intended to be the final way of doing this. We should use a zookeeper
-		//znode; this is just to get the functionality so we can move on for now.
+		readMetadata();
 		this.status = KVServer.ServerStatus.ACTIVE; 
 		broadcast(new KVAdminMessage("start","","",""), 3);
 	}
@@ -276,8 +290,7 @@ public class ECS {
 	 */
 	public void stop() {
 		logger.info("Stopping");
-		//TODO: This is not intended to be the final way of doing this. We should use a zookeeper
-		//znode; this is just to get the functionality so we can move on for now.
+		readMetadata();
 		this.status = KVServer.ServerStatus.STOPPED;
 		broadcast(new KVAdminMessage("stop","","",""), 3);	
 	}
@@ -299,7 +312,7 @@ public class ECS {
 	 * This is the method which should be used by the ECS client.
 	 */
 	public boolean addRandomNode(int cacheSize, String replacementStrategy) {
-		//TODO
+		readMetadata();
 		logger.info("Adding node "+cacheSize+" "+replacementStrategy);
 
 		//determine which servers are not currently in the metadata
@@ -336,10 +349,6 @@ public class ECS {
 		}
 
 		logger.info("Adding new server "+newServer.toString());
-		/*Scanner reader = new Scanner(System.in);
-		System.out.println("Paused. Enter a number: ");		
-		int n = reader.nextInt();*/
-
 		runServer(newServer, cacheSize, replacementStrategy);
 
 		//We musn't proceed from here unless the new server is online. Try to connect to it 
@@ -426,10 +435,6 @@ public class ECS {
 			}
 		}
 
-		/*reader = new Scanner(System.in);
-		System.out.println("Done addNode. Enter a number: ");		
-		n = reader.nextInt();*/
-
 		writeMetadata();
 		return true;
 	}
@@ -439,6 +444,8 @@ public class ECS {
 	 * to the initial configuration file. 
 	 */
 	public boolean removeNode(int index) {
+		readMetadata();
+		
 		logger.info("Removing node "+index);
 		//validity checking
 		if (index < 0 || index >= totalNumNodes){
@@ -491,7 +498,7 @@ public class ECS {
 		}
 
 		killServer(index);
-
+		writeMetadata();
 		return true;
 	}
 
@@ -505,15 +512,14 @@ public class ECS {
 	private ArrayList<Client> getActiveServers(int numTries) {
 		List<Server> activeServers = metadata.getAllServers();
 		ArrayList<Client> clients = new ArrayList<Client>();
-		boolean success=false;
 
 		for (int i = 0; i < activeServers.size(); ++i) {
 			Server server = activeServers.get(i);
 
+			boolean success=false;
 			int triesRemaining = numTries;
-			while (triesRemaining > 0){
+			while (triesRemaining-- > 0){
 				//try connecting to this server 
-				success = false;
 				try {
 					logger.debug("Trying to connect to server "+server.toString());
 					Client client = new Client(server.ipAddress, server.port);
@@ -522,9 +528,7 @@ public class ECS {
 					if (response != null){
 						success = true;
 						clients.add(client);
-					}
-					else{
-						success = false;
+						break;
 					}
 				}
 				catch (Exception e){
@@ -533,7 +537,6 @@ public class ECS {
 				}
 
 				if (!success) {
-					triesRemaining--;
 					if (triesRemaining > 0){
 						logger.debug("getActiveServers: Unable to connect to server "+server.toString()+". Waiting 1 second and trying again.");
 						try {
@@ -549,7 +552,6 @@ public class ECS {
 
 			//connected successfully or tried unsuccessfully numTries times
 			if (!success) {
-				triesRemaining--;
 				metadata.removeServer(server);
 				logger.error("Unable to connect to server "+server.toString()+" after "+numTries+" attempts.");
 			}
@@ -609,7 +611,6 @@ public class ECS {
 
 
 	private void killServer(int id) {		
-
 		Process p = allProcesses.get(id);
 		Server server = allServers.get(id);
 		logger.info("Killing server "+server.ipAddress+" "+server.port);
@@ -673,52 +674,47 @@ public class ECS {
 	 * Write metadata to metadata file.
 	 */
 	public boolean writeMetadata() {
-		// Block read if metadata is locked
-		while(CheckIfLockFileExist()){}
-		// Lock the File by creating the lock file
-		CreateLockFile();
+		LockMetadata();
 		try {
 			PrintWriter writer = new PrintWriter(metadataFile, "UTF-8");
 			writer.println(metadata.toString());
 			writer.close();
-			// Release Lock
-			RemoveLockFile();
+			// Release LockMetadata
+			UnlockMetadata();
 			return true;
 		}
 		catch (Exception e) {
 			logger.warn("Could not write metadata to file");
-			// Release Lock if exception
-			RemoveLockFile();
+			// Release LockMetadata if exception
+			UnlockMetadata();
 			return false;
 		}
 	}
 
 	/**
-	 * Write metadata to metadata file.
+	 * Read metadata from the metadata file and store it in this.metadata
 	 */
 	public String readMetadata() {
-		// Block read if metadata is locked
-		while(CheckIfLockFileExist()){}
-		// Lock the File by creating the lock file
-		CreateLockFile();
+		LockMetadata();
 		try {
 			BufferedReader FileReader = new BufferedReader(new FileReader(metadataFile));
 			String data = FileReader.readLine();
 			metadata = new HashRing(data);
 			FileReader.close();
-			// Release Lock
-			RemoveLockFile();
+			// Release LockMetadata
+			UnlockMetadata();
 			return metadata.toString();
 		}
 		catch (Exception e) {
 			logger.warn("Could not read metadata from file");
-			// Release Lock if exception
-			RemoveLockFile();
+			// Release lock if exception
+			UnlockMetadata();
 			return null;
 		}
 	}
 
 	public void printState() {
+		readMetadata();
 		System.out.println("\nStorage service current state");
 		System.out.println("==========================================");
 		System.out.println("Status: "+(status==ServerStatus.STOPPED ? "STOPPED" : "ACTIVE"));

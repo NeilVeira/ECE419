@@ -15,11 +15,13 @@ public class ECSClient {
 	private BufferedReader stdin;
 	private boolean stopECSClient;
 	private ECS ecs;
+	private ECSFailureDetect failureDetector; 
 	
 	ECSClient(String configFile){
 		stopECSClient = true;
 		try {
 			this.ecs = new ECS(configFile);
+			this.failureDetector = new ECSFailureDetect(configFile);
 			stopECSClient = false;
 		}
 		catch (IOException e){
@@ -113,6 +115,7 @@ public class ECSClient {
 		case "shutDown":
 			stopECSClient = true;
 			ecs.shutDown();
+			failureDetector.stopFailureDetect();
 			break;
 		case "help":
 			printHelp();
