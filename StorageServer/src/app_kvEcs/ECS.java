@@ -28,7 +28,7 @@ public class ECS {
 	private KVServer.ServerStatus status;
 	private String metadataFile;
 	private String backupConfigFile;
-
+	private File m_lockFile;
 	/**
 	 * Creates a new ECS instance with the servers in the given config file. 
 	 */
@@ -42,6 +42,7 @@ public class ECS {
 		status = KVServer.ServerStatus.STOPPED;
 		metadataFile = "ecs_metadata.txt";
 		backupConfigFile = "ecs_config_backup.txt";
+		this.m_lockFile = new File("ECSMetadataLock.txt");
 		this.metadata = new HashRing();
 
 		try{
@@ -68,13 +69,31 @@ public class ECS {
 			allProcesses.add(null);
 		}
 	}
-
+  
+	public void CreateLockFile() {
+		try {
+			this.m_lockFile.createNewFile();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	
+	public boolean CheckIfLockFileExist() {
+		return this.m_lockFile.isFile();
+	}
+	
+	public void RemoveLockFile() {
+		this.m_lockFile.delete();
+	}
 	public HashRing getMetaData() {
+		readMetadata();
 		return this.metadata;
 	}
 
 	public void clearMetaData() {
 		this.metadata.ClearHashRing();
+		writeMetadata();
 	}
 
 	public List<Server> getAllServers() {
@@ -654,18 +673,50 @@ public class ECS {
 	 * Write metadata to metadata file.
 	 */
 	public boolean writeMetadata() {
+		// Block read if metadata is locked
+		while(CheckIfLockFileExist()){}
+		// Lock the File by creating the lock file
+		CreateLockFile();
 		try {
 			PrintWriter writer = new PrintWriter(metadataFile, "UTF-8");
 			writer.println(metadata.toString());
 			writer.close();
+			// Release Lock
+			RemoveLockFile();
 			return true;
 		}
 		catch (Exception e) {
 			logger.warn("Could not write metadata to file");
+			// Release Lock if exception
+			RemoveLockFile();
 			return false;
 		}
 	}
 
+	/**
+	 * Write metadata to metadata file.
+	 */
+	public String readMetadata() {
+		// Block read if metadata is locked
+		while(CheckIfLockFileExist()){}
+		// Lock the File by creating the lock file
+		CreateLockFile();
+		try {
+			BufferedReader FileReader = new BufferedReader(new FileReader(metadataFile));
+			String data = FileReader.readLine();
+			metadata = new HashRing(data);
+			FileReader.close();
+			// Release Lock
+			RemoveLockFile();
+			return metadata.toString();
+		}
+		catch (Exception e) {
+			logger.warn("Could not read metadata from file");
+			// Release Lock if exception
+			RemoveLockFile();
+			return null;
+		}
+	}
 
 	public void printState() {
 		System.out.println("\nStorage service current state");
