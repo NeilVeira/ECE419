@@ -35,7 +35,8 @@ public class Client {
 			throws UnknownHostException, IOException, ConnectException{
 
 		clientSocket = new Socket(address, port);
-		clientSocket.setSoTimeout(2000);
+		// For now set timeout to be large so transfers can go through
+		clientSocket.setSoTimeout(30000);
 		listeners = new HashSet<KVCommInterface>();
 		setRunning(true);
 		logger.info("Connection established");

@@ -10,25 +10,18 @@ import common.HashRing;
 import common.messages.KVAdminMessage;
 import common.messages.KVMessage;
 import common.messages.KVMessage.StatusType;
+
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 
 public class InteractionTest extends TestCase {
 
 	private KVStore kvClient;
-	private KVServer base;
+	private List<KVServer> servers;
 	
 	public void setUp() {
-		base = new KVServer(50000, 10, "LRU", 0);
-		HashRing metadata = new HashRing("-134847710425560069445028245650825152028 localhost 50000 0");
-		base.handleMetadata(new KVAdminMessage("metadata","METADATA_UPDATE","",metadata.toString()));
-		while(base.getStatus() != "ACTIVE") base.startServer();
-		try {
-			Thread.sleep(100);
-		} catch (Exception e) {
-			
-		}
-		
+		servers = AllTests.createAndStartServers(1, 50000);		
 		kvClient = new KVStore("localhost", 50000);
 		try {
 			kvClient.connect();
@@ -38,7 +31,8 @@ public class InteractionTest extends TestCase {
 
 	public void tearDown() {
 		kvClient.disconnect();
-		//base.closeServer();
+		AllTests.closeServers(servers);
+		AllTests.deleteLocalStorageFiles();	
 	}
 	
 	// Tests the put function

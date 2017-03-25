@@ -10,11 +10,21 @@ import app_kvClient.KVClient;
 import app_kvServer.KVServer;
 
 import client.KVStore;
-
+import java.util.*;
 import junit.framework.TestCase;
 
 
 public class ConnectionTest extends TestCase {
+	private List<KVServer> servers;
+	
+	public void setUp() {
+		servers = AllTests.createAndStartServers(1, 50000);
+	}
+	
+	public void tearDown() {
+		AllTests.closeServers(servers);
+		AllTests.deleteLocalStorageFiles();		
+	}
 	
 	// Tests if successful connection can occur
 	public void testConnectionSuccess() {
@@ -22,7 +32,8 @@ public class ConnectionTest extends TestCase {
 		
 		KVStore kvClient = new KVStore("localhost", 50000);
 		try {
-			kvClient.connect();
+			boolean success = kvClient.connect();
+			assertTrue(success);
 		} catch (Exception e) {
 			ex = e;
 		}	
@@ -37,7 +48,8 @@ public class ConnectionTest extends TestCase {
 			
 			kvstores[i]= new KVStore("localhost", 50000);
 			try {
-				kvstores[i].connect();
+				boolean success = kvstores[i].connect();
+				assertTrue(success);
 			} catch (Exception e) {
 				ex = e;
 			}	
@@ -61,7 +73,8 @@ public class ConnectionTest extends TestCase {
 		KVStore kvClient = new KVStore("unknown", 50000);
 		
 		try {
-			kvClient.connect();
+			boolean success = kvClient.connect();
+			assertTrue(success);
 		} catch (Exception e) {
 			ex = e; 
 		}
@@ -75,7 +88,8 @@ public class ConnectionTest extends TestCase {
 		KVStore kvClient = new KVStore("localhost", 123456789);
 		
 		try {
-			kvClient.connect();
+			boolean success = kvClient.connect();
+			assertFalse(success);
 		} catch (Exception e) {
 			ex = e; 
 		}
@@ -89,7 +103,8 @@ public class ConnectionTest extends TestCase {
 		KVStore kvClient = new KVStore("localhost", -1);
 		
 		try {
-			kvClient.connect();
+			boolean success = kvClient.connect();
+			assertFalse(success);
 		} catch (Exception e) {
 			ex = e; 
 		}
