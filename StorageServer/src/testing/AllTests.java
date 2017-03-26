@@ -34,10 +34,11 @@ public class AllTests {
 		clientSuite.addTestSuite(TestHashRing.class);
 		clientSuite.addTestSuite(ConnectionTest.class);
 		clientSuite.addTestSuite(InteractionTest.class); 
+		clientSuite.addTestSuite(IntegrationTest.class);
 		clientSuite.addTestSuite(KVStoreTest.class); 
 		clientSuite.addTestSuite(AdditionalTest.class); 
-		//clientSuite.addTestSuite(ReplicaTest.class); 
 		//clientSuite.addTestSuite(EnronTest.class); 
+		//clientSuite.addTestSuite(PerformanceTest.class); 
 		return clientSuite;
 	}
 	

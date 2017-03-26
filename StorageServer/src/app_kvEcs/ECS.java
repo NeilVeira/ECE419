@@ -752,10 +752,19 @@ public class ECS {
 	 */
 	public String readMetadata() throws IOException{
 		LockMetadata();
-		BufferedReader FileReader = new BufferedReader(new FileReader(metadataFile));
+		
+		BufferedReader FileReader;
+		
 		try {
-			String data = FileReader.readLine();
-			metadata = new HashRing(data);
+			File metadataTest = new File(this.metadataFile);
+			if (metadataTest.isFile()) {
+				FileReader = new BufferedReader(new FileReader(metadataFile));
+				String data = FileReader.readLine();
+				FileReader.close();
+				metadata = new HashRing(data);
+			} else {
+				metadata = new HashRing();
+			}
 			// Release LockMetadata
 			UnlockMetadata();
 		}
@@ -763,10 +772,9 @@ public class ECS {
 			logger.warn("Could not read metadata from file");
 			// Release lock if exception
 			UnlockMetadata();
-			FileReader.close();
+			//FileReader.close();
 			return null;
 		}
-		FileReader.close();
 		return metadata.toString();
 	}
 

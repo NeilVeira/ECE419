@@ -59,6 +59,7 @@ public class IntegrationTest extends TestCase {
 	public void setUp() {
 		try {
 			// Start ECS by creating an ECS instance and manually running its functions rather than using the ECS client
+			System.out.println("Setting Up");
 			testECSInstance = new app_kvEcs.ECS("ecstest.config");
 			allServers = testECSInstance.getAllServers();
 			testECSInstance.clearMetaData();
@@ -265,6 +266,7 @@ public class IntegrationTest extends TestCase {
 	}
 	
 	 //Tests that all servers reply SERVER_STOPPED to put and get requests when the ECS is initialized
+	@Test
 	public void testServerStopped() {
 		System.out.println("Starting testServerStopped");
 		Exception ex = null;
@@ -293,6 +295,7 @@ public class IntegrationTest extends TestCase {
 	}
 	
 	// Tests that the ECS can start and stop servers and that they only reply "SERVER_STOPPED" when stopped
+	@Test
 	public void testStartAndStopServers() {
 		System.out.println("Starting testStartAndStopServers");
 		Exception ex = null;
@@ -330,6 +333,7 @@ public class IntegrationTest extends TestCase {
 	}
 	
 	// tests that removeNode correctly shuts down the server 
+	@Test
 	public void testRemoveNode() {
 		System.out.println("Starting testRemoveNode");
 		Exception ex = null;
@@ -361,6 +365,7 @@ public class IntegrationTest extends TestCase {
 		assertNull(ex);
 	}
 	
+	@Test
 	public void testAddNode() {
 		System.out.println("Starting testAddNode");
 		Exception ex = null;
@@ -386,6 +391,7 @@ public class IntegrationTest extends TestCase {
 	
 	//Tests that ECS starts a multi-server system and that the client can do gets and puts
 	//This is a simple case where the same client does the get & put
+	@Test
 	public void testPutAndGetMultipleServersSimple() {
 		System.out.println("Starting testPutAndGetMultipleServersSimple");
 		Exception ex = null;
@@ -429,7 +435,7 @@ public class IntegrationTest extends TestCase {
 	}
 	
 	//tests that client receives a "SERVER_NOT_RESPONSIBLE" message when doing a put to the wrong server
-	
+	@Test
 	public void testPutNotResponsible() {
 		System.out.println("Starting testPutNotResponsible");
 		Exception ex = null;
@@ -485,6 +491,7 @@ public class IntegrationTest extends TestCase {
 	
 	//tests that the KVStore can handle SERVER_NOT_RESONSIBLE messages and still connect to the
 	//correct server and do the requests correctly.
+	@Test
 	public void testNotResponsibleWithKVStore() {
 		System.out.println("Starting testNotResponsibleWithKVStore");
 		Exception ex = null;
@@ -544,6 +551,7 @@ public class IntegrationTest extends TestCase {
 	
 	// Tests that client 1 can put a value and then client 2, which is initially connected
 	// to a different server, can read it
+	@Test
 	public void testPutAndGetMultipleClients() {
 		System.out.println("Starting testPutAndGetMultipleClients");
 		Exception ex = null;
@@ -598,6 +606,7 @@ public class IntegrationTest extends TestCase {
 	
 	//This tests that when the node which the client is currently connected to is removed,
 	//the client is able to connect to a different node and still do the request
+	@Test
 	public void testNodesRemovedFromClient() {
 		System.out.println("Starting testNodesRemovedFromClient");
 		Exception ex = null;
@@ -643,6 +652,7 @@ public class IntegrationTest extends TestCase {
 	}
 	
 	//Tests that the data is redistributed correctly when servers are added and removed
+	@Test
 	public void testAddAndRemoveTransfersData() {
 		System.out.println("Starting TestAddAndRemoveTransfersData");
 		Exception ex = null;
@@ -701,6 +711,7 @@ public class IntegrationTest extends TestCase {
 	
 	//tests that when ECS is shutdown and then restarted with a different set of servers,
 	//all data is maintained
+	@Test
 	public void testECSPersistency() {
 		System.out.println("Starting testECSPersistency");
 		Exception ex = null;
