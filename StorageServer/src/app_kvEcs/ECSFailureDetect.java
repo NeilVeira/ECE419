@@ -100,17 +100,19 @@ public class ECSFailureDetect extends Thread {
 	 * Tries to reconstruct the service after failedServers servers have failed by transferring 
 	 * the data around to maintain the replication invariant defined in milestone 3.
 	 */
-	public void restoreService(List<Server> failedServers) {
+	public boolean restoreService(List<Server> failedServers) {
+		boolean success = true;
 		for (Server server : failedServers) {
 			System.out.println("Server "+server+" appears to have crashed");
 			//This server seems to have failed. Handle it by calling ecs.removeNode
 			//Note that ecs.removeNode does not need the server to be alive to operate. It
 			//just moves around the data to account for the loss. 
-			m_ecs.removeNode(server.id);	
+			success = success && m_ecs.removeNodeReconstruct(server);	
 			//replace the dead server
-			m_ecs.addRandomNode(ECS.cacheSize, ECS.replacementStrategy);
+			success = success && m_ecs.addRandomNode(ECS.cacheSize, ECS.replacementStrategy);
 			//Note: removeNode and addNode will update everyone's metadata			
 		}
+		return success;
 	}
 
 }

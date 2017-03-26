@@ -1,13 +1,15 @@
 /***
  * These tests test the functionality of the ECS, KVServer, and KVStore classes as they 
- * interact together. They are long running tests because they require initializing and 
- * shutting down the ECS, which takes a long time due to ssh. 
+ * interact together. They are long running tests and are run separately because they involve 
+ * initializing and shutting down the ECS and lots of killing and launching of servers which 
+ * takes a long time due to ssh. 
  */
 
 package testing;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.net.ConnectException;
 import java.io.*;
 import java.util.LinkedList;
 import java.util.List;
@@ -44,6 +46,7 @@ import logger.LogSetup;
 public class IntegrationTest extends TestCase {
 	private ECS testECSInstance;
 	private List<Server> allServers;
+	private ECSFailureDetect testFailureDetect;
 	
 	static {
 		try {
@@ -60,6 +63,7 @@ public class IntegrationTest extends TestCase {
 			allServers = testECSInstance.getAllServers();
 			testECSInstance.clearMetaData();
 			testECSInstance.writeMetadata();
+			testFailureDetect = new ECSFailureDetect("ecstest.config");
 		} catch (FileNotFoundException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -72,6 +76,12 @@ public class IntegrationTest extends TestCase {
 		}
 	}
 	
+	/***
+	 * Resets the entire system to a blank state by
+	 *      Shutting down the ECS and making sure all servers have died
+	 * 		Clearing the ECS metadata file
+	 * 		Deleting all servers' storage files
+	 */
 	public void tearDown() {
 		// Reset the metaData and overWrite
 		System.out.println("Cleaning Up");
@@ -142,6 +152,21 @@ public class IntegrationTest extends TestCase {
 			Runtime.getRuntime().exec(killCmd);
 		} catch (IOException e) {
 			System.out.println(e.getMessage()); 
+		}
+	}
+	
+	/**
+	 * Does a put(x,x) operation for all x in the range low..high-1
+	 * @param server: A server to connect to
+	 */
+	public void populateStorage(Server server, int low, int high) 
+		throws ConnectException, IOException, Exception {
+		System.out.println("Putting data");
+		KVStore kvstore = new KVStore(server.ipAddress, server.port);
+		kvstore.connect();
+		for (int i=low; i<high; i++){
+			KVMessage response = kvstore.put(String.valueOf(i),  String.valueOf(i));
+			assertTrue(response.getStatus().equals("PUT_UPDATE") || response.getStatus().equals("PUT_SUCCESS"));
 		}
 	}
 	
@@ -640,16 +665,7 @@ public class IntegrationTest extends TestCase {
 			
 			//connect to the first server
 			Server server = servers.get(0);
-			System.out.println("Connect to server "+server.toString());
-			KVStore kvstore = new KVStore(server.ipAddress, server.port);
-			kvstore.connect();						
-			//do request
-			KVMessage response;
-			for (int i=0; i<10; i++) {
-				System.out.println("Client doing put "+i);
-				response = kvstore.put(String.valueOf(i),String.valueOf(i));
-				assertTrue(response.getStatus().equals("PUT_UPDATE") || response.getStatus().equals("PUT_SUCCESS") );
-			}
+			populateStorage(server,0,10);
 			
 			System.out.println("Adding and removing nodes to redistribute the data");
 			testECSInstance.addNode(4,  100, "FIFO");
@@ -666,9 +682,10 @@ public class IntegrationTest extends TestCase {
 			testECSInstance.start();
 			
 			//make sure kvstore still reads it
+			KVStore kvstore = new KVStore(server.ipAddress, server.port);
 			for (int i=0; i<10; i++) {
 				System.out.println("Client doing read "+i);
-				response = kvstore.get(String.valueOf(i));
+				KVMessage response = kvstore.get(String.valueOf(i));
 				assertEquals("GET_SUCCESS",response.getStatus());
 				assertEquals(String.valueOf(i),response.getValue());
 			}
@@ -759,7 +776,6 @@ public class IntegrationTest extends TestCase {
 	
 	//TODO:
 	//test failure detector restores data after failure
-	//test failure detector starts new server after failure
 	//test multiple servers failing
 	//test multiple consecutive servers failing (transferring data more complicated)
 	
@@ -774,13 +790,8 @@ public class IntegrationTest extends TestCase {
 			testECSInstance.start();
 			HashRing metadata = testECSInstance.getMetaData();
 			List<Server> servers = metadata.getAllServers();
-			KVStore kvstore = new KVStore(servers.get(0).ipAddress, servers.get(0).port);
-			kvstore.connect();
 			
-			//Put some data
-			for (int i=20; i<40; i++){
-				kvstore.put(String.valueOf(i),  String.valueOf(i));
-			}
+			populateStorage(servers.get(0), 20, 40);
 			
 			//Since we initialized with all but one server, this will always add the last one
 			System.out.println("Adding node");
@@ -827,13 +838,8 @@ public class IntegrationTest extends TestCase {
 			testECSInstance.start();
 			HashRing metadata = testECSInstance.getMetaData();
 			List<Server> servers = metadata.getAllServers();
-			KVStore kvstore = new KVStore(servers.get(0).ipAddress, servers.get(0).port);
-			kvstore.connect();
 			
-			//Put some data
-			for (int i=40; i<60; i++){
-				kvstore.put(String.valueOf(i),  String.valueOf(i));
-			}
+			populateStorage(servers.get(0), 40, 60);
 			
 			System.out.println("Removing node");
 			testECSInstance.removeNode(servers.get(1).id);
@@ -880,7 +886,6 @@ public class IntegrationTest extends TestCase {
 			HashRing metadata = testECSInstance.getMetaData();
 			List<Server> servers = metadata.getAllServers();	
 			assertEquals(8, servers.size());
-			ECSFailureDetect testFailureDetect = new ECSFailureDetect("ecstest.config");
 			
 			//kill some servers
 			System.out.println("Killing servers");
@@ -907,6 +912,53 @@ public class IntegrationTest extends TestCase {
 				assertTrue(failedServers.contains(server));
 			}
 			
+		}
+		catch (Exception e){
+			ex = e;
+			System.out.println("Error: "+e.getMessage());
+			e.printStackTrace();
+		}
+		assertNull(ex);
+	}
+	
+	public void testFailureDetectorStartsNewServer() {
+		System.out.println("Starting testFailureDetect");
+		Exception ex = null;
+		try {
+			System.out.println("Initializing ECS");
+			testECSInstance.initService(8, 10, "FIFO");
+			testECSInstance.start();
+			HashRing metadata = testECSInstance.getMetaData();
+			List<Server> servers = metadata.getAllServers();	
+			assertEquals(8, servers.size());
+			
+			
+			//kill some servers
+			System.out.println("Killing servers");
+			List<Server> killedServers = new ArrayList<Server>();
+			killedServers.add(servers.get(4));
+			killedServers.add(servers.get(6));
+			for (Server server : killedServers) {
+				killServer(server);
+			}
+			//make sure servers have died before continuing (takes some time)
+			for (Server server : killedServers) {
+				while (!serverShutDown(server, 5)) {
+					killServer(server);
+				}
+			}
+			
+			System.out.println("Restoring failed servers");
+			boolean success = testFailureDetect.restoreService(killedServers);
+			assertTrue(success);
+			
+			//Make sure that we can connect to the new servers. Although in general it's
+			//not guaranteed that the particular servers which failed will be restored 
+			//(any random node is chosen), in this case they will because those are the only
+			//other servers in the system. 
+			for (Server server : killedServers) {
+				assertTrue(canConnect(server));
+			}
 		}
 		catch (Exception e){
 			ex = e;
