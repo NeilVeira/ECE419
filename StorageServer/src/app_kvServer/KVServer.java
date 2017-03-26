@@ -24,6 +24,7 @@ import java.net.Socket;
  void putAll(Map m): Copies all the elements of a map to the another specified map.
  */
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.lang.*;
 import java.math.BigInteger;
 import java.io.*;
@@ -418,7 +419,7 @@ public class KVServer extends Thread {
 	public KVMessage handleLogLevel(KVMessage msg) {
 		System.out.println("Handling Log Level");
 		logger.info("Handling Log Level");
-		String Key = msg.getKey();
+		//String Key = msg.getKey();
 		String Value = msg.getValue();
 		// Set the new log level
 		logger.setLevel(Level.toLevel(Value));
@@ -455,12 +456,12 @@ public class KVServer extends Thread {
 		String Value = msg.getValue();
 		
 		//check if this server is responsible for this key
-		Server responsible = metadata.getResponsible(Key);
+		//Server responsible = metadata.getResponsible(Key);
 		if (!metadata.canGet(this.id, Key)){
 			return new KVAdminMessage("get","SERVER_NOT_RESPONSIBLE",msg.getKey(),metadata.toString());
 		}
 		
-		KVMessage returnMsg = null;
+		KVMessage returnMsg = new KVAdminMessage("get", "NOT_PROCESSED", Key, Value);
 		boolean success = false;
 		// First check whether the Key Value pair get wants is in the cache
 		boolean keyExists = this.m_cacheValueMap.containsKey(Key);
@@ -564,7 +565,7 @@ public class KVServer extends Thread {
 	 * Do the actual put operation on (Key, Value) pair
 	 */
 	private KVMessage doPut(String Key, String Value) {
-		KVMessage returnMsg = null;
+		KVMessage returnMsg = new KVAdminMessage("put", "NOT_PROCESSED", Key, Value);
 		// first load the hard disk file into our map
 		boolean success = this.repopulateHardDiskMap();
 		if (!success) {
@@ -698,11 +699,44 @@ public class KVServer extends Thread {
 			return true;
 		}
 		
+		KVMessage response;
+		
 		logger.info("Transferring data to server "+server.toString());
 		try {
 			//connect to server as a client
 			Client client = new Client(server.ipAddress, server.port);
-			KVMessage response = client.getResponse();
+			int triesRemaining = 5;
+			boolean success = false;
+			while (triesRemaining-- > 0){
+				//try connecting to this server 
+				try {
+					logger.info("Transfer data trying to connect to " + String.valueOf(server.port));
+					//wait for "connection successful" response
+					response = client.getResponse();
+					if (response.getStatus().equals("CONNECT_SUCCESS")){
+						logger.debug("Client: Connection successful to server "+String.valueOf(server.port));
+						success = true;
+						break;
+					} else {
+						if (triesRemaining > 0){
+							logger.debug("Client: Unable to connect to server "+String.valueOf(server.port)+". Waiting 1 second and trying again.");
+							try {
+								TimeUnit.SECONDS.sleep(1); 		
+							} catch (InterruptedException e){}
+							client = new Client(server.ipAddress, server.port);
+						} else {
+							break;
+						}
+					}
+				}
+				catch (Exception e){
+					logger.debug(e.getMessage());			
+				}
+			}	
+			if(!success) {
+				logger.error("Unable to connect to server port " + String.valueOf(server.port) + " for data transfer!");
+				return false;
+			}
 			
 			//for every (key,value) pair, check whether the responsible server is the given server
 			ArrayList<String> movedKeys = new ArrayList<String>();
@@ -720,7 +754,10 @@ public class KVServer extends Thread {
 					KVMessage request = new KVAdminMessage("admin_put","",key,value);
 					client.sendMessage(request);
 					response = client.getResponse();
-					logger.debug("Response status: "+response.getStatus());
+					if(!"PUT_SUCCESS PUT_UPDATE".contains(response.getStatus())) {
+						logger.error("Erroneous response from updating server " + String.valueOf(server.port)+ ", message received: " + response.toString());
+						return false;
+					}
 				}
 			}
 			
@@ -889,6 +926,7 @@ public class KVServer extends Thread {
 					evictSuccess = false;
 				}
 				if (!evictSuccess) {
+					logger.error("Server: evict not successful!");
 					return false;
 				}
 				this.addToCache(key,value);

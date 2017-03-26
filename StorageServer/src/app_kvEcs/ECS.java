@@ -22,7 +22,6 @@ public class ECS {
 	private HashRing metadata;
 	private List<Server> allServers; //array of all servers in the system. This never changes.
 	private List<Process> allProcesses; //array of all processes in the system, one for each server (can be null if server is not running).
-	private String launchScript = "launch_server.sh";
 	private int totalNumNodes;
 	private KVServer.ServerStatus status;
 	private String metadataFile;
@@ -48,9 +47,9 @@ public class ECS {
 		this.m_lockFile = new File("ECSMetadataLock.txt");
 		this.metadata = new HashRing();
 
+		BufferedReader FileReader = new BufferedReader(new FileReader(this.configFile));
 		try{
 			String currentLine;
-			BufferedReader FileReader = new BufferedReader(new FileReader(this.configFile));
 			while ((currentLine = FileReader.readLine()) != null) {
 				// Config file in format of "server_name server_address port"
 				// Each line is a server
@@ -66,6 +65,7 @@ public class ECS {
 		catch (NumberFormatException e) {
 			logger.error("Error! All ports in config file must be integers");
 		}
+		FileReader.close();
 
 		for (int i=0; i < totalNumNodes; i++) {
 			// Add an empty process for each node
@@ -106,7 +106,11 @@ public class ECS {
 	}
 	
 	public HashRing getMetaData() {
-		readMetadata();
+		try {
+			readMetadata();
+		} catch (IOException e) {
+			logger.error("Metadata reading error: " + e.toString());
+		}
 		return this.metadata;
 	}
 
@@ -124,12 +128,12 @@ public class ECS {
 	 * If that configuration is different from the current one, deletes the metadata file
 	 * so that the system will restart from scratch.
 	 */
-	private void checkConfig() {
+	private void checkConfig() throws IOException{
 		boolean changed = false;
+		BufferedReader FileReader = new BufferedReader(new FileReader(backupConfigFile));
 		try {
 			//open file and parse it
 			String currentLine;
-			BufferedReader FileReader = new BufferedReader(new FileReader(backupConfigFile));
 			List<Server> backupServers = new ArrayList<Server>();
 			int id=0;
 			while ((currentLine = FileReader.readLine()) != null) {
@@ -152,12 +156,11 @@ public class ECS {
 					}
 				}
 			}
-
-
 		} catch (Exception e){
 			logger.warn("Could not read backup config file. Starting from fresh state.");
 			changed = true;
 		}
+		FileReader.close();
 
 		if (changed) {
 			File file = new File(metadataFile);
@@ -273,7 +276,11 @@ public class ECS {
 	public void start() {
 		logger.info("Starting");
 		//Send a start command to all active servers.
-		readMetadata();
+		try {
+			readMetadata();
+		} catch (IOException e) {
+			logger.error("Metadata reading error: " + e.toString());
+		}
 		this.status = KVServer.ServerStatus.ACTIVE; 
 		broadcast(new KVAdminMessage("start","","",""), 3);
 	}
@@ -283,7 +290,11 @@ public class ECS {
 	 */
 	public void stop() {
 		logger.info("Stopping");
-		readMetadata();
+		try {
+			readMetadata();
+		} catch (IOException e) {
+			logger.error("Metadata reading error: " + e.toString());
+		}
 		this.status = KVServer.ServerStatus.STOPPED;
 		broadcast(new KVAdminMessage("stop","","",""), 3);	
 	}
@@ -305,7 +316,11 @@ public class ECS {
 	 * This is the method which should be used by the ECS client.
 	 */
 	public boolean addRandomNode(int cacheSize, String replacementStrategy) {
-		readMetadata();
+		try {
+			readMetadata();
+		} catch (IOException e) {
+			logger.error("Metadata reading error: " + e.toString());
+		}
 		logger.info("Adding node "+cacheSize+" "+replacementStrategy);
 
 		//determine which servers are not currently in the metadata
@@ -353,7 +368,10 @@ public class ECS {
 		for (int tries=0; tries<numTries && !success; tries++){
 			try {
 				Client client = new Client(newServer.ipAddress, newServer.port);
-				success = true;
+				if(client.getResponse().getStatus().equals("CONNECT_SUCCESS")) {
+					// Only success on correct status message
+					success = true;
+				}
 			}
 			catch (IOException e) {
 				logger.debug("addNode: Unable to connect to server "+newServer.toString()+". Waiting 1 second and trying again.");
@@ -443,6 +461,7 @@ public class ECS {
 	 * Remove the node with the given index. This index if defined according
 	 * to the initial configuration file. 
 	 */
+
 	public boolean removeNode(int index) {	
 		//validity checking
 		if (index < 0 || index >= totalNumNodes){
@@ -467,7 +486,11 @@ public class ECS {
 	 * invariant.
 	 */
 	public boolean removeNodeReconstruct(Server server) {
-		readMetadata();	
+		try {
+			readMetadata();
+		} catch (IOException e) {
+			logger.error("Metadata reading error: " + e.toString());
+		}
 		logger.info("Removing node "+server.toString());
 		
 		//update metadata
@@ -666,17 +689,19 @@ public class ECS {
 	 */
 	private KVMessage sendSingleMessage(Server server, KVMessage message) throws IOException {
 		int triesRemaining = 5;
-		boolean success;
 		Client client;
 		while (triesRemaining-- > 0){
 			//try connecting to this server 
-			success = false;
 			try {
 				logger.debug("SSM: Trying to connect to server "+server.toString());
-				client = new Client(server.ipAddress, server.port);
+				if(message.getHeader().equals("addNode") || message.getHeader().equals("removeNode")) {
+					// These two commands need larger timeout
+					client = new Client(server.ipAddress, server.port, 30000);
+				}
+				else client = new Client(server.ipAddress, server.port);
 				//wait for "connection successful" response
 				KVMessage response = client.getResponse();
-				if (response != null){
+				if (response.getStatus().equals("CONNECT_SUCCESS")){
 					logger.info("SSM: Connection successful to server "+server.toString());
 					//send message
 					client.sendMessage(message);
@@ -696,7 +721,6 @@ public class ECS {
 			}
 			catch (Exception e){
 				logger.debug(e.getMessage());
-				success = false;
 			}
 		}
 		return null;
@@ -726,27 +750,33 @@ public class ECS {
 	/**
 	 * Read metadata from the metadata file and store it in this.metadata
 	 */
-	public String readMetadata() {
+	public String readMetadata() throws IOException{
 		LockMetadata();
+		BufferedReader FileReader = new BufferedReader(new FileReader(metadataFile));
 		try {
-			BufferedReader FileReader = new BufferedReader(new FileReader(metadataFile));
 			String data = FileReader.readLine();
 			metadata = new HashRing(data);
-			FileReader.close();
 			// Release LockMetadata
 			UnlockMetadata();
-			return metadata.toString();
 		}
 		catch (Exception e) {
 			logger.warn("Could not read metadata from file");
 			// Release lock if exception
 			UnlockMetadata();
+			FileReader.close();
 			return null;
 		}
+		FileReader.close();
+		return metadata.toString();
 	}
 
 	public void printState() {
-		readMetadata();
+		try {
+			readMetadata();
+		} catch (IOException e) {
+			logger.error("Metadata reading error: " + e.toString());
+		}
+		
 		System.out.println("\nStorage service current state");
 		System.out.println("==========================================");
 		System.out.println("Status: "+(status==ServerStatus.STOPPED ? "STOPPED" : "ACTIVE"));

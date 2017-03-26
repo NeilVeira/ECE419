@@ -33,9 +33,10 @@ public class AllTests {
 		clientSuite.addTestSuite(TestKVMessage.class);
 		clientSuite.addTestSuite(TestHashRing.class);
 		clientSuite.addTestSuite(ConnectionTest.class);
-		//clientSuite.addTestSuite(InteractionTest.class); 
+		clientSuite.addTestSuite(InteractionTest.class); 
 		clientSuite.addTestSuite(KVStoreTest.class); 
 		clientSuite.addTestSuite(AdditionalTest.class); 
+		clientSuite.addTestSuite(ReplicaTest.class); 
 		//clientSuite.addTestSuite(EnronTest.class); 
 		return clientSuite;
 	}

@@ -103,7 +103,7 @@ public class KVStore implements KVCommInterface {
 		}		
 		
 		if(!connectToResponsible(key)) {
-			return null;
+			return new MessageType("put", "put_responsible_NOT_PROCESSED", "", "");
 		}
 		
 		KVMessage output = sendRequest(request);
@@ -120,7 +120,7 @@ public class KVStore implements KVCommInterface {
 			throw new Exception(request.error);
 		}
 		if(!connectToResponsibleGet(key)) {
-			return null;
+			return new MessageType("get", "connectToResponsibleGet_NOT_PROCESSED", "", "");
 		}
 		return sendRequest(request);
 	}
@@ -204,7 +204,7 @@ public class KVStore implements KVCommInterface {
 	 * should be responsible, connect to it, and try again. 
 	 */
 	private KVMessage sendRequest(KVMessage request) {
-		KVMessage response = null;
+		KVMessage response = new MessageType(request.getHeader(), "sendRequest_NOT_PROCESSED", "", "");
 		int attemptCount = 20; //maximum number of times to retry if we get a SERVER_WRITE_LOCK response
 		
 		do {
@@ -218,8 +218,9 @@ public class KVStore implements KVCommInterface {
 			catch (IOException e) {
 				boolean success = connectToAnyServer();
 				if (!success) {
-					return null;
+					return new MessageType(request.getHeader(), "connectToAnyServer_NOT_PROCESSED", "", "");
 				}
+				connected = true;
 			}
 			
 			//Wait for client thread to receive message from server (Client.java function)
@@ -231,8 +232,7 @@ public class KVStore implements KVCommInterface {
 				//The entire system is disabled for an indefinite amount of time, so there's 
 				//no point waiting and trying again. Give the user the stopped message.
 				return new MessageType(request.getHeader(), "SERVER_STOPPED", request.getKey(), request.getValue());
-			}
-			else if (response.getStatus().equals("SERVER_WRITE_LOCK")){
+			} else if (response.getStatus().equals("SERVER_WRITE_LOCK")){
 				// If write locked then a new server is being added and data is being transferred
 				// We block until server is ready to receive
 
@@ -241,8 +241,7 @@ public class KVStore implements KVCommInterface {
 					Thread.sleep(500);
 				} catch (InterruptedException e){}
 				
-			}
-			else if (response.getStatus().equals("SERVER_NOT_RESPONSIBLE")) {
+			} else if (response.getStatus().equals("SERVER_NOT_RESPONSIBLE")) {
 				// get update metadata and determine responsible server
 				String mdata = response.getValue(); 
 				this.metadata = new HashRing(mdata);
@@ -258,14 +257,14 @@ public class KVStore implements KVCommInterface {
 				this.port = responsibleServer.port;
 				try {
 					// We try to connect 5 times, making sure that we get a connection success message and not just random junk
-					int retry = 5;
-					while(!connect()) {
-						if(retry == 0) return null;
-						logger.info("Connection failed, retrying... (" + String.valueOf(retry) + " tries left");
-						retry -= 1;
-						try {
-							Thread.sleep(500);
-						} catch (InterruptedException ie){}
+					//int retry = 5;
+					if(!connect()) {
+						return new MessageType(request.getHeader(), "responsible_NOT_PROCESSED", "", "");
+						//logger.info("Connection failed!");
+						//retry -= 1;
+						//try {
+						//	Thread.sleep(500);
+						//} catch (InterruptedException ie){}
 					}
 					connected = true;
 				} 
@@ -273,18 +272,25 @@ public class KVStore implements KVCommInterface {
 					//try to connect to any other server in the metadata
 					boolean success = connectToAnyServer();
 					if (!success) {
-						return null;
+						return new MessageType(request.getHeader(), "connectToAnyServer_NOT_PROCESSED", "", "");
 					}
 					connected = true;
 				}
-			}
-			else {
+			} else if (response.getStatus().equals("TIME_OUT")) {
+				// Client.java sent back TIME_OUT, the read socket has timed out. Let's connect to any other server and
+				// see what's going on. The heart beat from ECS should eventually sort things out.
+				boolean success = connectToAnyServer();
+				if (!success) {
+					return new MessageType(request.getHeader(), "connectToAnyServer_NOT_PROCESSED", "", "");
+				}
+				connected = true;
+			} else {
 				break;
 			}
 			
 		} while (attemptCount-- > 0);
 		
-		if (response == null){
+		if (response.getStatus().equals("sendRequest_NOT_PROCESSED")){
 			logger.info("KVStore: no response received");
 		}				
 		else if (response.getStatus().equals("SERVER_WRITE_LOCK")){
@@ -301,6 +307,7 @@ public class KVStore implements KVCommInterface {
 	 */
 	private boolean connectToAnyServer() {
 		List<Server> allServers = this.metadata.getAllServers();
+		logger.debug("Trying to connect to ANY server due to prior failure.");
 		for (Server server : allServers) {
 			logger.debug("Trying to connect to server "+server.toString());
 			this.address = server.ipAddress;

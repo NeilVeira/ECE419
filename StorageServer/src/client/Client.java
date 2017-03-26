@@ -13,7 +13,6 @@ import java.net.SocketTimeoutException;
 import org.apache.log4j.Logger;
 
 import client.KVCommInterface;
-import client.KVCommInterface.SocketStatus;
 import common.messages.KVMessage;
 import common.messages.MessageType;
 
@@ -44,6 +43,20 @@ public class Client {
 		input = clientSocket.getInputStream();
 	}
 	
+	// New constructor for custom timeout
+	public Client(String address, int port, int timeout) 
+			throws UnknownHostException, IOException, ConnectException{
+
+		clientSocket = new Socket(address, port);
+		// For now set timeout to be large so transfers can go through
+		clientSocket.setSoTimeout(timeout);
+		listeners = new HashSet<KVCommInterface>();
+		setRunning(true);
+		logger.debug("Connection established");
+		output = clientSocket.getOutputStream();
+		input = clientSocket.getInputStream();
+	}
+	
 	public int soTimeout() {
 		try {
 			return clientSocket.getSoTimeout();
@@ -65,7 +78,7 @@ public class Client {
 	}
 	
 	public KVMessage getResponse(){
-		KVMessage response = null;
+		KVMessage response = new MessageType("", "getResponse_NOT_PROCESSED", "", "");
 		if (isRunning()) {
 			try {
 				response = receiveMessage();
@@ -184,9 +197,9 @@ public class Client {
 		
 		/* build final String */
 		KVMessage msg = new MessageType(msgBytes); //reply from server should include status
-		if (msg.error != null){
-			logger.error("Received invalid message from server: "+msg.originalMsg);
-			logger.error(msg.error);
+		if (msg.getError() != null){
+			logger.error("Client: Received invalid message from server: "+msg.getMsg());
+			logger.error(msg.getError());
 		}
 		logger.debug("Receive message:\t '" + msg.getMsg() + "'");
 		return msg;

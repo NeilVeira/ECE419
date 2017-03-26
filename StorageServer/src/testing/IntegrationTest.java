@@ -86,7 +86,8 @@ public class IntegrationTest extends TestCase {
 		// Reset the metaData and overWrite
 		System.out.println("Cleaning Up");
 		testECSInstance.clearMetaData();
-		boolean Success = testECSInstance.writeMetadata();
+		boolean success = testECSInstance.writeMetadata();
+		assertEquals(success, true);
 		testECSInstance.shutDown();
 
 		try {
@@ -123,7 +124,7 @@ public class IntegrationTest extends TestCase {
 	public boolean serverShutDown(Server server, int tries) {
 		for (int i=0; i<tries; i++) {
 			try {
-				Client client = new Client(server.ipAddress, server.port);
+				new Client(server.ipAddress, server.port);
 				TimeUnit.SECONDS.sleep(1);
 			} catch (IOException e){
 				//failed to connect
@@ -136,7 +137,7 @@ public class IntegrationTest extends TestCase {
 	
 	public boolean canConnect(Server server) {
 		try {
-			Client client = new Client(server.ipAddress, server.port);
+			new Client(server.ipAddress, server.port);
 			return true;
 		} catch (IOException e){
 			return false;
@@ -339,7 +340,7 @@ public class IntegrationTest extends TestCase {
 			
 			//make sure we can connect now
 			try {
-				Client client = new Client(server.ipAddress, server.port);
+				new Client(server.ipAddress, server.port);
 			} catch (IOException e){
 				assertTrue(false);
 			}
