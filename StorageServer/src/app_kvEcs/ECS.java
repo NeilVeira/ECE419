@@ -461,14 +461,8 @@ public class ECS {
 	 * Remove the node with the given index. This index if defined according
 	 * to the initial configuration file. 
 	 */
-	public boolean removeNode(int index) {
-		try {
-			readMetadata();
-		} catch (IOException e) {
-			logger.error("Metadata reading error: " + e.toString());
-		}
-		
-		logger.info("Removing node "+index);
+
+	public boolean removeNode(int index) {	
 		//validity checking
 		if (index < 0 || index >= totalNumNodes){
 			logger.error("index "+index+" out of range");
@@ -480,6 +474,25 @@ public class ECS {
 			return false;
 		}
 
+		boolean success = removeNodeReconstruct(server);
+
+		killServer(index);
+		return success;
+	}
+	
+	/**
+	 * Does most of the work of removeNode. Updates everyone's metadata and 
+	 * redistributes the data to the successor nodes to maintain the replication
+	 * invariant.
+	 */
+	public boolean removeNodeReconstruct(Server server) {
+		try {
+			readMetadata();
+		} catch (IOException e) {
+			logger.error("Metadata reading error: " + e.toString());
+		}
+		logger.info("Removing node "+server.toString());
+		
 		//update metadata
 		metadata.removeServer(server);
 		writeMetadata();
@@ -492,6 +505,9 @@ public class ECS {
 		// No point looking beyond 3 nodes - if they have all crashed then the data is lost. 	
 		
 		Server pred = metadata.getPredecessor(server);
+		if (pred == null) {
+			return false;
+		}
 		boolean success = false;
 		
 		for (int i=0; i<3; i++) {
@@ -536,9 +552,8 @@ public class ECS {
 				//Try again with the next predecssor
 				pred = metadata.getPredecessor(pred);
 			}
-		}
-
-		killServer(index);
+		}		
+		
 		writeMetadata();
 		return success;
 	}

@@ -6,9 +6,8 @@ import java.io.OutputStream;
 import java.net.Socket;
 import java.net.BindException;
 import java.net.SocketException;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
 import java.net.SocketTimeoutException;
+import java.util.*;
 
 import org.apache.log4j.Logger;
 
@@ -26,7 +25,6 @@ public class ECSFailureDetect extends Thread {
 
 	/**
 	 * Constructs a new HeartBeat object for a given TCP socket.
-	 * @param clientSocket the Socket object for the client connection.
 	 * @throws Exception 
 	 * @throws IOException 
 	 * @throws FileNotFoundException 
@@ -46,7 +44,8 @@ public class ECSFailureDetect extends Thread {
 			try {
 				Thread.sleep(10000);
 			} catch (InterruptedException e) {}
-			detectFailures();
+			List<Server> failedServers = detectFailures();
+			restoreService(failedServers);
 		}
 	}
 	
@@ -58,10 +57,15 @@ public class ECSFailureDetect extends Thread {
 		return this.m_running;
 	}
 	
-	public void detectFailures() {
+	/**
+	 * Tries to connect to every server in the metadata and returns and list of all
+	 * servers which it could not connect to.
+	 */
+	public List<Server> detectFailures() {
 		System.out.println("Checking for server failures");
 		HashRing metadata = m_ecs.getMetaData();
 		List<Server> activeServers = metadata.getAllServers();
+		List<Server> failedServers = new ArrayList<Server>();
 		
 		for (Server server : activeServers) {
 			int triesRemaining = 3;
@@ -91,16 +95,33 @@ public class ECSFailureDetect extends Thread {
 			}
 
 			if (!success) {
-				System.out.println("Server "+server+" appears to have crashed");
-				//This server seems to have failed. Handle it by calling ecs.removeNode
-				//Note that ecs.removeNode does not need the server to be alive to operate. It
-				//just moves around the data to account for the loss. 
-				if(!m_ecs.removeNode(server.id)) System.out.println("Remove node in Failure Detection FAILED!");	
-				//replace the dead server
-				m_ecs.addRandomNode(ECS.cacheSize, ECS.replacementStrategy);
-				//Note: removeNode and addNode will update everyone's metadata
+				failedServers.add(server);
 			}
 		}
+		return failedServers;
+	}
+	
+	/**
+	 * Tries to reconstruct the service after failedServers servers have failed by transferring 
+	 * the data around to maintain the replication invariant defined in milestone 3.
+	 */
+	public boolean restoreService(List<Server> failedServers) {
+		boolean success = true;
+		for (Server server : failedServers) {
+			System.out.println("Server "+server+" appears to have crashed");
+			//This server seems to have failed. Handle it by calling ecs.removeNode
+			//Note that ecs.removeNode does not need the server to be alive to operate. It
+			//just moves around the data to account for the loss. 
+      if(!m_ecs.removeNode(server.id)) {
+        success = false;
+        System.out.println("Remove node in Failure Detection FAILED!");
+      }
+			//success = success && m_ecs.removeNodeReconstruct(server);	
+			//replace the dead server
+			success = success && m_ecs.addRandomNode(ECS.cacheSize, ECS.replacementStrategy);
+			//Note: removeNode and addNode will update everyone's metadata			
+		}
+		return success;
 	}
 
 }
