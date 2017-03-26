@@ -21,7 +21,7 @@ public class AllTests {
 
 	static {
 		try {
-			new LogSetup("logs/testing/test.log", Level.WARN);
+			new LogSetup("logs/testing/test.log", Level.DEBUG);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}

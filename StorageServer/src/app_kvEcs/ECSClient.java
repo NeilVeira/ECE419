@@ -15,11 +15,13 @@ public class ECSClient {
 	private BufferedReader stdin;
 	private boolean stopECSClient;
 	private ECS ecs;
+	private ECSFailureDetect failureDetector; 
 	
 	ECSClient(String configFile){
 		stopECSClient = true;
 		try {
 			this.ecs = new ECS(configFile);
+			this.failureDetector = new ECSFailureDetect(configFile);
 			stopECSClient = false;
 		}
 		catch (IOException e){
@@ -94,6 +96,7 @@ public class ECSClient {
 				int numberOfNodes = Integer.parseInt(tokens[1]);
 				int cacheSize = Integer.parseInt(tokens[2]);
 				ecs.initService(numberOfNodes, cacheSize, tokens[3]);
+				failureDetector.start(); //failure detector shouldn't be running until after initService
 			}
 			catch (NumberFormatException e){
 				printError("numberOfNodes and cacheSize must be integers");
@@ -113,6 +116,7 @@ public class ECSClient {
 		case "shutDown":
 			stopECSClient = true;
 			ecs.shutDown();
+			failureDetector.stopFailureDetect();
 			break;
 		case "help":
 			printHelp();

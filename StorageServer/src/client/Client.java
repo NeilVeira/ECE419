@@ -36,10 +36,10 @@ public class Client {
 
 		clientSocket = new Socket(address, port);
 		// For now set timeout to be large so transfers can go through
-		clientSocket.setSoTimeout(30000);
+		clientSocket.setSoTimeout(1000);
 		listeners = new HashSet<KVCommInterface>();
 		setRunning(true);
-		logger.info("Connection established");
+		logger.debug("Connection established");
 		output = clientSocket.getOutputStream();
 		input = clientSocket.getInputStream();
 	}
@@ -83,7 +83,7 @@ public class Client {
 	}
 	
 	public synchronized void closeConnection() {
-		logger.info("try to close connection ...");
+		logger.debug("try to close connection ...");
 		try {
 			tearDownConnection();
 		} catch (IOException ioe) {
@@ -93,13 +93,13 @@ public class Client {
 	
 	private void tearDownConnection() throws IOException {
 		setRunning(false);
-		logger.info("tearing down the connection ...");
+		logger.debug("tearing down the connection ...");
 		if (clientSocket != null) {
 			input.close();
 			output.close();
 			clientSocket.close();
 			clientSocket = null;
-			logger.info("connection closed!");
+			logger.debug("connection closed!");
 		}
 	}
 	
