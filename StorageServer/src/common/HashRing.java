@@ -220,8 +220,15 @@ public class HashRing{
 		public String toString(){
 			return this.ipAddress+" "+this.port+" "+this.id;
 		}
-	}
-	
+		
+		@Override
+		public boolean equals(Object ob) {
+		    if (ob == null) return false;
+		    if (ob.getClass() != getClass()) return false;
+			Server other = (Server)ob;
+			return other.ipAddress.equals(this.ipAddress) && other.port == this.port;
+		}
+	}	
 	
 	
 	// For milestone 3
