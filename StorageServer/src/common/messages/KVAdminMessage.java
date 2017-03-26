@@ -26,10 +26,11 @@ public class KVAdminMessage extends MessageType {
 	public String validityCheck()
 	{
 		switch (header) {
-				case "connect": 
+		case "connect": 
 			if (!status.equals("CONNECT_SUCCESS") && (key.trim().equals("") || value.trim().equals(""))){
 				return "Key and value must not be empty for message "+header;
 			}
+			break;
 		//message must have key and value
 		case "put":
 		case "admin_put":

@@ -15,6 +15,7 @@ import org.apache.log4j.Logger;
 import client.KVCommInterface;
 import common.messages.KVMessage;
 import common.messages.MessageType;
+import common.messages.KVAdminMessage;
 
 public class Client {
 
@@ -196,7 +197,7 @@ public class Client {
 		msgBytes = tmp;
 		
 		/* build final String */
-		KVMessage msg = new MessageType(msgBytes); //reply from server should include status
+		KVMessage msg = new KVAdminMessage(msgBytes); //reply from server should include status
 		if (msg.getError() != null){
 			logger.error("Client: Received invalid message from server: "+msg.getMsg());
 			logger.error(msg.getError());

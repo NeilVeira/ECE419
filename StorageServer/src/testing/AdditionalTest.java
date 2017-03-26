@@ -197,5 +197,30 @@ public class AdditionalTest extends TestCase {
 		assertEquals(x,response.getValue());
 	}
 	
-	//TODO: test putting with only 1 or 2 servers such that one of the replicas is itself
+	//test putting and getting with less than 3 servers such that one of the replicas is itself
+	//make sure nothing bad happens and we can still read all the data
+	public void testLessThan3Servers() {
+		String x = "100";
+		//first with 1 server
+		KVMessage response = servers.get(0).handlePut(new MessageType("put","",x,x));
+		assertTrue("PUT_UPDATE PUT_SUCCESS".contains(response.getStatus()));
+		response = servers.get(0).handleGet(new MessageType("get","",x,""));
+		assertEquals("GET_SUCCESS",response.getStatus());
+		assertEquals(x,response.getValue());
+		
+		//test 2 servers
+		AllTests.closeServers(servers);
+		servers = AllTests.createAndStartServers(2, 54930);
+		response = servers.get(0).handleGet(new MessageType("get","",x,""));
+		assertEquals("GET_SUCCESS",response.getStatus());
+		assertEquals("100",response.getValue());
+		
+		x = "101";
+		//put with 2 servers
+		response = servers.get(1).handlePut(new MessageType("put","",x,x));
+		assertTrue("PUT_UPDATE PUT_SUCCESS".contains(response.getStatus()));
+		response = servers.get(0).handleGet(new MessageType("get","",x,"")); //try to get from the other one
+		assertEquals("GET_SUCCESS",response.getStatus());
+		assertEquals(x,response.getValue());
+	}
 }
