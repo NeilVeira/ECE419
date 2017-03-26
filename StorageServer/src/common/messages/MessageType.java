@@ -231,6 +231,7 @@ public class MessageType implements KVMessage {
 			if (!this.status.trim().equals("CONNECT_SUCCESS") && (this.key.trim().equals("") || this.value.trim().equals(""))){
 				return "Validity Check: Key and value must not be empty for message "+this.header;
 			}
+			break;
 		case "put":
 			//use IP address and port as key & value
 			if (this.key.trim().equals("") || this.value.trim().equals("")){

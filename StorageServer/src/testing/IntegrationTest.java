@@ -773,11 +773,10 @@ public class IntegrationTest extends TestCase {
 	}
 	
 	
-	//Tests added specifically for milestone 3
+	//Tests added specifically for milestone 3 (more in AdditionalTest.java)
 	
 	//TODO:
 	//test failure detector restores data after failure
-	//test multiple servers failing
 	//test multiple consecutive servers failing (transferring data more complicated)
 	
 	//tests that ECS.addNode correctly transfers all the data to all primaries AND REPLICAS
@@ -922,8 +921,9 @@ public class IntegrationTest extends TestCase {
 		assertNull(ex);
 	}
 	
+	//tests that the failure detector can correctly start new servers to replace failed ones
 	public void testFailureDetectorStartsNewServer() {
-		System.out.println("Starting testFailureDetect");
+		System.out.println("Starting testFailureDetectorStartsNewServer");
 		Exception ex = null;
 		try {
 			System.out.println("Initializing ECS");
@@ -932,7 +932,6 @@ public class IntegrationTest extends TestCase {
 			HashRing metadata = testECSInstance.getMetaData();
 			List<Server> servers = metadata.getAllServers();	
 			assertEquals(8, servers.size());
-			
 			
 			//kill some servers
 			System.out.println("Killing servers");
