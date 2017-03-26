@@ -723,8 +723,9 @@ public class KVServer extends Thread {
 							try {
 								TimeUnit.SECONDS.sleep(1); 		
 							} catch (InterruptedException e){}
-						} else {
 							client = new Client(server.ipAddress, server.port);
+						} else {
+							break;
 						}
 					}
 				}
