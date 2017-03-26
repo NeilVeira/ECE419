@@ -220,6 +220,7 @@ public class KVStore implements KVCommInterface {
 				if (!success) {
 					return new MessageType(request.getHeader(), "connectToAnyServer_NOT_PROCESSED", "", "");
 				}
+				connected = true;
 			}
 			
 			//Wait for client thread to receive message from server (Client.java function)
@@ -231,8 +232,7 @@ public class KVStore implements KVCommInterface {
 				//The entire system is disabled for an indefinite amount of time, so there's 
 				//no point waiting and trying again. Give the user the stopped message.
 				return new MessageType(request.getHeader(), "SERVER_STOPPED", request.getKey(), request.getValue());
-			}
-			else if (response.getStatus().equals("SERVER_WRITE_LOCK")){
+			} else if (response.getStatus().equals("SERVER_WRITE_LOCK")){
 				// If write locked then a new server is being added and data is being transferred
 				// We block until server is ready to receive
 
@@ -241,8 +241,7 @@ public class KVStore implements KVCommInterface {
 					Thread.sleep(500);
 				} catch (InterruptedException e){}
 				
-			}
-			else if (response.getStatus().equals("SERVER_NOT_RESPONSIBLE")) {
+			} else if (response.getStatus().equals("SERVER_NOT_RESPONSIBLE")) {
 				// get update metadata and determine responsible server
 				String mdata = response.getValue(); 
 				this.metadata = new HashRing(mdata);
@@ -277,14 +276,21 @@ public class KVStore implements KVCommInterface {
 					}
 					connected = true;
 				}
-			}
-			else {
+			} else if (response.getStatus().equals("TIME_OUT")) {
+				// Client.java sent back TIME_OUT, the read socket has timed out. Let's connect to any other server and
+				// see what's going on. The heart beat from ECS should eventually sort things out.
+				boolean success = connectToAnyServer();
+				if (!success) {
+					return new MessageType(request.getHeader(), "connectToAnyServer_NOT_PROCESSED", "", "");
+				}
+				connected = true;
+			} else {
 				break;
 			}
 			
 		} while (attemptCount-- > 0);
 		
-		if (response == null){
+		if (response.getStatus().equals("sendRequest_NOT_PROCESSED")){
 			logger.info("KVStore: no response received");
 		}				
 		else if (response.getStatus().equals("SERVER_WRITE_LOCK")){

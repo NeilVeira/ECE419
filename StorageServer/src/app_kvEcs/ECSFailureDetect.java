@@ -78,11 +78,12 @@ public class ECSFailureDetect extends Thread {
 					//wait for "connection successful" response
 					KVMessage response = client.getResponse();
 					client.closeConnection();
-					if (response != null) {
+					if (response.getStatus().equals("CONNECT_SUCCESS")) {
+						// Make sure it is connect success. Could also receive TIME_OUT
 						success = true;
 						break;
 					}
-				} catch (SocketTimeoutException e) {} catch (Exception e){}
+				} catch (Exception e){}
 				//wait a bit before trying to connect again
 				try {
 					Thread.sleep(1000);
@@ -94,7 +95,7 @@ public class ECSFailureDetect extends Thread {
 				//This server seems to have failed. Handle it by calling ecs.removeNode
 				//Note that ecs.removeNode does not need the server to be alive to operate. It
 				//just moves around the data to account for the loss. 
-				m_ecs.removeNode(server.id);	
+				if(!m_ecs.removeNode(server.id)) System.out.println("Remove node in Failure Detection FAILED!");	
 				//replace the dead server
 				m_ecs.addRandomNode(ECS.cacheSize, ECS.replacementStrategy);
 				//Note: removeNode and addNode will update everyone's metadata

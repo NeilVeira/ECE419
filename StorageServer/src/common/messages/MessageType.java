@@ -86,6 +86,7 @@ public class MessageType implements KVMessage {
 		this.key = "";
 		this.value = "";
 		parse(str.trim());
+		this.error = validityCheck();
 	}	
 
 	/**
@@ -127,6 +128,13 @@ public class MessageType implements KVMessage {
 	@Override
 	public String getHeader() {
 		return this.header;
+	}
+	
+	/**
+	 * Returns the error using method instead of accessing it statically
+	 */
+	public String getError() {
+		return this.error;
 	}
 	
 	/**
@@ -218,46 +226,46 @@ public class MessageType implements KVMessage {
 	 */
 	public String validityCheck()
 	{
-		switch (header) {
+		switch (this.header) {
 		case "connect": 
-			if (!status.equals("CONNECT_SUCCESS") && (key.trim().equals("") || value.trim().equals(""))){
-				return "Key and value must not be empty for message "+header;
+			if (!this.status.equals("CONNECT_SUCCESS") && (this.key.trim().equals("") || this.value.trim().equals(""))){
+				return "Validity Check: Key and value must not be empty for message "+this.header;
 			}
 		case "put":
 			//use IP address and port as key & value
-			if (key.trim().equals("") || value.trim().equals("")){
-				return "Key and value must not be empty for message "+header;
+			if (this.key.trim().equals("") || this.value.trim().equals("")){
+				return "Validity Check: Key and value must not be empty for message "+header;
 			}
 			break;
 		case "logLevel":
 			System.out.println(key.trim());
-			if (!key.trim().equals("ALL") && !key.trim().equals("DEBUG") && !key.trim().equals("INFO") && !key.trim().equals("WARN") && !key.trim().equals("ERROR") && !key.trim().equals("FATAL") && !key.trim().equals("OFF")) {
-				return "Log level must be equal to a valid log level.";
+			if (!this.key.trim().equals("ALL") && !this.key.trim().equals("DEBUG") && !this.key.trim().equals("INFO") && !this.key.trim().equals("WARN") && !this.key.trim().equals("ERROR") && !this.key.trim().equals("FATAL") && !this.key.trim().equals("OFF")) {
+				return "Validity Check: Log level must be equal to a valid log level.";
 			}
 			break;
 		case "get":
-			if (key.trim().equals("")){
-				return "Key must not be empty for message "+header;
+			if (this.key.trim().equals("")){
+				return "Validity Check: Key must not be empty for message "+header;
 			}
 			break;
 		case "disconnect":
 		case "help":
 		case "quit":
-			if (!key.trim().equals("") || !value.trim().equals("")){
-				return "Key and value must be empty for message "+header;
+			if (!this.key.trim().equals("") || !this.value.trim().equals("")){
+				return "Validity Check: Key and value must be empty for message "+header;
 			}
 			break;
 		case "metadata":
-			if (value.trim().equals("") && !status.equals("SUCCESS")) {
-				return "Value must not be empty for message "+header;
+			if (this.value.trim().equals("") && !this.status.equals("SUCCESS")) {
+				return "Validity Check: Value must not be empty for message "+header;
 			}
 			break;
 		default:
-			return "Unknown command";
+			return "Validity Check: Unknown command";
 		}
 		
-		if (key.length() > 20){
-			return "Key must not be longer than 20 bytes";
+		if (this.key.length() > 20){
+			return "Validity Check: Key must not be longer than 20 bytes";
 		}
 		return null; 
 	}

@@ -306,7 +306,6 @@ public class HashRing{
 	 */
 	public Replicas getReplicas(String key) {
 		BigInteger keyHash = objectHash(key);
-		Replicas output;
 		// First we get the responsible server, then we go up
 		Map.Entry<BigInteger,Server> entry = serverMap.ceilingEntry(keyHash);
 		if (entry == null){

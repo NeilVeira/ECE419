@@ -22,7 +22,6 @@ public class ECS {
 	private HashRing metadata;
 	private List<Server> allServers; //array of all servers in the system. This never changes.
 	private List<Process> allProcesses; //array of all processes in the system, one for each server (can be null if server is not running).
-	private String launchScript = "launch_server.sh";
 	private int totalNumNodes;
 	private KVServer.ServerStatus status;
 	private String metadataFile;
@@ -59,6 +58,7 @@ public class ECS {
 				allServers.add(new Server(tokens[1], port, totalNumNodes));
 				totalNumNodes++;
 			}		
+			FileReader.close();
 
 			checkConfig();
 			writeConfig();
@@ -135,6 +135,7 @@ public class ECS {
 			while ((currentLine = FileReader.readLine()) != null) {
 				backupServers.add(new Server(currentLine));
 			}
+			FileReader.close();
 
 			//check that backupServers = this.allServers
 			if (backupServers.size() != allServers.size()){
@@ -352,9 +353,11 @@ public class ECS {
 		boolean success = false;
 		for (int tries=0; tries<numTries && !success; tries++){
 			try {
-				// Large timeout for adding/removing nodes
-				Client client = new Client(newServer.ipAddress, newServer.port, 30000);
-				success = true;
+				Client client = new Client(newServer.ipAddress, newServer.port);
+				if(client.getResponse().getStatus().equals("CONNECT_SUCCESS")) {
+					// Only success on correct status message
+					success = true;
+				}
 			}
 			catch (IOException e) {
 				logger.debug("addNode: Unable to connect to server "+newServer.toString()+". Waiting 1 second and trying again.");
@@ -653,11 +656,9 @@ public class ECS {
 	 */
 	private KVMessage sendSingleMessage(Server server, KVMessage message) throws IOException {
 		int triesRemaining = 5;
-		boolean success;
 		Client client;
 		while (triesRemaining-- > 0){
 			//try connecting to this server 
-			success = false;
 			try {
 				logger.debug("SSM: Trying to connect to server "+server.toString());
 				if(message.getHeader().equals("addNode") || message.getHeader().equals("removeNode")) {
@@ -667,7 +668,7 @@ public class ECS {
 				else client = new Client(server.ipAddress, server.port);
 				//wait for "connection successful" response
 				KVMessage response = client.getResponse();
-				if (response != null){
+				if (response.getStatus().equals("CONNECT_SUCCESS")){
 					logger.info("SSM: Connection successful to server "+server.toString());
 					//send message
 					client.sendMessage(message);
@@ -687,7 +688,6 @@ public class ECS {
 			}
 			catch (Exception e){
 				logger.debug(e.getMessage());
-				success = false;
 			}
 		}
 		return null;
