@@ -470,6 +470,9 @@ public class ECS {
 		// No point looking beyond 3 nodes - if they have all crashed then the data is lost. 	
 		
 		Server pred = metadata.getPredecessor(server);
+		if (pred == null) {
+			return false;
+		}
 		boolean success = false;
 		
 		for (int i=0; i<3; i++) {

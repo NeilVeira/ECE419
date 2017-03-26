@@ -1,3 +1,9 @@
+/***
+ * These tests test the functionality of the ECS, KVServer, and KVStore classes as they 
+ * interact together. They are long running tests because they require initializing and 
+ * shutting down the ECS, which takes a long time due to ssh. 
+ */
+
 package testing;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -17,6 +23,7 @@ import app_kvClient.KVClient;
 
 import app_kvEcs.ECS;
 import app_kvEcs.ECSClient;
+import app_kvEcs.ECSFailureDetect;
 
 import app_kvServer.ClientConnection;
 import app_kvServer.KVServer;
@@ -751,7 +758,6 @@ public class IntegrationTest extends TestCase {
 	//Tests added specifically for milestone 3
 	
 	//TODO:
-	//test failure detector correctly detects when a server has failed
 	//test failure detector restores data after failure
 	//test failure detector starts new server after failure
 	//test multiple servers failing
@@ -810,7 +816,7 @@ public class IntegrationTest extends TestCase {
 		assertNull(ex);
 	}
 	
-	//tests that ECS.addNode correctly transfers all the data to all primaries AND REPLICAS
+	//tests that ECS.removeNode correctly transfers all the data to all primaries AND REPLICAS
 	//as the responsibilities change due to the new node
 	public void testRemoveNodeTransfersReplicatedData() {
 		System.out.println("Starting testRemoveNodeTransfersReplicatedData");
@@ -854,6 +860,53 @@ public class IntegrationTest extends TestCase {
 					}
 				}				
 			}
+		}
+		catch (Exception e){
+			ex = e;
+			System.out.println("Error: "+e.getMessage());
+			e.printStackTrace();
+		}
+		assertNull(ex);
+	}
+	
+	//tests that the failure detector correctly identifies when a server has crashed
+	public void testFailureDetect() {
+		System.out.println("Starting testFailureDetect");
+		Exception ex = null;
+		try {
+			System.out.println("Initializing ECS");
+			testECSInstance.initService(8, 10, "FIFO");
+			testECSInstance.start();
+			HashRing metadata = testECSInstance.getMetaData();
+			List<Server> servers = metadata.getAllServers();	
+			assertEquals(8, servers.size());
+			ECSFailureDetect testFailureDetect = new ECSFailureDetect("ecstest.config");
+			
+			//kill some servers
+			System.out.println("Killing servers");
+			List<Server> killedServers = new ArrayList<Server>();
+			killedServers.add(servers.get(0));
+			killedServers.add(servers.get(2));
+			killedServers.add(servers.get(3));
+			killedServers.add(servers.get(7));
+			for (Server server : killedServers) {
+				killServer(server);
+			}
+			//make sure servers have died before continuing (takes some time)
+			for (Server server : killedServers) {
+				while (!serverShutDown(server, 5)) {
+					killServer(server);
+				}
+			}
+			
+			System.out.println("Checking for failures");
+			List<Server> failedServers = testFailureDetect.detectFailures();
+			//make sure the list of failed servers is the same as the ones we killed
+			assertEquals(killedServers.size(), failedServers.size());
+			for (Server server : failedServers) {
+				assertTrue(failedServers.contains(server));
+			}
+			
 		}
 		catch (Exception e){
 			ex = e;
