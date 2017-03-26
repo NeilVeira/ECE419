@@ -79,7 +79,7 @@ public class ClientConnection implements Runnable {
 					else {
 						// If it is a bad message output error and echo it back to the client
 						logger.debug("Message from Client was not valid, sending errorous message back to client");
-						logger.debug(latestMsg.error);
+						logger.debug(latestMsg.getError());
 						sendMessage(new common.messages.KVAdminMessage(latestMsg.getHeader(), "FAILED", latestMsg.getKey(), latestMsg.getValue()));
 					}
 				/* connection either terminated by the client or lost due to 

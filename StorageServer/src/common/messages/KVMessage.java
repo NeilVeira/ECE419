@@ -49,6 +49,8 @@ public interface KVMessage {
 	
 	public String getMsg();
 	
+	public String getError();
+	
 	/**
 	 * Returns an array of bytes that represent the ASCII coded message content.
 	 */

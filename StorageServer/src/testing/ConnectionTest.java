@@ -1,12 +1,7 @@
 package testing;
 
-import java.net.UnknownHostException;
 import java.net.ConnectException;
 
-import common.HashRing;
-import common.messages.KVAdminMessage;
-
-import app_kvClient.KVClient;
 import app_kvServer.KVServer;
 
 import client.KVStore;
@@ -78,7 +73,7 @@ public class ConnectionTest extends TestCase {
 		} catch (Exception e) {
 			ex = e; 
 		}
-		
+		assertNull(ex);
 	}
 	
 	// Tries to connect to a port out of range
@@ -92,7 +87,7 @@ public class ConnectionTest extends TestCase {
 		} catch (Exception e) {
 			ex = e; 
 		}
-		
+		assertNull(ex);
 	}
 
 	// Tries to connect to a port out of range (negative number)
@@ -106,6 +101,7 @@ public class ConnectionTest extends TestCase {
 		} catch (Exception e) {
 			ex = e; 
 		}
+		assertNull(ex);
 	}
 }
 

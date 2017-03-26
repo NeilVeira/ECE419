@@ -8,6 +8,7 @@ import java.net.BindException;
 import java.net.SocketException;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.net.SocketTimeoutException;
 
 import org.apache.log4j.Logger;
 
@@ -66,15 +67,19 @@ public class ECSFailureDetect extends Thread {
 			int triesRemaining = 3;
 			boolean success = false;
 			
+			System.out.println("Checking if online: " + server.toString());
+			
 			while (triesRemaining-- > 0){
 				//try connecting to this server 
 				success = false;
 				try {
-					Client client = new Client(server.ipAddress, server.port);
+					// Only a connection test, set a low timeout
+					Client client = new Client(server.ipAddress, server.port, 1000);
 					//wait for "connection successful" response
 					KVMessage response = client.getResponse();
 					client.closeConnection();
-					if (response != null) {
+					if (response.getStatus().equals("CONNECT_SUCCESS")) {
+						// Make sure it is connect success. Could also receive TIME_OUT
 						success = true;
 						break;
 					}
@@ -90,7 +95,7 @@ public class ECSFailureDetect extends Thread {
 				//This server seems to have failed. Handle it by calling ecs.removeNode
 				//Note that ecs.removeNode does not need the server to be alive to operate. It
 				//just moves around the data to account for the loss. 
-				m_ecs.removeNode(server.id);	
+				if(!m_ecs.removeNode(server.id)) System.out.println("Remove node in Failure Detection FAILED!");	
 				//replace the dead server
 				m_ecs.addRandomNode(ECS.cacheSize, ECS.replacementStrategy);
 				//Note: removeNode and addNode will update everyone's metadata
