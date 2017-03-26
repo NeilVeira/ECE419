@@ -257,14 +257,14 @@ public class KVStore implements KVCommInterface {
 				this.port = responsibleServer.port;
 				try {
 					// We try to connect 5 times, making sure that we get a connection success message and not just random junk
-					int retry = 5;
-					while(!connect()) {
-						if(retry == 0) return new MessageType(request.getHeader(), "responsible_NOT_PROCESSED", "", "");
-						logger.info("Connection failed, retrying... (" + String.valueOf(retry) + " tries left");
-						retry -= 1;
-						try {
-							Thread.sleep(500);
-						} catch (InterruptedException ie){}
+					//int retry = 5;
+					if(!connect()) {
+						return new MessageType(request.getHeader(), "responsible_NOT_PROCESSED", "", "");
+						//logger.info("Connection failed!");
+						//retry -= 1;
+						//try {
+						//	Thread.sleep(500);
+						//} catch (InterruptedException ie){}
 					}
 					connected = true;
 				} 

@@ -228,7 +228,7 @@ public class MessageType implements KVMessage {
 	{
 		switch (this.header) {
 		case "connect": 
-			if (!this.status.equals("CONNECT_SUCCESS") && (this.key.trim().equals("") || this.value.trim().equals(""))){
+			if (!this.status.trim().equals("CONNECT_SUCCESS") && (this.key.trim().equals("") || this.value.trim().equals(""))){
 				return "Validity Check: Key and value must not be empty for message "+this.header;
 			}
 		case "put":
@@ -256,7 +256,7 @@ public class MessageType implements KVMessage {
 			}
 			break;
 		case "metadata":
-			if (this.value.trim().equals("") && !this.status.equals("SUCCESS")) {
+			if (this.value.trim().equals("") && !this.status.trim().equals("SUCCESS")) {
 				return "Validity Check: Value must not be empty for message "+header;
 			}
 			break;
