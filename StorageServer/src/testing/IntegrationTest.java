@@ -697,11 +697,7 @@ public class IntegrationTest extends TestCase {
 				System.out.println("Client doing put "+i);
 				response = kvstore.put(String.valueOf(i),String.valueOf(i));
 				assertTrue(response.getStatus().equals("PUT_UPDATE") || response.getStatus().equals("PUT_SUCCESS") );
-			}
-			
-			/*Scanner reader = new Scanner(System.in);
-			System.out.println("Paused. Enter a number: ");		
-			int n = reader.nextInt(); */	
+			}	
 			
 			//shutdown ECS
 			System.out.println("Shutting down ECS");
@@ -741,6 +737,122 @@ public class IntegrationTest extends TestCase {
 				response = kvstore.get(String.valueOf(i));
 				assertEquals("GET_SUCCESS",response.getStatus());
 				assertEquals(String.valueOf(i),response.getValue());
+			}
+		}
+		catch (Exception e){
+			ex = e;
+			System.out.println("Error: "+e.getMessage());
+			e.printStackTrace();
+		}
+		assertNull(ex);
+	}
+	
+	
+	//Tests added specifically for milestone 3
+	
+	//TODO:
+	//test failure detector correctly detects when a server has failed
+	//test failure detector restores data after failure
+	//test failure detector starts new server after failure
+	//test multiple servers failing
+	//test multiple consecutive servers failing (transferring data more complicated)
+	
+	//tests that ECS.addNode correctly transfers all the data to all primaries AND REPLICAS
+	//as the responsibilities change due to the new node
+	public void testAddNodeTransfersReplicatedData() {
+		System.out.println("Starting testAddNodeTransfersReplicatedData");
+		Exception ex = null;
+		try {
+			System.out.println("Initializing ECS");
+			testECSInstance.initService(7, 10, "FIFO");
+			testECSInstance.start();
+			HashRing metadata = testECSInstance.getMetaData();
+			List<Server> servers = metadata.getAllServers();
+			KVStore kvstore = new KVStore(servers.get(0).ipAddress, servers.get(0).port);
+			kvstore.connect();
+			
+			//Put some data
+			for (int i=20; i<40; i++){
+				kvstore.put(String.valueOf(i),  String.valueOf(i));
+			}
+			
+			//Since we initialized with all but one server, this will always add the last one
+			System.out.println("Adding node");
+			testECSInstance.addRandomNode(10,"LRU");
+			metadata = testECSInstance.getMetaData();
+			
+			//Try to get data from every server. Rather than using a KVStore we connect directly to the 
+			//servers so we can make sure each one has the data we expect.
+			System.out.println("Getting back data");
+			for (Server server : allServers) {
+				Client client = new Client(server.ipAddress, server.port);
+				assertEquals("CONNECT_SUCCESS", client.getResponse().getStatus());
+				
+				for (int i=20; i<40; i++) {
+					String key = String.valueOf(i);
+					client.sendMessage(new MessageType("get","",key,""));
+					KVMessage response = client.getResponse();
+					if (metadata.canGet(server.ipAddress, server.port, key)) {
+						assertEquals("GET_SUCCESS",response.getStatus());
+						assertEquals(key, response.getValue());
+					}
+					else {
+						assertEquals("SERVER_NOT_RESPONSIBLE", response.getStatus());
+					}
+				}				
+			}
+		}
+		catch (Exception e){
+			ex = e;
+			System.out.println("Error: "+e.getMessage());
+			e.printStackTrace();
+		}
+		assertNull(ex);
+	}
+	
+	//tests that ECS.addNode correctly transfers all the data to all primaries AND REPLICAS
+	//as the responsibilities change due to the new node
+	public void testRemoveNodeTransfersReplicatedData() {
+		System.out.println("Starting testRemoveNodeTransfersReplicatedData");
+		Exception ex = null;
+		try {
+			System.out.println("Initializing ECS");
+			testECSInstance.initService(7, 10, "FIFO");
+			testECSInstance.start();
+			HashRing metadata = testECSInstance.getMetaData();
+			List<Server> servers = metadata.getAllServers();
+			KVStore kvstore = new KVStore(servers.get(0).ipAddress, servers.get(0).port);
+			kvstore.connect();
+			
+			//Put some data
+			for (int i=40; i<60; i++){
+				kvstore.put(String.valueOf(i),  String.valueOf(i));
+			}
+			
+			System.out.println("Removing node");
+			testECSInstance.removeNode(servers.get(1).id);
+			metadata = testECSInstance.getMetaData();
+			servers = metadata.getAllServers();
+			
+			//Try to get data from every server. Rather than using a KVStore we connect directly to the 
+			//servers so we can make sure each one has the data we expect.
+			System.out.println("Getting back data");
+			for (Server server : servers) {
+				Client client = new Client(server.ipAddress, server.port);
+				assertEquals("CONNECT_SUCCESS", client.getResponse().getStatus());
+				
+				for (int i=40; i<60; i++) {
+					String key = String.valueOf(i);
+					client.sendMessage(new MessageType("get","",key,""));
+					KVMessage response = client.getResponse();
+					if (metadata.canGet(server.ipAddress, server.port, key)) {
+						assertEquals("GET_SUCCESS",response.getStatus());
+						assertEquals(key, response.getValue());
+					}
+					else {
+						assertEquals("SERVER_NOT_RESPONSIBLE", response.getStatus());
+					}
+				}				
 			}
 		}
 		catch (Exception e){
