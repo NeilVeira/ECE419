@@ -36,7 +36,8 @@ public class AllTests {
 		clientSuite.addTestSuite(InteractionTest.class); 
 		clientSuite.addTestSuite(KVStoreTest.class); 
 		clientSuite.addTestSuite(AdditionalTest.class); 
-		clientSuite.addTestSuite(EnronTest.class); 
+		clientSuite.addTestSuite(ReplicaTest.class); 
+		//clientSuite.addTestSuite(EnronTest.class); 
 		return clientSuite;
 	}
 	

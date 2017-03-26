@@ -47,7 +47,6 @@ public class EnronTest extends TestCase {
 			// Read each char into a buffer
 			StringBuffer read_value = new StringBuffer();
 			int size = 0;
-			boolean readingKey = true;
 			while(data != -1) {
 				// Cannot exceed the 20 char limit for keys
 				if(data >= 32 && size < 20) {

@@ -307,6 +307,7 @@ public class KVStore implements KVCommInterface {
 	 */
 	private boolean connectToAnyServer() {
 		List<Server> allServers = this.metadata.getAllServers();
+		logger.debug("Trying to connect to ANY server due to prior failure.");
 		for (Server server : allServers) {
 			logger.debug("Trying to connect to server "+server.toString());
 			this.address = server.ipAddress;
