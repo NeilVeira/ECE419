@@ -157,7 +157,9 @@ public class AdditionalTest extends TestCase {
 		assertNull(ex);
 	}
 
-	//Some additional tests for milestone 3 (more tests added in other test files)
+	///////////////////////////////////////////////////////////////////////////////////////////
+	// Tests added specifically for milestone 3 (more in IntegrationTest.java)
+	///////////////////////////////////////////////////////////////////////////////////////////
 	
 	public void testExactlyOneServerResponsibleForPut() {
 		AllTests.closeServers(servers);
