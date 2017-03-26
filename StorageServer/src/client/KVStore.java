@@ -103,7 +103,7 @@ public class KVStore implements KVCommInterface {
 		}		
 		
 		if(!connectToResponsible(key)) {
-			return null;
+			return new MessageType("put", "put_responsible_NOT_PROCESSED", "", "");
 		}
 		
 		KVMessage output = sendRequest(request);
@@ -120,7 +120,7 @@ public class KVStore implements KVCommInterface {
 			throw new Exception(request.error);
 		}
 		if(!connectToResponsibleGet(key)) {
-			return null;
+			return new MessageType("get", "connectToResponsibleGet_NOT_PROCESSED", "", "");
 		}
 		return sendRequest(request);
 	}
@@ -204,7 +204,7 @@ public class KVStore implements KVCommInterface {
 	 * should be responsible, connect to it, and try again. 
 	 */
 	private KVMessage sendRequest(KVMessage request) {
-		KVMessage response = null;
+		KVMessage response = new MessageType(request.getHeader(), "sendRequest_NOT_PROCESSED", "", "");
 		int attemptCount = 20; //maximum number of times to retry if we get a SERVER_WRITE_LOCK response
 		
 		do {
@@ -218,7 +218,7 @@ public class KVStore implements KVCommInterface {
 			catch (IOException e) {
 				boolean success = connectToAnyServer();
 				if (!success) {
-					return null;
+					return new MessageType(request.getHeader(), "connectToAnyServer_NOT_PROCESSED", "", "");
 				}
 			}
 			
@@ -260,7 +260,7 @@ public class KVStore implements KVCommInterface {
 					// We try to connect 5 times, making sure that we get a connection success message and not just random junk
 					int retry = 5;
 					while(!connect()) {
-						if(retry == 0) return null;
+						if(retry == 0) return new MessageType(request.getHeader(), "responsible_NOT_PROCESSED", "", "");
 						logger.info("Connection failed, retrying... (" + String.valueOf(retry) + " tries left");
 						retry -= 1;
 						try {
@@ -273,7 +273,7 @@ public class KVStore implements KVCommInterface {
 					//try to connect to any other server in the metadata
 					boolean success = connectToAnyServer();
 					if (!success) {
-						return null;
+						return new MessageType(request.getHeader(), "connectToAnyServer_NOT_PROCESSED", "", "");
 					}
 					connected = true;
 				}

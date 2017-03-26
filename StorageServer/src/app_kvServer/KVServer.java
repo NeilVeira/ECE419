@@ -460,7 +460,7 @@ public class KVServer extends Thread {
 			return new KVAdminMessage("get","SERVER_NOT_RESPONSIBLE",msg.getKey(),metadata.toString());
 		}
 		
-		KVMessage returnMsg = null;
+		KVMessage returnMsg = new KVAdminMessage("get", "NOT_PROCESSED", Key, Value);
 		boolean success = false;
 		// First check whether the Key Value pair get wants is in the cache
 		boolean keyExists = this.m_cacheValueMap.containsKey(Key);
@@ -564,7 +564,7 @@ public class KVServer extends Thread {
 	 * Do the actual put operation on (Key, Value) pair
 	 */
 	private KVMessage doPut(String Key, String Value) {
-		KVMessage returnMsg = null;
+		KVMessage returnMsg = new KVAdminMessage("put", "NOT_PROCESSED", Key, Value);
 		// first load the hard disk file into our map
 		boolean success = this.repopulateHardDiskMap();
 		if (!success) {

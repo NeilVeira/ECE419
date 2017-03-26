@@ -8,6 +8,7 @@ import java.net.BindException;
 import java.net.SocketException;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.net.SocketTimeoutException;
 
 import org.apache.log4j.Logger;
 
@@ -66,11 +67,14 @@ public class ECSFailureDetect extends Thread {
 			int triesRemaining = 3;
 			boolean success = false;
 			
+			System.out.println("Checking if online: " + server.toString());
+			
 			while (triesRemaining-- > 0){
 				//try connecting to this server 
 				success = false;
 				try {
-					Client client = new Client(server.ipAddress, server.port);
+					// Only a connection test, set a low timeout
+					Client client = new Client(server.ipAddress, server.port, 1000);
 					//wait for "connection successful" response
 					KVMessage response = client.getResponse();
 					client.closeConnection();
@@ -78,7 +82,7 @@ public class ECSFailureDetect extends Thread {
 						success = true;
 						break;
 					}
-				} catch (Exception e){}
+				} catch (SocketTimeoutException e) {} catch (Exception e){}
 				//wait a bit before trying to connect again
 				try {
 					Thread.sleep(1000);

@@ -352,7 +352,8 @@ public class ECS {
 		boolean success = false;
 		for (int tries=0; tries<numTries && !success; tries++){
 			try {
-				Client client = new Client(newServer.ipAddress, newServer.port);
+				// Large timeout for adding/removing nodes
+				Client client = new Client(newServer.ipAddress, newServer.port, 30000);
 				success = true;
 			}
 			catch (IOException e) {
@@ -659,7 +660,11 @@ public class ECS {
 			success = false;
 			try {
 				logger.debug("SSM: Trying to connect to server "+server.toString());
-				client = new Client(server.ipAddress, server.port);
+				if(message.getHeader().equals("addNode") || message.getHeader().equals("removeNode")) {
+					// These two commands need larger timeout
+					client = new Client(server.ipAddress, server.port, 30000);
+				}
+				else client = new Client(server.ipAddress, server.port);
 				//wait for "connection successful" response
 				KVMessage response = client.getResponse();
 				if (response != null){
