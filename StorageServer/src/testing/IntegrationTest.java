@@ -59,6 +59,7 @@ public class IntegrationTest extends TestCase {
 	public void setUp() {
 		try {
 			// Start ECS by creating an ECS instance and manually running its functions rather than using the ECS client
+			System.out.println("Setting Up");
 			testECSInstance = new app_kvEcs.ECS("ecstest.config");
 			allServers = testECSInstance.getAllServers();
 			testECSInstance.clearMetaData();
@@ -481,7 +482,6 @@ public class IntegrationTest extends TestCase {
 		assertNull(ex);
 	}
 	
-	
 	/**
 	 * Tests that client receives a "SERVER_NOT_RESPONSIBLE" message when doing a put to the wrong server
 	 */
@@ -656,7 +656,6 @@ public class IntegrationTest extends TestCase {
 		}
 		assertNull(ex);
 	}
-	
 	
 	/**
 	 * This tests that when the node which the client is currently connected to is removed,
