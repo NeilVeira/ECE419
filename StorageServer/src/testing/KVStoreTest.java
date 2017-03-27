@@ -42,7 +42,10 @@ public class KVStoreTest extends TestCase {
 	public void tearDown() {
 		kvClient.disconnect();
 		AllTests.closeServers(servers);
-		AllTests.deleteLocalStorageFiles();		
+		AllTests.deleteLocalStorageFiles();	
+		try {
+			Thread.sleep(1000); //need to delay a bit between tests because it takes some time for servers to release ports
+		} catch (Exception e) {}
 	}
 
 	// Tests a put on the current server with the right position on the ring

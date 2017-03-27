@@ -1065,7 +1065,9 @@ public class KVServer extends Thread {
 		logger.info("Shutting down server");
 		running = false;
 		try {
-			serverSocket.close();
+			if (serverSocket != null) {
+				serverSocket.close();
+			}
 		} catch (IOException e) {
 			logger.error("Error! " +
 					"Unable to close socket on port: " + port, e);
@@ -1135,7 +1137,7 @@ public class KVServer extends Thread {
 				System.exit(0);
 			}
 
-			new LogSetup("logs/server_"+idStr+".log", Level.DEBUG);
+			new LogSetup("logs/server_"+idStr+".log", Level.WARN);
 
 			//validity check arguments
 			if (!strategy.equals("FIFO") && !strategy.equals("LRU") && !strategy.equals("LFU")) {

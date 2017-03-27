@@ -18,7 +18,10 @@ public class ConnectionTest extends TestCase {
 	
 	public void tearDown() {
 		AllTests.closeServers(servers);
-		AllTests.deleteLocalStorageFiles();		
+		AllTests.deleteLocalStorageFiles();	
+		try {
+			Thread.sleep(1000); //need to delay a bit between tests because it takes some time for servers to release ports
+		} catch (Exception e) {}
 	}
 	
 	// Tests if successful connection can occur

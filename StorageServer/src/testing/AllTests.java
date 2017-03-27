@@ -21,7 +21,7 @@ public class AllTests {
 
 	static {
 		try {
-			new LogSetup("logs/testing/test.log", Level.DEBUG);
+			new LogSetup("logs/testing/test.log", Level.WARN);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -34,9 +34,9 @@ public class AllTests {
 		clientSuite.addTestSuite(TestHashRing.class);
 		clientSuite.addTestSuite(ConnectionTest.class);
 		clientSuite.addTestSuite(InteractionTest.class); 
-		clientSuite.addTestSuite(IntegrationTest.class);
 		clientSuite.addTestSuite(KVStoreTest.class); 
 		clientSuite.addTestSuite(AdditionalTest.class); 
+		clientSuite.addTestSuite(IntegrationTest.class);
 		//clientSuite.addTestSuite(EnronTest.class); 
 		//clientSuite.addTestSuite(PerformanceTest.class); 
 		return clientSuite;
@@ -55,7 +55,6 @@ public class AllTests {
 			servers.add(server);
 			metadata.addServer(new Server("localhost", base_port+i, i));
 		}
-		System.out.println(metadata.toString());
 		
 		for (KVServer server : servers) {
 			server.handleMetadata(new KVAdminMessage("metadata","METADATA_UPDATE","",metadata.toString()));
@@ -71,8 +70,11 @@ public class AllTests {
 	}
 	
 	public static void closeServers(List<KVServer> servers) {
+		
 		for (KVServer server : servers) {
-			server.closeServer();
+			if (server != null) {
+				server.closeServer();
+			}
 		}
 	}
 	

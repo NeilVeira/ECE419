@@ -33,6 +33,9 @@ public class InteractionTest extends TestCase {
 		kvClient.disconnect();
 		AllTests.closeServers(servers);
 		AllTests.deleteLocalStorageFiles();	
+		try {
+			Thread.sleep(1000); //need to delay a bit between tests because it takes some time for servers to release ports
+		} catch (Exception e) {}
 	}
 	
 	// Tests the put function
@@ -139,12 +142,12 @@ public class InteractionTest extends TestCase {
 		KVMessage response = null;
 		Exception ex = null;
 
-			try {
-				kvClient.put(key, value);
-				response = kvClient.get(key);
-			} catch (Exception e) {
-				ex = e;
-			}
+		try {
+			kvClient.put(key, value);
+			response = kvClient.get(key);
+		} catch (Exception e) {
+			ex = e;
+		}
 		
 		assertNull(ex);
 		assertEquals(response.getValue(), "bar");

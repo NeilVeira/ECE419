@@ -62,7 +62,7 @@ public class ECSFailureDetect extends Thread {
 	 * servers which it could not connect to.
 	 */
 	public List<Server> detectFailures() {
-		System.out.println("Checking for server failures");
+		//System.out.println("Checking for server failures");
 		HashRing metadata = m_ecs.getMetaData();
 		List<Server> activeServers = metadata.getAllServers();
 		List<Server> failedServers = new ArrayList<Server>();
@@ -71,7 +71,7 @@ public class ECSFailureDetect extends Thread {
 			int triesRemaining = 3;
 			boolean success = false;
 			
-			System.out.println("Checking if online: " + server.toString());
+			//System.out.println("Checking if online: " + server.toString());
 			
 			while (triesRemaining-- > 0){
 				//try connecting to this server 
@@ -108,13 +108,13 @@ public class ECSFailureDetect extends Thread {
 	public boolean restoreService(List<Server> failedServers, boolean doAdd) {
 		boolean success = true;
 		for (Server server : failedServers) {
-			System.out.println("Server "+server+" appears to have crashed");
+			//System.out.println("Server "+server+" appears to have crashed");
 			//This server seems to have failed. Handle it by calling ecs.removeNode
 			//Note that ecs.removeNode does not need the server to be alive to operate. It
 			//just moves around the data to account for the loss. 
 			if(!m_ecs.removeNodeReconstruct(server)) {
 		        success = false;
-		        System.out.println("Remove node in Failure Detection FAILED!");
+		        //System.out.println("Remove node in Failure Detection FAILED!");
 		    }
 			//success = success && m_ecs.removeNodeReconstruct(server);	
 			//replace the dead server

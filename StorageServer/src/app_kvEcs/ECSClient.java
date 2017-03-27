@@ -188,7 +188,7 @@ public class ECSClient {
 				System.out.println("Usage: Server <string config file path>");
 			}
 			else{
-				new LogSetup("logs/ecs.log", Level.DEBUG); 
+				new LogSetup("logs/ecs.log", Level.WARN); 
 				ECSClient ecsClient = new ECSClient(args[0]);
 				ecsClient.run();
 			}
