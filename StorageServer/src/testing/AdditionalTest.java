@@ -7,11 +7,12 @@ import org.junit.Test;
 import client.KVStore;
 import app_kvClient.KVClient;
 import app_kvServer.KVServer;
-import common.HashRing;
-import common.messages.KVAdminMessage;
-import common.messages.KVMessage;
+import common.*;
+import common.HashRing.*;
+import common.messages.*;
+import client.Client;
 
-
+import java.util.*;
 import junit.framework.TestCase;
 
 public class AdditionalTest extends TestCase {
@@ -19,17 +20,13 @@ public class AdditionalTest extends TestCase {
 	private KVStore kvClient;
 	private Exception ex;
 	private KVMessage response;
-	private KVServer base;
+	private List<KVServer> servers;
 
 	public void setUp() {
-		base = new KVServer(50000, 10, "LRU", 0);
-		while(base.getStatus() != "ACTIVE") base.startServer();
-		HashRing metadata = new HashRing("-134847710425560069445028245650825152028 localhost 50000 0");
-		base.handleMetadata(new KVAdminMessage("metadata","METADATA_UPDATE","",metadata.toString()));
-		
+		servers = AllTests.createAndStartServers(1, 61000);
 		response = null;
 		ex = null;
-		kvClient = new KVStore("localhost", 50000);
+		kvClient = new KVStore("localhost", 61000);
 		try {
 			kvClient.connect();
 		} catch (Exception e) {
@@ -38,7 +35,11 @@ public class AdditionalTest extends TestCase {
 
 	public void tearDown() {
 		kvClient.disconnect();
-		//base.closeServer();
+		AllTests.closeServers(servers);
+		AllTests.deleteLocalStorageFiles();	
+		try {
+			Thread.sleep(1000); //need to delay a bit between tests because it takes some time for servers to release ports
+		} catch (Exception e) {}
 	}
 
 	// Tests connecting using the command line handler
@@ -66,6 +67,7 @@ public class AdditionalTest extends TestCase {
 			assertEquals(response.getValue(), "\"a\"\"bc\"");
 		}
 		catch (Exception e) {
+			e.printStackTrace();
 			ex = e;
 		}
 		assertNull(ex);
@@ -107,7 +109,7 @@ public class AdditionalTest extends TestCase {
 	}
 	
 	public void testMultipleClientsAgree() {
-		KVStore client2 = new KVStore("localhost",50000);
+		KVStore client2 = new KVStore("localhost",61000);
 		try{
 			client2.connect();
 			//client 1 does a put
@@ -118,6 +120,7 @@ public class AdditionalTest extends TestCase {
 			response = client2.get("key1");
 		}
 		catch (Exception e){
+			e.printStackTrace();
 			ex = e;
 		}
 		assertNull(ex);
@@ -126,242 +129,103 @@ public class AdditionalTest extends TestCase {
 	}
 	
 	@Test
-	public void testPersistence() {
-		//create a new server and client and connect to it
-		KVServer server = new KVServer(50001, 10, "LFU", 0);
-		while(server.getStatus() != "ACTIVE") server.startServer();
-		KVStore client = new KVStore("localhost", 50000);
-		
+	public void testPersistence() {		
 		try {
-			client.connect();
+			kvClient.connect();
 			
 			//first delete the key to make sure this test always starts from the same state
-			response = client.put("key", "null");
-			assertEquals(response.getStatus(), "DELETE_SUCCESS");
+			response = kvClient.put("key", "null");
+			assertEquals("DELETE_SUCCESS", response.getStatus());
 			//now write it
-			response = client.put("key", "1010");
+			response = kvClient.put("key", "1010");
 			assertTrue(response.getStatus().equals("PUT_UPDATE")|| response.getStatus().equals("PUT_SUCCESS")); 
 			
 			//disconnect and kill the server
-			client.disconnect();
-			server.closeServer();
+			kvClient.disconnect();
+			AllTests.closeServers(servers);
 			
 			//start up a new server and reconnect
-			KVServer server2 = new KVServer(50001, 10, "LFU", 0);
-			while(server2.getStatus() != "ACTIVE") server2.startServer();
-			client.connect();
+			servers = AllTests.createAndStartServers(1,61000); //use different port this time, because we can
+			kvClient.connect("localhost",61000);
 			
 			//get the value. Should be the same as put.
-			response = client.get("key");
+			response = kvClient.get("key");
+			assertEquals("GET_SUCCESS", response.getStatus());
+			assertEquals("1010", response.getValue());
 		}
 		catch (Exception e){
+			e.printStackTrace();
 			ex = e;
 		}
-		assertEquals(response.getStatus(), "GET_SUCCESS");
-		assertEquals(response.getValue(), "1010");
 		assertNull(ex);
 	}
+
+	///////////////////////////////////////////////////////////////////////////////////////////
+	// Tests added specifically for milestone 3 (more in IntegrationTest.java)
+	///////////////////////////////////////////////////////////////////////////////////////////
 	
-	/*// Tries puts and gets within the cache size
-	public void testPutGetSmall() {
-		Exception ex = null;
-		KVMessage response = null;
-
-		for(int i = 0; i < 8; i++) {			
-
-			try {
-				response = kvClient.put(String.valueOf(i), String.valueOf(Math.random()));
-			} catch (Exception e) {
-				ex = e;
+	public void testExactlyOneServerResponsibleForPut() {
+		AllTests.closeServers(servers);
+		servers = AllTests.createAndStartServers(8);
+		int responsibleCnt = 0;
+		
+		for (int i=0; i<8; i++) {
+			KVMessage response = servers.get(i).handlePut(new MessageType("put","","1","1"));
+			assertTrue("PUT_UPDATE PUT_SUCCESS SERVER_NOT_RESPONSIBLE".contains(response.getStatus()));
+			if (!response.getStatus().equals("SERVER_NOT_RESPONSIBLE")) {
+				responsibleCnt++;
 			}
-
-			assertNull(ex);
-			assertTrue("PUT_UPDATE PUT_SUCCESS".contains(response.getStatus()));
 		}
-		for(int i = 0; i < 8; i++) {			
-
-			try {
-				response = kvClient.get(String.valueOf(i));
-			} catch (Exception e) {
-				ex = e;
-			}
-
-			assertNull(ex);
-			assertTrue("GET_SUCCESS".contains(response.getStatus()));
-		}
+		assertEquals(1,responsibleCnt);
 	}
 	
-	// Tries puts and gets larger than the cache size
-	public void testPutGetLarge() {
-		Exception ex = null;
-		KVMessage response = null;
-
-		for(int i = 0; i < 20; i++) {			
-
-			try {
-				response = kvClient.put(String.valueOf(i), String.valueOf(Math.random()));
-			} catch (Exception e) {
-				ex = e;
-			}
-
-			assertNull(ex);
-			assertTrue("PUT_UPDATE PUT_SUCCESS".contains(response.getStatus()));
-		}
-		for(int i = 0; i < 20; i++) {			
-
-			try {
-				response = kvClient.get(String.valueOf(i));
-			} catch (Exception e) {
-				ex = e;
-			}
-
-			assertNull(ex);
-			assertTrue("GET_SUCCESS".contains(response.getStatus()));
-		}
+	//tests that when we put to the primary sever the data gets replicated to the next two
+	//and we can then do a get from them
+	public void testPutReplicate() {
+		AllTests.closeServers(servers);
+		servers = AllTests.createAndStartServers(5, 50000);
+		String x = "1";
+		
+		KVMessage response = servers.get(3).handlePut(new MessageType("put","",x,x));
+		System.out.println(response.getMsg());
+		assertTrue("PUT_UPDATE PUT_SUCCESS".contains(response.getStatus()));
+		
+		//make sure the primary and 2 replicas can do a get on the key
+		response = servers.get(3).handleGet(new MessageType("get","",x,""));
+		assertEquals("GET_SUCCESS",response.getStatus());
+		assertEquals(x,response.getValue());
+		response = servers.get(1).handleGet(new MessageType("get","",x,""));
+		assertEquals("GET_SUCCESS",response.getStatus());
+		assertEquals(x,response.getValue());
+		response = servers.get(4).handleGet(new MessageType("get","",x,""));
+		assertEquals("GET_SUCCESS",response.getStatus());
+		assertEquals(x,response.getValue());
 	}
-
-	// Tries puts and gets larger than the cache size but still obeys temporal locality
-	public void testPutGetLargeCached() {
-		Exception ex = null;
-		KVMessage response = null;
-
-		for(int i = 0; i < 20; i++) {			
-
-			try {
-				response = kvClient.put(String.valueOf(i), String.valueOf(Math.random()));
-			} catch (Exception e) {
-				ex = e;
-			}
-
-			assertNull(ex);
-			assertTrue("PUT_UPDATE PUT_SUCCESS".contains(response.getStatus()));
-		}
-		for(int i = 19; i >= 0; i--) {			
-
-			try {
-				response = kvClient.get(String.valueOf(i));
-			} catch (Exception e) {
-				ex = e;
-			}
-
-			assertNull(ex);
-			assertTrue("GET_SUCCESS".contains(response.getStatus()));
-		}
+	
+	//test putting and getting with less than 3 servers such that one of the replicas is itself
+	//make sure nothing bad happens and we can still read all the data
+	public void testLessThan3Servers() {
+		String x = "100";
+		//first with 1 server
+		KVMessage response = servers.get(0).handlePut(new MessageType("put","",x,x));
+		assertTrue("PUT_UPDATE PUT_SUCCESS".contains(response.getStatus()));
+		response = servers.get(0).handleGet(new MessageType("get","",x,""));
+		assertEquals("GET_SUCCESS",response.getStatus());
+		assertEquals(x,response.getValue());
+		
+		//test 2 servers
+		AllTests.closeServers(servers);
+		servers = AllTests.createAndStartServers(2, 54930);
+		response = servers.get(0).handleGet(new MessageType("get","",x,""));
+		assertEquals("GET_SUCCESS",response.getStatus());
+		assertEquals("100",response.getValue());
+		
+		x = "101";
+		//put with 2 servers
+		response = servers.get(1).handlePut(new MessageType("put","",x,x));
+		assertTrue("PUT_UPDATE PUT_SUCCESS".contains(response.getStatus()));
+		response = servers.get(0).handleGet(new MessageType("get","",x,"")); //try to get from the other one
+		assertEquals("GET_SUCCESS",response.getStatus());
+		assertEquals(x,response.getValue());
 	}
-
-	// Tries puts and gets very large number (all valid)
-	public void testPutGetVeryLarge() {
-		Exception ex = null;
-		KVMessage response = null;
-
-		for(int i = 0; i < 200; i++) {			
-
-			try {
-				response = kvClient.put(String.valueOf(i), String.valueOf(Math.random()));
-			} catch (Exception e) {
-				ex = e;
-			}
-
-			assertNull(ex);
-			assertTrue("PUT_UPDATE PUT_SUCCESS".contains(response.getStatus()));
-		}
-		for(int i = 199; i >= 0; i--) {			
-
-			try {
-				response = kvClient.get(String.valueOf(i));
-			} catch (Exception e) {
-				ex = e;
-			}
-
-			assertNull(ex);
-			assertTrue("GET_SUCCESS".contains(response.getStatus()));
-		}
-	}
-
-	// Times 800 puts and 200 gets
-	public void testPutGet800200() {
-		Exception ex = null;
-		KVMessage response = null;
-
-		for(int i = 0; i < 800; i++) {			
-
-			try {
-				response = kvClient.put(String.valueOf(((int)(Math.random()*500)%10)), String.valueOf(Math.random()));
-			} catch (Exception e) {
-				ex = e;
-			}
-
-			assertNull(ex);
-			assertTrue("PUT_UPDATE PUT_SUCCESS".contains(response.getStatus()));
-		}
-		for(int i = 0; i < 200; i++) {			
-
-			try {
-				response = kvClient.get(String.valueOf(((int)(Math.random()*500)%10)));
-			} catch (Exception e) {
-				ex = e;
-			}
-
-			assertNull(ex);
-			assertTrue("GET_SUCCESS".contains(response.getStatus()));
-		}
-	}
-
-	// Times 500 puts and 500 gets
-	public void testPutGet500500() {
-		Exception ex = null;
-		KVMessage response = null;
-
-		for(int i = 0; i < 500; i++) {			
-
-			try {
-				response = kvClient.put(String.valueOf(((int)(Math.random()*500)%10)), String.valueOf(Math.random()));
-			} catch (Exception e) {
-				ex = e;
-			}
-
-			assertNull(ex);
-			assertTrue("PUT_UPDATE PUT_SUCCESS".contains(response.getStatus()));
-		}
-		for(int i = 0; i < 500; i++) {			
-
-			try {
-				response = kvClient.get(String.valueOf(((int)(Math.random()*500)%10)));
-			} catch (Exception e) {
-				ex = e;
-			}
-
-			assertNull(ex);
-			assertTrue("GET_SUCCESS".contains(response.getStatus()));
-		}
-	}
-
-	// Times 200 puts and 800 gets
-	public void testPutGet200800() {
-		Exception ex = null;
-		KVMessage response = null;
-
-		for(int i = 0; i < 200; i++) {			
-
-			try {
-				response = kvClient.put(String.valueOf(((int)(Math.random()*500)%10)), String.valueOf(Math.random()));
-			} catch (Exception e) {
-				ex = e;
-			}
-
-			assertNull(ex);
-			assertTrue("PUT_UPDATE PUT_SUCCESS".contains(response.getStatus()));
-		}
-		for(int i = 0; i < 800; i++) {			
-
-			try {
-				response = kvClient.get(String.valueOf(((int)(Math.random()*500)%10)));
-			} catch (Exception e) {
-				ex = e;
-			}
-
-			assertNull(ex);
-			assertTrue("GET_SUCCESS".contains(response.getStatus()));
-		}
-	}*/
 }

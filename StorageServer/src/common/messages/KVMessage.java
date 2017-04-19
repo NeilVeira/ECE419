@@ -17,7 +17,8 @@ public interface KVMessage {
 		DELETE_ERROR, 	/* Delete - request not successful */
 		SERVER_STOPPED,         /* Server is stopped, no requests are processed */
 		SERVER_WRITE_LOCK,      /* Server locked for out, only get possible */
-		SERVER_NOT_RESPONSIBLE  /* Request not successful, server not responsible for key */
+		SERVER_NOT_RESPONSIBLE,  /* Request not successful, server not responsible for key */
+		PUT_REPLICA // for milestone 3, when we do a PUT but on a replica
 	}
 
 	/**
@@ -47,6 +48,8 @@ public interface KVMessage {
 	public String getHeader();
 	
 	public String getMsg();
+	
+	public String getError();
 	
 	/**
 	 * Returns an array of bytes that represent the ASCII coded message content.

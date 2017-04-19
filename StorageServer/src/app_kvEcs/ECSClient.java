@@ -15,11 +15,13 @@ public class ECSClient {
 	private BufferedReader stdin;
 	private boolean stopECSClient;
 	private ECS ecs;
+	private ECSFailureDetect failureDetector; 
 	
 	ECSClient(String configFile){
 		stopECSClient = true;
 		try {
 			this.ecs = new ECS(configFile);
+			this.failureDetector = new ECSFailureDetect(configFile);
 			stopECSClient = false;
 		}
 		catch (IOException e){
@@ -94,6 +96,7 @@ public class ECSClient {
 				int numberOfNodes = Integer.parseInt(tokens[1]);
 				int cacheSize = Integer.parseInt(tokens[2]);
 				ecs.initService(numberOfNodes, cacheSize, tokens[3]);
+				failureDetector.start(); //failure detector shouldn't be running until after initService
 			}
 			catch (NumberFormatException e){
 				printError("numberOfNodes and cacheSize must be integers");
@@ -113,6 +116,7 @@ public class ECSClient {
 		case "shutDown":
 			stopECSClient = true;
 			ecs.shutDown();
+			failureDetector.stopFailureDetect();
 			break;
 		case "help":
 			printHelp();
@@ -149,27 +153,26 @@ public class ECSClient {
 	
 	private void printHelp() {
 		StringBuilder sb = new StringBuilder();
-		sb.append(PROMPT).append("ECS CLIENT HELP (Usage):\n");
-		sb.append(PROMPT);
+		sb.append("\nECS CLIENT HELP (Usage):\n");
 		sb.append("::::::::::::::::::::::::::::::::");
 		sb.append("::::::::::::::::::::::::::::::::\n");
-		sb.append(PROMPT).append("initService <numberOfNodes> <cacheSize> <replacementStrategy>");
+		sb.append("initService <numberOfNodes> <cacheSize> <replacementStrategy>");
 		sb.append("\t Launch numberOfNodes random nodes from the initial config file\n");
-		sb.append(PROMPT).append("start");
-		sb.append("\t\t\t\t Start the service and all initialized nodes\n");
-		sb.append(PROMPT).append("stop");
+		sb.append("start");
+		sb.append("\t\t\t\t\t Start the service and all initialized nodes\n");
+		sb.append("stop");
 		sb.append("\t\t\t\t\t Stops the service. Remains running but servers no longer accept client requests.\n");
-		sb.append(PROMPT).append("shutDown");
+		sb.append("shutDown");
 		sb.append("\t\t\t\t Kills all servers and exits\n");
-		sb.append(PROMPT).append("addNode <cacheSize> <replacementStrategy");
+		sb.append("addNode <cacheSize> <replacementStrategy");
 		sb.append("\t Launch a random node from the initial config file and add it to the service\n");
-		sb.append(PROMPT).append("removeNode <index>");
+		sb.append("removeNode <index>");
 		sb.append("\t\t\t Remove the index-th running server from the service.\n");
-		sb.append(PROMPT).append("logLevel");
+		sb.append("logLevel");
 		sb.append("\t\t\t\t changes the logLevel \n");
-		sb.append(PROMPT).append("\t\t\t\t\t ");
+		sb.append("\t\t\t\t\t ");
 		sb.append("ALL | DEBUG | INFO | WARN | ERROR | FATAL | OFF \n");
-		sb.append(PROMPT).append("printState");
+		sb.append("printState");
 		sb.append("\t\t\t\t Prints a list of all the servers and their current status\n");
 		System.out.println(sb.toString());
 	}
@@ -185,7 +188,7 @@ public class ECSClient {
 				System.out.println("Usage: Server <string config file path>");
 			}
 			else{
-				new LogSetup("logs/ecs.log", Level.DEBUG); 
+				new LogSetup("logs/ecs.log", Level.WARN); 
 				ECSClient ecsClient = new ECSClient(args[0]);
 				ecsClient.run();
 			}

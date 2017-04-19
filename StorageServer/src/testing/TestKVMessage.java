@@ -25,12 +25,12 @@ public class TestKVMessage extends TestCase {
 	public void testDisconnectInvalid(){
 		MessageType message = new MessageType("disconnect","localhost","5000"," ");
 		// TODO: fix this test
-		assertEquals("Key and value must be empty for message disconnect",message.error);
+		assertEquals("Validity Check: Key and value must be empty for message disconnect",message.error);
 	}
 	
 	public void testPutInvalid(){
 		MessageType message = new MessageType("put"," ","key"," ");
-		assertEquals("Key and value must not be empty for message put",message.error);
+		assertEquals("Validity Check: Key and value must not be empty for message put",message.error);
 	}
 	
 	public void testSpacesAndQuotesInStrings(){

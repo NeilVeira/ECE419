@@ -10,26 +10,19 @@ import common.HashRing;
 import common.messages.KVAdminMessage;
 import common.messages.KVMessage;
 import common.messages.KVMessage.StatusType;
+
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 
 public class InteractionTest extends TestCase {
 
 	private KVStore kvClient;
-	private KVServer base;
+	private List<KVServer> servers;
 	
 	public void setUp() {
-		base = new KVServer(50000, 10, "LRU", 0);
-		HashRing metadata = new HashRing("-134847710425560069445028245650825152028 localhost 50000 0");
-		base.handleMetadata(new KVAdminMessage("metadata","METADATA_UPDATE","",metadata.toString()));
-		while(base.getStatus() != "ACTIVE") base.startServer();
-		try {
-			Thread.sleep(100);
-		} catch (Exception e) {
-			
-		}
-		
-		kvClient = new KVStore("localhost", 50000);
+		servers = AllTests.createAndStartServers(1, 53630);		
+		kvClient = new KVStore("localhost", 53630);
 		try {
 			kvClient.connect();
 		} catch (Exception e) {
@@ -38,7 +31,11 @@ public class InteractionTest extends TestCase {
 
 	public void tearDown() {
 		kvClient.disconnect();
-		//base.closeServer();
+		AllTests.closeServers(servers);
+		AllTests.deleteLocalStorageFiles();	
+		try {
+			Thread.sleep(1000); //need to delay a bit between tests because it takes some time for servers to release ports
+		} catch (Exception e) {}
 	}
 	
 	// Tests the put function
@@ -145,12 +142,12 @@ public class InteractionTest extends TestCase {
 		KVMessage response = null;
 		Exception ex = null;
 
-			try {
-				kvClient.put(key, value);
-				response = kvClient.get(key);
-			} catch (Exception e) {
-				ex = e;
-			}
+		try {
+			kvClient.put(key, value);
+			response = kvClient.get(key);
+		} catch (Exception e) {
+			ex = e;
+		}
 		
 		assertNull(ex);
 		assertEquals(response.getValue(), "bar");

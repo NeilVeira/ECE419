@@ -78,6 +78,9 @@ public class KVClient {
 					serverPort = Integer.parseInt(msg.getValue());
 					if (kvstore == null){
 						kvstore = new KVStore(serverAddress, serverPort);
+					} else {
+						kvstore.disconnect();
+						kvstore = new KVStore(serverAddress, serverPort);
 					}
 					kvstore.connect();
 					System.out.println("Connection successful!");
@@ -285,7 +288,7 @@ public class KVClient {
      */
     public static void main(String[] args) {
     	try {
-			new LogSetup("logs/client.log", Level.DEBUG); 
+			new LogSetup("logs/client.log", Level.WARN); 
 			KVClient app = new KVClient();
 			app.run();
 		} catch (IOException e) {

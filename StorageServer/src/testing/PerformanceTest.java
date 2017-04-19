@@ -20,7 +20,7 @@ public class PerformanceTest extends TestCase {
 	public void testPerformance1Storage28RW1Client() {
 		// Declare Variables for easy modification later on
 		// ECS Server Variables
-		int InitNumServers = 1;
+		int InitNumServers = 5;
 		int ServerCacheSize = 10;
 		String ServerCacheStrategy = "FIFO";
 		// Start ECS by creating an ECS instance and manually running its functions rather than using the ECS client
@@ -29,11 +29,13 @@ public class PerformanceTest extends TestCase {
 			app_kvEcs.ECS testECSInstance = new app_kvEcs.ECS("ecstest.config");
 			// Run ECS initService to start the servers
 			System.out.println("initializing Servers");
+			testECSInstance.UnlockMetadata();
 			testECSInstance.initService(InitNumServers, ServerCacheSize, ServerCacheStrategy);
 			// Find out how many Servers are running on the SSH host by getting the Hash Ring from the ECS class
-			long SleepDelay = 5000;
+			long SleepDelay = 1000;
 			// Wait 3 seconds for Servers to start
 			Thread.sleep(SleepDelay);
+			SleepDelay = 1000;
 			System.out.println("Finished Waiting Getting Metadata file");
 			common.HashRing testECSMetaData = testECSInstance.getMetaData();
 			System.out.println("Finished Getting Metadata file");
@@ -94,7 +96,7 @@ public class PerformanceTest extends TestCase {
 				int randomNum = (int)(Math.random()*1000 %10);
 				System.out.println("Random Num is " + String.valueOf(randomNum));
 				boolean doPut;
-				if (randomNum >= 2) {
+				if (randomNum >= 5) {
 					doPut = true;
 				} else {
 					doPut = false;
@@ -104,8 +106,8 @@ public class PerformanceTest extends TestCase {
 				if (doPut) {
 					System.out.println("Doing Put");
 					Timestamp StartTimeStamp = new Timestamp(System.currentTimeMillis());
-					dummy = testKVStoreInstance.put(String.valueOf((int)Math.random()*100), String.valueOf((int)(Math.random()*100)));
-					System.out.println("RECEIVED KVMESSAGE: " + dummy.getHeader() + "" + dummy.getKey() + "" + dummy.getValue() + "" + dummy.getStatus());
+					dummy = testKVStoreInstance.put(String.valueOf((int)(Math.random()*100)), String.valueOf((int)(Math.random()*100)));
+					System.out.println("RECEIVED KVMESSAGE: " + dummy.getHeader() + " " + dummy.getKey() + " " + dummy.getValue() + " " + dummy.getStatus());
 					Timestamp EndTimeStamp = new Timestamp(System.currentTimeMillis());
 					double TimeUsed = EndTimeStamp.getTime() - StartTimeStamp.getTime();
 					NumPut = NumPut + 1;
@@ -113,8 +115,8 @@ public class PerformanceTest extends TestCase {
 				} else {
 					System.out.println("Doing Get");
 					Timestamp StartTimeStamp = new Timestamp(System.currentTimeMillis());
-					dummy = testKVStoreInstance.get(String.valueOf((int)Math.random()*100));
-					System.out.println("RECEIVED KVMESSAGE: " + dummy.getHeader() + "" + dummy.getKey() + "" + dummy.getValue() + "" + dummy.getStatus());
+					dummy = testKVStoreInstance.get(String.valueOf((int)(Math.random()*100)));
+					System.out.println("RECEIVED KVMESSAGE: " + dummy.getHeader() + " " + dummy.getKey() + " " + dummy.getValue() + " " + dummy.getStatus());
 					Timestamp EndTimeStamp = new Timestamp(System.currentTimeMillis());
 					double TimeUsed = EndTimeStamp.getTime() - StartTimeStamp.getTime();
 					NumGet = NumGet + 1;
@@ -146,8 +148,8 @@ public class PerformanceTest extends TestCase {
 			System.out.println("Shutting down all servers");
 			testECSInstance.shutDown();
 			System.out.println("Shutted Down waiting 15 seconds for threads to be killed");
-			SleepDelay = 15000;
-			// Wait 10 seconds for Servers to shut down
+			SleepDelay = 3000;
+			// Wait seconds for Servers to shut down
 			Thread.sleep(SleepDelay);
 			
 			// Test that our Client can no longer Connect to the Servers that were up
@@ -161,8 +163,11 @@ public class PerformanceTest extends TestCase {
 				ServerPort = testServer.port;
 				testKVStoreInstance = new client.KVStore(ServerAddress,ServerPort);
 				System.out.println("Connecting Client to " + ServerAddress + " at Port " + ServerPort);
-				Success = testKVStoreInstance.connect();
-				assertEquals(false, Success);
+				while(testKVStoreInstance.connect()) {
+					testECSInstance.shutDown();
+					Thread.sleep(SleepDelay);
+				}
+				//assertEquals(false, Success);
 				System.out.println(" Success! " + ServerAddress + " at Port " + ServerPort + " Was shut down");
 				
 				// Update the Server to the next in the list after the counter

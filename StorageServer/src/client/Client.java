@@ -13,9 +13,9 @@ import java.net.SocketTimeoutException;
 import org.apache.log4j.Logger;
 
 import client.KVCommInterface;
-import client.KVCommInterface.SocketStatus;
 import common.messages.KVMessage;
 import common.messages.MessageType;
+import common.messages.KVAdminMessage;
 
 public class Client {
 
@@ -35,10 +35,25 @@ public class Client {
 			throws UnknownHostException, IOException, ConnectException{
 
 		clientSocket = new Socket(address, port);
-		clientSocket.setSoTimeout(2000);
+		// For now set timeout to be large so transfers can go through
+		clientSocket.setSoTimeout(1000);
 		listeners = new HashSet<KVCommInterface>();
 		setRunning(true);
-		logger.info("Connection established");
+		logger.debug("Connection established");
+		output = clientSocket.getOutputStream();
+		input = clientSocket.getInputStream();
+	}
+	
+	// New constructor for custom timeout
+	public Client(String address, int port, int timeout) 
+			throws UnknownHostException, IOException, ConnectException{
+
+		clientSocket = new Socket(address, port);
+		// For now set timeout to be large so transfers can go through
+		clientSocket.setSoTimeout(timeout);
+		listeners = new HashSet<KVCommInterface>();
+		setRunning(true);
+		logger.debug("Connection established");
 		output = clientSocket.getOutputStream();
 		input = clientSocket.getInputStream();
 	}
@@ -64,7 +79,7 @@ public class Client {
 	}
 	
 	public KVMessage getResponse(){
-		KVMessage response = null;
+		KVMessage response = new MessageType("", "getResponse_NOT_PROCESSED", "", "");
 		if (isRunning()) {
 			try {
 				response = receiveMessage();
@@ -82,7 +97,7 @@ public class Client {
 	}
 	
 	public synchronized void closeConnection() {
-		logger.info("try to close connection ...");
+		logger.debug("try to close connection ...");
 		try {
 			tearDownConnection();
 		} catch (IOException ioe) {
@@ -92,13 +107,13 @@ public class Client {
 	
 	private void tearDownConnection() throws IOException {
 		setRunning(false);
-		logger.info("tearing down the connection ...");
+		logger.debug("tearing down the connection ...");
 		if (clientSocket != null) {
 			input.close();
 			output.close();
 			clientSocket.close();
 			clientSocket = null;
-			logger.info("connection closed!");
+			logger.debug("connection closed!");
 		}
 	}
 	
@@ -182,10 +197,10 @@ public class Client {
 		msgBytes = tmp;
 		
 		/* build final String */
-		KVMessage msg = new MessageType(msgBytes); //reply from server should include status
-		if (msg.error != null){
-			logger.error("Received invalid message from server: "+msg.originalMsg);
-			logger.error(msg.error);
+		KVMessage msg = new KVAdminMessage(msgBytes); //reply from server should include status
+		if (msg.getError() != null){
+			logger.error("Client: Received invalid message from server: "+msg.getMsg());
+			logger.error(msg.getError());
 		}
 		logger.debug("Receive message:\t '" + msg.getMsg() + "'");
 		return msg;
